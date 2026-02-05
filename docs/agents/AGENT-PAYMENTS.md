@@ -1,9 +1,40 @@
 # Agent: Payments Integration
 # Scope: PayMongo integration, payment processing, webhooks
 
-**Version:** 2.0 (Updated for PRD v1.1)
-**Date:** February 5, 2026
-**Status:** Aligned with PRD v1.1 and Architecture v2.0
+> **Version:** 2.1 | **Last Updated:** February 2026 | **Status:** Aligned with PRD v1.2
+
+---
+
+## Quick Reference
+
+### Payment Methods Supported
+| Method | Type | Flow |
+|--------|------|------|
+| Cash | At counter | Cashier processes |
+| GCash | E-wallet | QR/redirect via PayMongo |
+| Card | Credit/Debit | PayMongo card form |
+| Maya | E-wallet | Redirect via PayMongo |
+
+### PayMongo API Endpoints
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /payment_intents` | Create card payment |
+| `POST /sources` | Create GCash/Maya source |
+| `POST /payments` | Complete GCash/Maya payment |
+| `GET /payment_intents/:id` | Check payment status |
+
+### Webhook Events
+| Event | Action |
+|-------|--------|
+| `source.chargeable` | GCash/Maya ready |
+| `payment.paid` | Payment confirmed |
+| `payment.failed` | Payment failed |
+
+### Security Requirements
+- HMAC signature verification on webhooks
+- Idempotency check (prevent duplicates)
+- Amount verification (match order total)
+- Service role client only (never expose keys)
 
 ---
 
@@ -632,21 +663,68 @@ export async function cancelExpiredOrders() {
 
 ---
 
+## Troubleshooting
+
+### Common Payment Issues
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Webhook returns 401 | Invalid signature | Verify PAYMONGO_WEBHOOK_SECRET |
+| Duplicate charges | Missing idempotency key | Always use `order-{id}` header |
+| Amount mismatch | Centavos vs pesos | Multiply/divide by 100 correctly |
+| Payment stuck processing | Webhook not received | Check webhook URL is accessible |
+| Order already cancelled | 15-min timeout | Check expires_at before payment |
+
+### Webhook Debugging
+
+```bash
+# Test webhook locally with ngrok
+ngrok http 3000
+
+# Verify webhook URL is accessible
+curl -X POST https://your-ngrok-url.ngrok.io/api/webhooks/paymongo \
+  -H "Content-Type: application/json" \
+  -d '{"test": true}'
+```
+
+### PayMongo Test Data
+
+| Test Case | Card Number |
+|-----------|-------------|
+| Success | 4343 4343 4343 4345 |
+| Declined | 4571 7360 0000 0006 |
+| 3D Secure | 4120 0000 0000 0007 |
+
+### Testing Checklist
+
+- [ ] Webhook signature verification works
+- [ ] GCash payment flow completes
+- [ ] Card payment processes
+- [ ] Duplicate webhooks handled (idempotency)
+- [ ] Amount verification rejects mismatches
+- [ ] Expired orders cannot be paid
+- [ ] Payment record created in DB
+- [ ] Order status updated to 'paid'
+
+---
+
 ## Version History
+
+### Version 2.1 (February 2026)
+**Changes**:
+- Added Quick Reference with API endpoints
+- Added Troubleshooting section with test data
+- Updated version references to PRD v1.2
 
 ### Version 2.0 (February 5, 2026)
 **Status**: Updated for PRD v1.1 and Architecture v2.0 alignment
 
 **Major Updates**:
-- ✅ Added idempotency_key requirement for all PayMongo requests
-- ✅ Added amount verification in webhook handler
-- ✅ Added order expiration handling (prevent payment of expired orders)
-- ✅ Added duplicate payment prevention logic
-- ✅ Added auto-cancel expired orders scheduled job
-- ✅ Added order events tracking for analytics
-- ✅ Added soft delete filtering in queries
-- ✅ Enhanced webhook handler with comprehensive validation
-- ✅ Added metadata to PayMongo requests for better tracking
+- Added idempotency_key requirement
+- Added amount verification in webhook handler
+- Added order expiration handling
+- Added auto-cancel expired orders job
+- Added order events tracking
 
 ### Version 1.0 (February 2, 2026)
 - Initial payments integration specification

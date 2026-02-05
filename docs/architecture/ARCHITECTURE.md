@@ -1,9 +1,45 @@
 # System Architecture Document
 # OrderFlow — Hotel Restaurant Web Ordering System
 
-**Version:** 2.0 (Updated for PRD v1.1)
-**Date:** February 5, 2026
-**Status:** Aligned with PRD v1.1 and Phase 1 Guide
+**Version:** 2.1 (Enhanced Documentation)
+**Date:** February 2026
+**Status:** Aligned with PRD v1.2 and Phase 1 Guide
+
+---
+
+## Quick Reference
+
+### Architecture at a Glance
+
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| **Frontend** | Next.js 16 (App Router) | SSR, Server Components, Server Actions |
+| **Styling** | Tailwind CSS v4 | CSS-first configuration |
+| **Components** | shadcn/ui | Accessible, composable primitives |
+| **Client State** | Zustand | Cart, UI preferences |
+| **Database** | Supabase (PostgreSQL) | Data persistence, RLS |
+| **Auth** | Supabase Auth | Role-based access control |
+| **Realtime** | Supabase Realtime | WebSocket subscriptions |
+| **Storage** | Supabase Storage | Menu images |
+| **Payments** | PayMongo | GCash, cards (Philippines) |
+
+### Key Architectural Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Server vs Client rendering | Server Components default | Better performance, SEO, data fetching |
+| Data mutations | Server Actions | Type-safe, no API boilerplate |
+| Caching | Opt-in (`use cache`) | Next.js 16 default is dynamic |
+| Module isolation | Route groups | Clear boundaries, separate layouts |
+| Real-time updates | Supabase channels | WebSocket-based, filtered by status |
+
+### Data Flow Summary
+
+```
+Kiosk → Cart (Zustand) → Server Action → Supabase → Realtime → Kitchen/Cashier
+          ↓                   ↓              ↓
+       localStorage       Price verify     RLS filter
+```
 
 ---
 
@@ -750,58 +786,12 @@ export default function Page({ params }: { params: { id: string } }) {
 **ALWAYS**:
 - Create new migration files for schema changes
 - Use `supabase db push` to apply new migrations
-- Regenerate types after schema changes: `pnpm supabase gen types typescript --linked > src/lib/supabase/types.ts`
+- Regenerate types after schema changes: `npm run supabase:types` (or `npx supabase gen types typescript --linked > src/lib/supabase/types.ts`)
 - Follow naming convention: `{table}_{type}_{DDMMYYYY}_{HHMMSS}.sql`
 
 ---
 
-## 14. Version History
-
-### Version 2.0 (February 5, 2026)
-**Status**: Updated for PRD v1.1 and Phase 1 Guide alignment
-
-**Major Updates**:
-- ✅ Updated **migration naming convention** from sequential (001_, 002_) to descriptive format (`{table}_{type}_{DDMMYYYY}_{HHMMSS}.sql`)
-- ✅ Increased **migration count** from 13 to 21 files
-- ✅ Added **4 new database tables**:
-  - `promo_codes` (discount/coupon management)
-  - `order_events` (analytics tracking for success metrics)
-  - `kitchen_stations` (multi-station routing)
-  - `bir_receipt_config` (Philippines BIR tax compliance)
-- ✅ Enhanced **orders table** with: `expires_at`, `version`, `promo_code_id`, `guest_phone`, `deleted_at`
-- ✅ Enhanced **menu_items table** with: `allergens`, `nutritional_info`, `translations`, `deleted_at`
-- ✅ Added **security architecture section**: Input validation, rate limiting, server-side price recalculation, webhook security, soft delete pattern
-- ✅ Added **performance indexes** section with critical indexes for scalability
-- ✅ Documented **order number generation** via PostgreSQL sequence (prevents race conditions)
-- ✅ Added **login and unauthorized pages** to route structure
-- ✅ Fixed **Tailwind v4 configuration** (removed tailwind.config.ts, documented CSS-first approach)
-- ✅ Fixed **types file location** (lib/supabase/types.ts, not types/database.ts)
-- ✅ Added **Supabase client naming warning** (createServerClient vs createClient)
-- ✅ Added **Next.js 16 async params** note
-- ✅ Added **migration management guidelines**
-
-**Breaking Changes**:
-- Migration files must use new naming convention
-- Tailwind config file removed (use CSS-first config)
-- Order number generation changed (no automatic daily reset or prefix cycling)
-- Types location changed to lib/supabase/types.ts
-
-**Alignment Status**:
-- ✅ Fully aligned with PRD v1.1
-- ✅ Fully aligned with Phase 1 Guide
-- ✅ All 21 migrations documented
-- ✅ Security architecture complete
-- ✅ Folder structure accurate
-
-### Version 1.0 (February 2, 2026)
-- Initial architecture document
-- 13 sequential migration files
-- Basic security notes
-- No version tracking
-
----
-
-## 15. Related Documents
+## 14. Related Documents
 
 - **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.1
 - **[PHASE-1-GUIDE.md](../phases/PHASE-1-GUIDE.md)** — Phase 1 Implementation Guide
@@ -811,5 +801,319 @@ export default function Page({ params }: { params: { id: string } }) {
 - **[AGENT-CASHIER.md](../agents/AGENT-CASHIER.md)** — Cashier module specification
 - **[AGENT-ADMIN.md](../agents/AGENT-ADMIN.md)** — Admin dashboard specification
 - **[AGENT-PAYMENTS.md](../agents/AGENT-PAYMENTS.md)** — PayMongo integration guide
+
+---
+
+## 16. Caching Strategy
+
+### Next.js 16 Caching Model
+
+Next.js 16 changed caching to be **fully opt-in**. All data fetches are dynamic by default.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Caching Tiers                            │
+├─────────────────────────────────────────────────────────────┤
+│ No Cache (Default)  │ Every request fetches fresh data     │
+│─────────────────────┼───────────────────────────────────────│
+│ 'use cache' directive │ Cache entire component/function    │
+│─────────────────────┼───────────────────────────────────────│
+│ unstable_cache()    │ Fine-grained data caching             │
+│─────────────────────┼───────────────────────────────────────│
+│ Browser Cache       │ Static assets (images, fonts)         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Caching by Module
+
+| Module | Data | Cache Strategy | Reason |
+|--------|------|----------------|--------|
+| **Kiosk** | Menu items | `use cache` with 5min TTL | Menu changes infrequently |
+| **Kiosk** | Categories | `use cache` with 5min TTL | Rarely changes |
+| **Kitchen** | Orders | No cache (Realtime) | Must be live |
+| **Cashier** | Pending orders | No cache (Realtime) | Must be live |
+| **Admin** | Analytics | No cache | Always fresh data needed |
+| **Admin** | Settings | `use cache` with 1min TTL | Changes are infrequent |
+
+### Implementation Pattern
+
+```typescript
+// Cache a Server Component
+'use cache'
+export async function MenuItems() {
+  cacheLife('minutes', 5); // 5-minute TTL
+  cacheTag('menu-items');  // For manual revalidation
+
+  const { data } = await supabase
+    .from('menu_items')
+    .select('*')
+    .eq('is_available', true);
+
+  return data;
+}
+
+// Revalidate on menu update (Server Action)
+export async function updateMenuItem(id: string, data: MenuItemInput) {
+  await supabase.from('menu_items').update(data).eq('id', id);
+  revalidateTag('menu-items'); // Bust the cache
+}
+```
+
+---
+
+## 17. Scalability Considerations
+
+### Target Scale
+
+- 200+ concurrent kiosk sessions
+- 500+ orders per day
+- 50+ menu items with images
+- 3-5 kitchen stations
+- 2-4 cashier terminals
+
+### Database Optimization
+
+| Optimization | Implementation | Impact |
+|--------------|----------------|--------|
+| **Indexes** | On status, payment_status, created_at | 10x faster queries |
+| **Partial Indexes** | `WHERE is_available = true` | Smaller, faster index |
+| **Connection Pooling** | Supabase default (pgbouncer) | Handle concurrent connections |
+| **RLS Policies** | Scoped to user role | Reduce data transfer |
+
+### Frontend Optimization
+
+| Optimization | Implementation | Impact |
+|--------------|----------------|--------|
+| **Server Components** | Default for all pages | Smaller JS bundles |
+| **Image Optimization** | Next.js `<Image>` + WebP | 50%+ smaller images |
+| **Code Splitting** | Route groups (automatic) | Load only module code |
+| **Streaming** | Server Component streaming | Faster TTFB |
+
+### Realtime Optimization
+
+```typescript
+// Filter subscriptions to reduce traffic
+const channel = supabase
+  .channel('kitchen-orders')
+  .on('postgres_changes', {
+    event: '*',
+    schema: 'public',
+    table: 'orders',
+    filter: 'status=in.(paid,preparing,ready)' // Only relevant orders
+  }, handleChange)
+  .subscribe();
+```
+
+### Horizontal Scaling
+
+```
+                    ┌─────────────────┐
+                    │  Load Balancer  │
+                    │   (Vercel Edge) │
+                    └────────┬────────┘
+                             │
+           ┌─────────────────┼─────────────────┐
+           │                 │                 │
+    ┌──────▼──────┐   ┌──────▼──────┐   ┌──────▼──────┐
+    │  Next.js    │   │  Next.js    │   │  Next.js    │
+    │  Instance 1 │   │  Instance 2 │   │  Instance 3 │
+    └──────┬──────┘   └──────┬──────┘   └──────┬──────┘
+           │                 │                 │
+           └─────────────────┼─────────────────┘
+                             │
+                    ┌────────▼────────┐
+                    │    Supabase     │
+                    │  (Postgres +    │
+                    │   Realtime)     │
+                    └─────────────────┘
+```
+
+---
+
+## 18. Error Flow Architecture
+
+### Error Handling Layers
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Error Boundaries                        │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 1: Component Level                                   │
+│  → Try/catch in event handlers                              │
+│  → Display inline errors, toast notifications               │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 2: Server Action Level                               │
+│  → Zod validation errors → structured response              │
+│  → Database errors → logged + generic message               │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 3: Route Level                                       │
+│  → error.tsx for unexpected errors                          │
+│  → not-found.tsx for 404s                                   │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 4: Global Level                                      │
+│  → Root error boundary                                      │
+│  → Sentry/logging integration                               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Error Code Taxonomy
+
+See PRD.md Section 17 for complete error code reference. Summary:
+
+| Range | Category | Example |
+|-------|----------|---------|
+| E1xxx | Validation | E1001: Missing required field |
+| E2xxx | Authentication | E2001: Invalid credentials |
+| E3xxx | Authorization | E3001: Insufficient permissions |
+| E4xxx | Resource | E4001: Menu item not found |
+| E5xxx | Business Logic | E5001: Insufficient stock |
+| E6xxx | Payment | E6001: Payment declined |
+| E7xxx | External Service | E7001: PayMongo timeout |
+| E8xxx | System | E8001: Database connection failed |
+| E9xxx | Rate Limiting | E9001: Too many requests |
+
+### Error Response Format
+
+```typescript
+// Standardized error response
+interface ErrorResponse {
+  success: false;
+  error: {
+    code: string;       // E1001
+    message: string;    // Human-readable
+    field?: string;     // For validation errors
+    details?: unknown;  // Additional context
+  };
+}
+
+// Example Server Action
+export async function createOrder(input: OrderInput): Promise<ActionResult> {
+  try {
+    const validated = orderSchema.parse(input);
+    // ... process order
+    return { success: true, data: order };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return {
+        success: false,
+        error: {
+          code: 'E1001',
+          message: 'Validation failed',
+          details: error.flatten(),
+        },
+      };
+    }
+    console.error('createOrder failed:', error);
+    return {
+      success: false,
+      error: {
+        code: 'E8001',
+        message: 'Failed to create order',
+      },
+    };
+  }
+}
+```
+
+---
+
+## 19. Monitoring & Observability
+
+### Logging Strategy
+
+| Level | Use Case | Example |
+|-------|----------|---------|
+| **error** | Failures requiring attention | Payment failed, DB error |
+| **warn** | Potential issues | Slow query, retry needed |
+| **info** | Business events | Order created, status changed |
+| **debug** | Development only | Query details, state changes |
+
+### Key Metrics to Track
+
+| Metric | Target | Alert Threshold |
+|--------|--------|-----------------|
+| Order success rate | >99% | <95% |
+| Payment success rate | >98% | <95% |
+| Kitchen order latency | <30s | >60s |
+| Page load time | <2s | >5s |
+| API response time | <500ms | >2s |
+
+### Audit Trail
+
+Critical actions are logged to the `audit_log` table:
+
+- Order status changes
+- Payment processing
+- Menu item changes
+- User role changes
+- Settings modifications
+
+```sql
+-- Audit log structure
+CREATE TABLE audit_log (
+  id UUID PRIMARY KEY,
+  action TEXT NOT NULL,           -- 'order.status_changed'
+  entity_type TEXT NOT NULL,      -- 'orders'
+  entity_id UUID NOT NULL,
+  old_value JSONB,
+  new_value JSONB,
+  user_id UUID REFERENCES auth.users,
+  ip_address INET,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+---
+
+## 20. Glossary
+
+| Term | Definition |
+|------|------------|
+| **Route Group** | Next.js `(folder)` syntax for grouping routes without affecting URL path |
+| **Server Component** | React component rendered on server (default in App Router) |
+| **Client Component** | Component with `'use client'` directive, hydrated in browser |
+| **Server Action** | `'use server'` function callable from client, runs on server |
+| **RLS** | Row Level Security - Postgres feature to restrict data access per user |
+| **Realtime** | Supabase WebSocket feature for live database change notifications |
+| **KDS** | Kitchen Display System - real-time order queue for kitchen staff |
+| **POS** | Point of Sale - cashier interface for payment processing |
+| **Optimistic Update** | UI updates immediately before server confirmation |
+| **Hydration** | Process of attaching event handlers to server-rendered HTML |
+| **TTL** | Time To Live - cache expiration duration |
+| **TTFB** | Time To First Byte - server response time metric |
+| **pgbouncer** | PostgreSQL connection pooler (used by Supabase) |
+| **Soft Delete** | Setting `deleted_at` instead of removing records |
+| **Idempotency** | Ensuring repeated requests produce same result |
+
+---
+
+## 21. Version History
+
+### Version 2.1 (February 2026)
+**Status**: Enhanced documentation
+
+**Changes**:
+- Added Quick Reference section with architecture overview
+- Added Caching Strategy section (Next.js 16 opt-in caching)
+- Added Scalability Considerations with optimization guides
+- Added Error Flow Architecture with error code taxonomy
+- Added Monitoring & Observability section
+- Added comprehensive Glossary
+- Updated version references to PRD v1.2
+
+### Version 2.0 (February 5, 2026)
+**Status**: Updated for PRD v1.1 and Phase 1 Guide alignment
+
+**Major Updates**:
+- Updated migration naming convention
+- Added 4 new database tables
+- Enhanced security architecture section
+- Added performance indexes section
+- Documented order number generation
+- Fixed Tailwind v4 configuration
+- Added implementation notes
+
+### Version 1.0 (February 2, 2026)
+- Initial architecture document
 
 ---

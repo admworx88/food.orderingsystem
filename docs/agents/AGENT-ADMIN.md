@@ -1,9 +1,39 @@
 # Agent: Admin Module
 # Scope: /(admin) route group — Restaurant management dashboard
 
-**Version:** 2.0 (Updated for PRD v1.1)
-**Date:** February 5, 2026
-**Status:** Aligned with PRD v1.1 and Architecture v2.0
+> **Version:** 2.1 | **Last Updated:** February 2026 | **Status:** Aligned with PRD v1.2
+
+---
+
+## Quick Reference
+
+### Admin Pages
+| Page | Route | Purpose |
+|------|-------|---------|
+| Dashboard | `/admin` | Today's KPIs |
+| Menu Management | `/admin/menu-management` | CRUD items, categories |
+| Promo Codes | `/admin/promo-codes` | Create/manage discounts |
+| Users | `/admin/users` | Staff accounts |
+| Analytics | `/admin/analytics` | Reports, charts |
+| Order History | `/admin/order-history` | Guest order lookup |
+| BIR Config | `/admin/bir-config` | Tax compliance |
+| Settings | `/admin/settings` | System config |
+
+### Key Server Actions
+| Action | Purpose |
+|--------|---------|
+| `createMenuItem()` | Add new menu item |
+| `updateMenuItem()` | Edit existing item |
+| `deleteMenuItem()` | Soft delete item |
+| `createPromoCode()` | Create discount code |
+| `updateSettings()` | Change system config |
+
+### Dashboard KPIs
+- Orders today / Revenue today
+- Average order value
+- Top selling items
+- Order type breakdown
+- Active promo code usage
 
 ---
 
@@ -565,21 +595,58 @@ async function assignMenuItemToStations(
 
 ---
 
+## Troubleshooting
+
+### Common Admin Issues
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Image upload fails | File too large or wrong type | Max 2MB, JPG/PNG/WebP only |
+| Category delete blocked | Items still linked | Reassign items first |
+| Promo code not working | Expired or usage limit | Check valid_from, valid_until, usage_limit |
+| Analytics not updating | Cache stale | Refresh or disable caching |
+| Audit log missing entries | Trigger not firing | Check database triggers |
+
+### Permission Checklist
+
+Ensure admin user has:
+- [ ] Role set to 'admin' in profiles table
+- [ ] Middleware allows access to `/admin/*` routes
+- [ ] RLS policies allow admin reads/writes
+
+### Testing Checklist
+
+- [ ] Create menu item with image
+- [ ] Edit menu item
+- [ ] Toggle item availability
+- [ ] Soft delete item (check deleted_at)
+- [ ] Create/edit category
+- [ ] Reorder categories
+- [ ] Create promo code
+- [ ] View analytics charts
+- [ ] Export report to CSV
+- [ ] Update system settings
+
+---
+
 ## Version History
+
+### Version 2.1 (February 2026)
+**Changes**:
+- Added Quick Reference with admin pages
+- Added Troubleshooting section
+- Updated version references to PRD v1.2
 
 ### Version 2.0 (February 5, 2026)
 **Status**: Updated for PRD v1.1 and Architecture v2.0 alignment
 
 **Major Updates**:
-- ✅ Added promo code management (F-A10 from PRD v1.1)
-- ✅ Added BIR receipt configuration (F-A11 from PRD v1.1)
-- ✅ Enhanced menu item form with allergens, nutritional_info, translations
-- ✅ Added kitchen stations management
-- ✅ Added guest order history lookup
-- ✅ Documented soft delete pattern
-- ✅ Added order expiration timeout settings
-- ✅ Updated system settings interface
-- ✅ Added react-pdf dependency for BIR receipts
+- Added promo code management
+- Added BIR receipt configuration
+- Enhanced menu item form with allergens, nutrition
+- Added kitchen stations management
+- Added guest order history lookup
+- Documented soft delete pattern
 
 ### Version 1.0 (February 2, 2026)
 - Initial admin module specification

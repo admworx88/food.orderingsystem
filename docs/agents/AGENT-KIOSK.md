@@ -1,9 +1,37 @@
 # Agent: Kiosk Module
 # Scope: /(kiosk) route group — Guest-facing ordering interface
 
-**Version:** 2.0 (Updated for PRD v1.1)
-**Date:** February 5, 2026
-**Status:** Aligned with PRD v1.1 and Architecture v2.0
+> **Version:** 2.1 | **Last Updated:** February 2026 | **Status:** Aligned with PRD v1.2
+
+---
+
+## Quick Reference
+
+### User Flow
+```
+Welcome → Menu Browse → Item Detail → Add to Cart → Cart Review → Checkout → Confirmation
+   │                        │              │            │            │
+   │                        ▼              ▼            ▼            ▼
+   │                   Addon Select   Qty Adjust    Order Type   Payment
+   │                   Allergen View  Remove Item   Promo Code   Phone Input
+   └─────────── Idle Timer (2min) → Auto Reset ←─────────────────────┘
+```
+
+### Key Components
+| Component | Purpose | Touch Target |
+|-----------|---------|--------------|
+| `menu-item-card.tsx` | Display menu item | 48px+ |
+| `item-detail-sheet.tsx` | Customization | Full screen |
+| `cart-drawer.tsx` | Cart summary | Side panel |
+| `order-type-selector.tsx` | Dine-in/Room/Takeout | Large cards |
+| `promo-code-input.tsx` | Discount codes | Input + button |
+| `idle-timer.tsx` | Auto-reset | Hidden |
+
+### State Management
+| Store | Purpose |
+|-------|---------|
+| `cart-store.ts` | Cart items, totals, promo code |
+| `kiosk-ui-store.ts` | Current screen, selected category |
 
 ---
 
@@ -496,22 +524,59 @@ trackOrderEvent('payment_started', { method: paymentMethod });
 
 ---
 
+## Troubleshooting
+
+### Common Kiosk Issues
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Cart lost on refresh | Zustand persist not working | Check localStorage, verify persist middleware |
+| Menu items not loading | RLS blocking anonymous | Ensure `is_available = true` policy exists |
+| Images not displaying | Wrong Supabase Storage URL | Verify bucket is public, URL is correct |
+| Touch targets too small | CSS sizing issues | Ensure `min-h-12 min-w-12` on buttons |
+| Idle timer not resetting | Event listeners missing | Check touch/mouse event handlers |
+| Promo code not applying | Validation failing | Check promo code expiry and usage limits |
+
+### Testing Checklist
+
+- [ ] Menu categories display correctly
+- [ ] Menu items show images, prices, allergen icons
+- [ ] Add to cart works (single and with addons)
+- [ ] Cart quantity +/- works
+- [ ] Remove from cart works
+- [ ] Cart total calculates correctly (with tax, service charge)
+- [ ] Promo code applies and shows discount
+- [ ] Order type selection works
+- [ ] Payment method selection works
+- [ ] Order submission succeeds
+- [ ] Order number displays prominently
+- [ ] Idle timer resets cart after 2 minutes
+- [ ] Mobile/tablet touch interactions work
+
+---
+
 ## Version History
+
+### Version 2.1 (February 2026)
+**Changes**:
+- Added Quick Reference section with user flow diagram
+- Added Troubleshooting section with testing checklist
+- Updated version references to PRD v1.2
 
 ### Version 2.0 (February 5, 2026)
 **Status**: Updated for PRD v1.1 and Architecture v2.0 alignment
 
 **Major Updates**:
-- ✅ Added promo code entry and validation flow
-- ✅ Added order expiration (15-minute timeout) handling
-- ✅ Added allergen warnings display
-- ✅ Added nutritional info display
-- ✅ Added multi-language support (EN/TL)
-- ✅ Added guest phone number collection
-- ✅ Added order events tracking for analytics
-- ✅ Updated cart store with new fields
-- ✅ Added soft delete filtering in menu queries
-- ✅ Added libphonenumber-js dependency
+- Added promo code entry and validation flow
+- Added order expiration (15-minute timeout) handling
+- Added allergen warnings display
+- Added nutritional info display
+- Added multi-language support (EN/TL)
+- Added guest phone number collection
+- Added order events tracking for analytics
+- Updated cart store with new fields
+- Added soft delete filtering in menu queries
+- Added libphonenumber-js dependency
 
 ### Version 1.0 (February 2, 2026)
 - Initial kiosk module specification

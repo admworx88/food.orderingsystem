@@ -1,7 +1,56 @@
 # Phase 1 — Foundation: Step-by-Step Implementation Guide
-# Status: Updated for PRD v1.1
-# Duration: 2-3 weeks (realistic for solo dev, 1.5-2 weeks for team)
-# Scope: Project config, DB schema with security enhancements, Auth, Supabase clients, validators, menu CRUD with image upload, kiosk shell
+
+> **Version**: 2.1 | **Last Updated**: February 2026 | **Status**: Updated for PRD v1.2
+
+**Scope**: Project configuration, database schema with security enhancements, authentication, Supabase clients, validators, menu CRUD with image upload, kiosk shell.
+
+---
+
+## Quick Reference
+
+### Phase 1 Progress Tracker
+
+| Step | Task | Status |
+|------|------|--------|
+| 1 | Project Configuration Files | ⬜ |
+| 2 | Supabase Client Setup | ⬜ |
+| 3 | Database Migrations (21 files) | ⬜ |
+| 4 | Auth Middleware | ⬜ |
+| 5 | Route Group Layouts | ⬜ |
+| 6 | Shared Types & Validators | ⬜ |
+| 6.5 | Zod Validators | ⬜ |
+| 7 | Admin Menu CRUD | ⬜ |
+| 8 | Kiosk Menu Display | ⬜ |
+
+### Key Commands
+
+```bash
+# Development
+npm run dev                    # Start dev server
+npm run build                  # Production build
+npm run type-check             # TypeScript validation
+
+# Supabase
+npx supabase start             # Start local Supabase
+npx supabase migration list    # Check applied migrations
+npm run supabase:push          # Apply migrations
+npm run supabase:types         # Regenerate types
+
+# Verification
+npx supabase db reset          # Reset local DB (dev only!)
+psql $DATABASE_URL -c "\dt"    # List all tables
+```
+
+### Critical Files to Create
+
+| File | Purpose |
+|------|---------|
+| `src/lib/supabase/client.ts` | Browser Supabase client |
+| `src/lib/supabase/server.ts` | Server Supabase client |
+| `src/lib/supabase/admin.ts` | Admin client (webhooks only) |
+| `src/middleware.ts` | Auth + role-based routing |
+| `src/services/menu-service.ts` | Menu CRUD Server Actions |
+| `supabase/migrations/*.sql` | 21 migration files |
 
 ---
 
@@ -12,8 +61,8 @@ Before starting, confirm you have these in place:
 ```bash
 # Verify your setup
 node -v                    # Should be 20.9+
-pnpm -v                    # Any recent version
-pnpm dev                   # Should start without errors on localhost:3000
+npm -v                     # Any recent version
+npm run dev                # Should start without errors on localhost:3000
 ```
 
 Your `.env.local` should have these filled in:
@@ -82,20 +131,20 @@ export function cn(...inputs: ClassValue[]) {
 
 Install the utility deps if not already:
 ```bash
-pnpm add clsx tailwind-merge
+npm install clsx tailwind-merge
 ```
 
 **Initialize shadcn/ui:**
 ```bash
-pnpm dlx shadcn@latest init
+npx shadcn@latest init
 ```
 Choose: New York style, Zinc base color, CSS variables = yes.
 Then add the components you'll need first:
 ```bash
-pnpm dlx shadcn@latest add button card input sheet dialog badge toast tabs
+npx shadcn@latest add button card input sheet dialog badge toast tabs
 ```
 
-✅ **Checkpoint:** `pnpm dev` runs, you see the default Next.js page with Tailwind working.
+✅ **Checkpoint:** `npm run dev` runs, you see the default Next.js page with Tailwind working.
 
 ---
 
@@ -167,17 +216,17 @@ export function createAdminClient() {
 **src/lib/supabase/types.ts** — Placeholder (will be generated after migrations)
 ```typescript
 // This file will be auto-generated after running:
-// pnpm supabase gen types typescript --linked > src/lib/supabase/types.ts
+// npm run supabase:types
 // For now, use this placeholder:
 export type Database = Record<string, never>;
 ```
 
 Install Supabase SSR helper:
 ```bash
-pnpm add @supabase/supabase-js @supabase/ssr
+npm install @supabase/supabase-js @supabase/ssr
 ```
 
-✅ **Checkpoint:** No import errors. `pnpm type-check` passes.
+✅ **Checkpoint:** No import errors. `npm run type-check` passes.
 
 ---
 
@@ -188,42 +237,45 @@ Refer to `docs/agents/AGENT-DATABASE.md` for the FULL SQL — copy each table
 schema from there into the corresponding migration file.
 
 **Migration Naming Convention:**
-`{table_name}_{type}_{DDMMYYYY}_{HHMMSS}.sql`
+`YYYYMMDDHHMMSS_description.sql`
+
+**IMPORTANT:** Supabase requires timestamps in `YYYYMMDDHHMMSS` format at the start of the filename.
 
 Where:
-- `table_name` = affected table or feature (e.g., `enums`, `profiles`, `orders`)
-- `type` = change type: `schema`, `rls`, `functions`, `buckets`, `indexes`, `seed`
-- `DDMMYYYY` = date (e.g., `05022026` for Feb 5, 2026)
-- `HHMMSS` = time in 24h format (e.g., `143045` for 2:30:45 PM)
+- `YYYYMMDDHHMMSS` = timestamp (e.g., `20260205140800` for Feb 5, 2026 at 14:08:00)
+- `description` = descriptive name (e.g., `enums_schema`, `orders_schema`, `all_tables_rls_security`)
 
-**Example**: `orders_schema_05022026_143045.sql`
+**Examples:**
+- `20260205140000_enums_schema.sql` ✅ Correct
+- `20260205140800_orders_schema.sql` ✅ Correct
+- `enums_schema_05022026_140000.sql` ❌ Wrong (will be skipped by Supabase CLI)
 
 **The order is critical (foreign key dependencies):**
 
 ```
 supabase/migrations/
-├── enums_schema_05022026_140000.sql              ← user_role, order_type, order_status, payment_status, payment_method, discount_type
-├── profiles_schema_05022026_140100.sql           ← extends auth.users with role, pin_code
-├── categories_schema_05022026_140200.sql         ← menu categories
-├── menu_items_schema_05022026_140300.sql         ← depends on categories (includes allergens, nutritional_info, translations, deleted_at)
-├── addon_groups_schema_05022026_140400.sql       ← depends on menu_items
-├── addon_options_schema_05022026_140500.sql      ← depends on addon_groups
-├── order_number_functions_05022026_140600.sql    ← sequence + generate_order_number() function (race-condition safe)
-├── promo_codes_schema_05022026_140700.sql        ← discount/coupon management (NEW in PRD v1.1)
-├── orders_schema_05022026_140800.sql             ← includes expires_at, version, promo_code_id, guest_phone, deleted_at
-├── order_items_schema_05022026_140900.sql        ← depends on orders + menu_items
-├── order_item_addons_schema_05022026_141000.sql  ← depends on order_items + addon_options
-├── payments_schema_05022026_141100.sql           ← depends on orders + profiles
-├── order_events_schema_05022026_141200.sql       ← analytics tracking (NEW in PRD v1.1)
-├── kitchen_stations_schema_05022026_141300.sql   ← multi-station routing (NEW in PRD v1.1)
-├── bir_receipt_config_schema_05022026_141400.sql ← Philippines tax compliance (NEW in PRD v1.1)
-├── settings_schema_05022026_141500.sql           ← system config (tax_rate, service_charge, timeout settings)
-├── audit_log_schema_05022026_141600.sql          ← audit trail for all actions
-├── menu_images_buckets_05022026_141700.sql       ← Supabase Storage bucket + policies
-├── all_tables_indexes_05022026_141800.sql        ← performance indexes (CRITICAL for scale)
-├── orders_realtime_05022026_141900.sql           ← enable Realtime publication for orders table
-├── all_tables_rls_05022026_142000.sql            ← RLS for ALL tables (includes soft delete checks)
-└── system_seed_05022026_142100.sql               ← default settings, sample categories, admin user
+├── 20260205140000_enums_schema.sql                      ← user_role, order_type, order_status, payment_status, payment_method, discount_type
+├── 20260205140100_profiles_schema.sql                   ← extends auth.users with role, pin_code
+├── 20260205140200_categories_schema.sql                 ← menu categories
+├── 20260205140300_menu_items_schema.sql                 ← depends on categories (includes allergens, nutritional_info, translations, deleted_at)
+├── 20260205140400_addon_groups_schema.sql               ← depends on menu_items
+├── 20260205140500_addon_options_schema.sql              ← depends on addon_groups
+├── 20260205140600_order_number_functions_schema.sql     ← sequence + generate_order_number() function (race-condition safe)
+├── 20260205140700_promo_codes_schema.sql                ← discount/coupon management (NEW in PRD v1.1)
+├── 20260205140800_orders_schema.sql                     ← includes expires_at, version, promo_code_id, guest_phone, deleted_at
+├── 20260205140900_order_items_schema.sql                ← depends on orders + menu_items
+├── 20260205141000_order_item_addons_schema.sql          ← depends on order_items + addon_options
+├── 20260205141100_payments_schema.sql                   ← depends on orders + profiles
+├── 20260205141200_order_events_schema.sql               ← analytics tracking (NEW in PRD v1.1)
+├── 20260205141300_kitchen_stations_schema.sql           ← multi-station routing (NEW in PRD v1.1)
+├── 20260205141400_bir_receipt_config_schema.sql         ← Philippines tax compliance (NEW in PRD v1.1)
+├── 20260205141500_settings_schema.sql                   ← system config (tax_rate, service_charge, timeout settings)
+├── 20260205141600_audit_log_schema.sql                  ← audit trail for all actions
+├── 20260205141700_menu_images_buckets_storage.sql       ← Supabase Storage bucket + policies
+├── 20260205141800_all_tables_indexes_performance.sql    ← performance indexes (CRITICAL for scale)
+├── 20260205141900_orders_realtime.sql                   ← enable Realtime publication for orders table
+├── 20260205142000_all_tables_rls_security.sql           ← RLS for ALL tables (includes soft delete checks)
+└── 20260205142100_system_seed_data.sql                  ← default settings, sample categories, admin user
 ```
 
 **Benefits of this naming convention:**
@@ -235,7 +287,7 @@ supabase/migrations/
 
 **Critical Migration Examples:**
 
-**order_number_functions_05022026_140600.sql** — Order number generation (prevents race conditions):
+**order_number_functions.140600.sql** — Order number generation (prevents race conditions):
 ```sql
 -- Migration: Order number sequence and function
 -- Created: 2026-02-05 14:06:00
@@ -260,7 +312,7 @@ $$ LANGUAGE plpgsql;
 COMMENT ON SEQUENCE order_number_seq IS 'Auto-incrementing sequence for daily order numbers. Reset daily via cron.';
 ```
 
-**menu_images_buckets_05022026_141700.sql** — Supabase Storage bucket:
+**menu_images_buckets.141700.sql** — Supabase Storage bucket:
 ```sql
 -- Migration: Menu images storage bucket
 -- Created: 2026-02-05 14:17:00
@@ -292,7 +344,7 @@ USING (
 );
 ```
 
-**all_tables_indexes_05022026_141800.sql** — Performance indexes (CRITICAL):
+**all_tables_indexes.141800.sql** — Performance indexes (CRITICAL):
 ```sql
 -- Migration: Performance indexes for all tables
 -- Created: 2026-02-05 14:18:00
@@ -324,7 +376,7 @@ CREATE INDEX IF NOT EXISTS idx_addon_groups_menu_item_id ON addon_groups(menu_it
 CREATE INDEX IF NOT EXISTS idx_addon_options_addon_group_id ON addon_options(addon_group_id);
 ```
 
-**orders_realtime_05022026_141900.sql** — Realtime for orders table:
+**20260205141900_orders_realtime.sql141900.sql** — Realtime for orders table:
 ```sql
 -- Migration: Enable Realtime for orders table
 -- Created: 2026-02-05 14:19:00
@@ -337,7 +389,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE orders;
 COMMENT ON TABLE orders IS 'Orders table with Realtime enabled for kitchen display updates';
 ```
 
-**system_seed_05022026_142100.sql** — Essential settings:
+**system_seed.142100.sql** — Essential settings:
 ```sql
 -- System settings (required for order calculations)
 INSERT INTO settings (key, value) VALUES
@@ -358,16 +410,16 @@ INSERT INTO categories (name, slug, description, display_order, is_active) VALUE
 After creating all migration files:
 ```bash
 # Push to your Supabase project
-pnpm supabase db push
+npm run supabase:push
 
 # Generate TypeScript types
-pnpm supabase gen types typescript --linked > src/lib/supabase/types.ts
+npm run supabase:types
 ```
 
 ✅ **Checkpoint (Enhanced):** Verify the following:
 ```bash
 # 1. All 21 migration files applied (check naming convention)
-pnpm supabase migration list --linked
+npx supabase migration list --linked
 # Expected output should show migrations in format: tablename_type_DDMMYYYY_HHMMSS.sql
 
 # 2. Verify all tables exist
@@ -715,7 +767,7 @@ export const ORDER_STATUS_COLORS: Record<string, string> = {
 };
 ```
 
-✅ **Checkpoint:** All imports resolve. `pnpm type-check` clean.
+✅ **Checkpoint:** All imports resolve. `npm run type-check` clean.
 
 ---
 
@@ -725,7 +777,7 @@ Before building Server Actions, create Zod schemas for type-safe validation.
 
 Install Zod:
 ```bash
-pnpm add zod
+npm install zod
 ```
 
 **src/lib/validators/menu-item.ts**
@@ -771,10 +823,10 @@ export type CategoryInput = z.infer<typeof categorySchema>;
 
 ---
 
-### Step 7: Admin Menu CRUD (Server Actions + Basic UI)
+### Step 7: Admin Menu CRUD (Server Actions + Full CRUD Forms)
 
-This is where real functionality starts. Build the admin menu management
-so you have data to display on the kiosk.
+This is where real functionality starts. Build the complete admin menu management
+with create, edit, delete forms so you have data to display on the kiosk.
 
 **First: Set up Supabase Storage for menu images**
 
@@ -908,33 +960,103 @@ export async function toggleItemAvailability(id: string) {
 }
 ```
 
-**2. src/app/(admin)/menu-management/page.tsx** — Admin page with image upload:
+**2. Create Admin UI Components**
+
+Build these components for complete CRUD functionality:
+
+**src/components/admin/create-menu-item-dialog.tsx** — Dialog with form for creating menu items
+**src/components/admin/edit-menu-item-dialog.tsx** — Dialog for editing existing menu items
+**src/components/admin/delete-menu-item-dialog.tsx** — Confirmation dialog for deletion
+**src/components/admin/menu-item-form.tsx** — Reusable form component with image upload
+**src/components/admin/category-form-dialog.tsx** — Dialog for creating/editing categories
+
+**3. src/app/(admin)/menu-management/page.tsx** — Complete admin page:
 
 ```typescript
-import { getCategories } from '@/services/menu-service';
+import { getCategories, getMenuItems } from '@/services/menu-service';
+import { CreateMenuItemDialog } from '@/components/admin/create-menu-item-dialog';
 import { Button } from '@/components/ui/button';
-// ... other imports
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { formatCurrency } from '@/lib/utils/currency';
 
 export default async function MenuManagementPage() {
-  const categories = await getCategories();
+  const [categoriesResult, menuItemsResult] = await Promise.all([
+    getCategories(),
+    getMenuItems(),
+  ]);
+
+  if (!categoriesResult.success || !menuItemsResult.success) {
+    return <div>Failed to load menu data</div>;
+  }
+
+  const categories = categoriesResult.data || [];
+  const menuItems = menuItemsResult.data || [];
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-6">Menu Management</h1>
-      {/* Category list with add/edit dialogs */}
-      {/* Menu items grid with image upload form */}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold">Menu Management</h1>
+        <CreateMenuItemDialog categories={categories} />
+      </div>
+
+      {/* Categories section */}
+      <div className="mb-8">
+        <h3 className="text-xl font-semibold mb-4">Categories ({categories.length})</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {categories.map((category) => (
+            <Card key={category.id}>
+              <CardHeader>
+                <CardTitle>{category.name}</CardTitle>
+                <CardDescription>Order: {category.display_order}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Badge variant={category.is_active ? 'default' : 'secondary'}>
+                  {category.is_active ? 'Active' : 'Inactive'}
+                </Badge>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Menu items section with edit/delete actions */}
+      <div>
+        <h3 className="text-xl font-semibold mb-4">Menu Items ({menuItems.length})</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {menuItems.map((item) => (
+            <Card key={item.id}>
+              {/* Item card with edit/delete buttons */}
+            </Card>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
 ```
 
-**3. Seed test data** — Already in migration 021_seed_data.sql
+**4. Add Server Actions for full CRUD**
+
+Update `src/services/menu-service.ts` with:
+- `updateMenuItem(id, input)` - Update existing menu item
+- `deleteMenuItem(id)` - Soft delete (set deleted_at)
+- `createCategory(input)` - Create category
+- `updateCategory(id, input)` - Update category
+- `deleteCategory(id)` - Delete category
+
+**5. Seed test data** — Already in migration 20260205142100_system_seed_data.sql
 
 ✅ **Checkpoint:**
 - Admin page at `/admin/menu-management` shows categories and items
-- You can create, edit, and toggle availability
+- **CREATE**: Dialog opens to add new menu items with image upload
+- **READ**: Categories and menu items display with all details
+- **UPDATE**: Click edit button opens pre-filled form
+- **DELETE**: Delete button shows confirmation dialog
 - Image upload works and stores in Supabase Storage
 - Menu item images display with public URLs
+- All forms validate with Zod schemas
+- Success/error toasts show feedback
 
 ---
 
@@ -992,12 +1114,18 @@ Now wire the kiosk to display the menu data that admin created.
 - [ ] Input validation working in Server Actions
 
 **Admin Functionality:**
-- [ ] Admin can create, edit, delete categories
-- [ ] Admin can create, edit menu items
-- [ ] Image upload working (Supabase Storage)
+- [ ] Admin can create categories via dialog form
+- [ ] Admin can edit categories via dialog form
+- [ ] Admin can delete categories with confirmation
+- [ ] Admin can create menu items via dialog with image upload
+- [ ] Admin can edit menu items via dialog with image upload
+- [ ] Admin can delete menu items with confirmation (soft delete)
+- [ ] Image upload working (Supabase Storage with validation)
 - [ ] Menu item images display with public URLs
-- [ ] Availability toggle working (real-time update)
-- [ ] Soft delete preserves historical data
+- [ ] Availability toggle working (instant update)
+- [ ] All forms validate with Zod schemas
+- [ ] Success/error toasts provide user feedback
+- [ ] Soft delete preserves historical data in orders
 
 **Kiosk Functionality:**
 - [ ] Kiosk displays menu categories
@@ -1006,8 +1134,8 @@ Now wire the kiosk to display the menu data that admin created.
 - [ ] Menu data filtered by `is_available = true AND deleted_at IS NULL`
 
 **Build & Type Checks:**
-- [ ] `pnpm build` succeeds with no errors
-- [ ] `pnpm type-check` passes with strict mode
+- [ ] `npm run build` succeeds with no errors
+- [ ] `npm run type-check` passes with strict mode
 - [ ] No console errors in browser
 - [ ] All imports resolve correctly
 
@@ -1091,29 +1219,29 @@ If upgrading from old Phase 1 guide:
 
 **Examples**:
 ```
-orders_schema_05022026_143045.sql      ← Create orders table
-orders_rls_05022026_143102.sql         ← Add RLS policies for orders
-orders_indexes_05022026_143215.sql     ← Add performance indexes
-orders_functions_05022026_143348.sql   ← Order-related functions (e.g., auto-cancel expired)
-menu_images_buckets_05022026_150023.sql ← Storage bucket setup
-system_seed_05022026_160512.sql        ← Seed default settings
+20260205140800_orders_schema.sql143045.sql      ← Create orders table
+orders_rls.143102.sql         ← Add RLS policies for orders
+orders_indexes.143215.sql     ← Add performance indexes
+orders_functions.143348.sql   ← Order-related functions (e.g., auto-cancel expired)
+menu_images_buckets.150023.sql ← Storage bucket setup
+system_seed.160512.sql        ← Seed default settings
 ```
 
 **How to generate migration filename**:
 ```bash
-# Bash function for quick migration naming
+# Bash function for quick migration naming (Supabase-compatible format)
 create_migration() {
-  local table=$1
-  local type=$2
-  local timestamp=$(date +"%d%m%Y_%H%M%S")
-  local filename="${table}_${type}_${timestamp}.sql"
+  local description=$1
+  local timestamp=$(date +"%Y%m%d%H%M%S")
+  local filename="${timestamp}_${description}.sql"
   echo "Creating: supabase/migrations/$filename"
   touch "supabase/migrations/$filename"
 }
 
 # Usage:
-create_migration "orders" "schema"     # orders_schema_05022026_143045.sql
-create_migration "menu_items" "rls"    # menu_items_rls_05022026_143102.sql
+create_migration "orders_schema"           # 20260205140800_orders_schema.sql
+create_migration "menu_items_rls"          # 20260205141500_menu_items_rls.sql
+create_migration "all_tables_indexes_performance"  # 20260205142000_all_tables_indexes_performance.sql
 ```
 
 **Why this format?**
@@ -1123,3 +1251,210 @@ create_migration "menu_items" "rls"    # menu_items_rls_05022026_143102.sql
 - **Natural ordering**: Files sort chronologically by timestamp
 - **Easy searching**: `ls *orders*` shows all orders-related migrations
 - **Team-friendly**: No merge conflicts on sequential numbers
+
+---
+
+## Troubleshooting Guide
+
+### Common Phase 1 Errors
+
+#### Configuration Errors
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `Cannot find module 'tailwind-merge'` | Missing dependency | Run `npm install clsx tailwind-merge` |
+| `PostCSS plugin tailwindcss requires PostCSS 8` | Wrong PostCSS plugin | Use `@tailwindcss/postcss` in `postcss.config.mjs` |
+| `@tailwind directive not supported` | Tailwind v3 syntax in v4 | Use `@import "tailwindcss"` instead |
+| `Cannot resolve @/lib/...` | Path alias issue | Check `tsconfig.json` has `"@/*": ["./src/*"]` in paths |
+
+#### Supabase Errors
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `relation "xxx" does not exist` | Missing migration | Run `npm run supabase:push` |
+| `permission denied for table xxx` | RLS blocking access | Check RLS policies in `AGENT-DATABASE.md` |
+| `SUPABASE_URL is not defined` | Missing env vars | Check `.env.local` has all required values |
+| `JWT expired` | Stale auth session | Clear cookies, re-login |
+| `duplicate key value violates unique constraint` | Duplicate data | Check for existing records before insert |
+
+#### Auth/Middleware Errors
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `Redirect loop on /login` | Auth check failing | Verify Supabase anon key is correct |
+| `Cannot destructure property 'user'` | Async auth call | Ensure `await supabase.auth.getUser()` |
+| `profile is null` | User exists but no profile | Create profile in `profiles` table |
+| `userRole is undefined` | Profile query failed | Check RLS allows profile reads |
+
+#### Build Errors
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `Type 'X' is not assignable to type 'Y'` | Type mismatch | Regenerate types: `npm run supabase:types` |
+| `Module has no exported member` | Outdated imports | Check export names in source files |
+| `params is not a Promise` | Next.js 16 change | Add `await` before accessing params |
+| `'use client' must be first` | Directive placement | Move `'use client'` to line 1 |
+
+### Verification Commands
+
+After each step, run these to verify your work:
+
+```bash
+# Step 1: Configuration
+npm run dev  # Should start without errors
+
+# Step 2: Supabase Clients
+npm run type-check  # Should pass with no errors
+
+# Step 3: Migrations
+npx supabase migration list --linked  # Should show 21 applied
+psql $DATABASE_URL -c "SELECT generate_order_number();"  # Should return A0001
+
+# Step 4: Middleware
+curl -I http://localhost:3000/admin  # Should redirect to /login (302)
+
+# Step 5: Route Groups
+curl -I http://localhost:3000/menu  # Should return 200
+
+# Step 6-7: Admin CRUD
+npm run build  # Should succeed with no errors
+```
+
+### Debug Checklist
+
+If something isn't working, check these in order:
+
+1. **Environment variables**: Are all Supabase keys in `.env.local`?
+2. **Dependencies**: Run `npm install` to ensure all packages installed
+3. **Types**: Run `npm run supabase:types` to regenerate DB types
+4. **Migrations**: Run `npx supabase migration list` to verify all applied
+5. **RLS policies**: Check table has correct RLS in Supabase Dashboard
+6. **Console errors**: Check browser DevTools and terminal for errors
+7. **Build**: Run `npm run build` to catch TypeScript errors
+
+---
+
+## Common Gotchas
+
+### 1. Server Client Naming
+
+```typescript
+// WRONG - imports collide
+import { createServerClient } from "@supabase/ssr";
+import { createServerClient } from "@/lib/supabase/server"; // Name collision!
+
+// RIGHT - our wrapper has unique name
+import { createServerClient as createServerSupabase } from "@supabase/ssr";
+// Our file exports createServerClient() - no collision
+```
+
+### 2. Async Params in Next.js 16
+
+```typescript
+// WRONG - will throw runtime error
+export default function Page({ params }: { params: { id: string } }) {
+  const id = params.id; // TypeError!
+}
+
+// RIGHT - params is async in Next.js 16
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+}
+```
+
+### 3. Client vs Server Components
+
+```typescript
+// WRONG - hooks in Server Component
+export default async function MenuPage() {
+  const [items, setItems] = useState([]);  // Error! No hooks in Server Components
+}
+
+// RIGHT - Server Components fetch directly
+export default async function MenuPage() {
+  const supabase = await createServerClient();
+  const { data } = await supabase.from('menu_items').select('*');
+  return <MenuGrid items={data} />;
+}
+```
+
+### 4. RLS and Anonymous Access
+
+```sql
+-- WRONG - blocks anonymous kiosk users
+CREATE POLICY "Authenticated read menu"
+ON menu_items FOR SELECT
+USING (auth.role() = 'authenticated');
+
+-- RIGHT - allows anonymous kiosk users
+CREATE POLICY "Public read active menu"
+ON menu_items FOR SELECT
+USING (is_available = true AND deleted_at IS NULL);
+```
+
+### 5. Image Upload File Validation
+
+```typescript
+// WRONG - no validation
+const file = formData.get('image') as File;
+await supabase.storage.from('menu-images').upload(path, file);
+
+// RIGHT - validate type and size
+const file = formData.get('image') as File;
+if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+  throw new Error('Invalid file type');
+}
+if (file.size > 2 * 1024 * 1024) {
+  throw new Error('File too large');
+}
+await supabase.storage.from('menu-images').upload(path, file);
+```
+
+### 6. Soft Delete Filtering
+
+```typescript
+// WRONG - shows deleted items
+const { data } = await supabase.from('menu_items').select('*');
+
+// RIGHT - filter out soft-deleted
+const { data } = await supabase
+  .from('menu_items')
+  .select('*')
+  .is('deleted_at', null);  // Only show non-deleted items
+```
+
+---
+
+## Glossary
+
+| Term | Definition |
+|------|------------|
+| **Migration** | SQL file that changes database schema |
+| **RLS** | Row Level Security - Postgres access control |
+| **Server Component** | React component rendered on server (no hooks) |
+| **Client Component** | React component with `'use client'` (has hooks) |
+| **Server Action** | `'use server'` function called from client |
+| **Soft Delete** | Setting `deleted_at` instead of removing row |
+| **Route Group** | Next.js `(folder)` syntax for grouping routes |
+| **shadcn/ui** | Component library used for UI primitives |
+| **Zustand** | Client state management library (Phase 2) |
+| **Zod** | TypeScript-first validation library |
+
+---
+
+## Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 2.1 | Feb 2026 | Added Quick Reference, Troubleshooting Guide, Common Gotchas, Glossary |
+| 2.0 | Feb 2026 | Updated for PRD v1.1 - 21 migrations, enhanced security |
+| 1.0 | Feb 2026 | Initial Phase 1 guide |
+
+---
+
+## Related Documents
+
+- [PRD.md](../prd/PRD.md) — Product Requirements Document
+- [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) — System Architecture
+- [AGENT-DATABASE.md](../agents/AGENT-DATABASE.md) — Complete SQL schema
+- [CLAUDE.md](../../CLAUDE.md) — Development guidelines

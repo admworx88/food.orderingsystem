@@ -1,9 +1,42 @@
 # Agent: Cashier Module
 # Scope: /(cashier) route group — Payment processing & POS
 
-**Version:** 2.0 (Updated for PRD v1.1)
-**Date:** February 5, 2026
-**Status:** Aligned with PRD v1.1 and Architecture v2.0
+> **Version:** 2.1 | **Last Updated:** February 2026 | **Status:** Aligned with PRD v1.2
+
+---
+
+## Quick Reference
+
+### Payment Flow
+```
+Order arrives (unpaid) → Cashier selects → Process payment → Generate receipt
+         │                    │                  │                 │
+         ▼                    ▼                  ▼                 ▼
+    15-min timer         Cash/GCash/Card    Verify amount     BIR-compliant
+    starts               selected            matches order     PDF receipt
+```
+
+### Payment Methods
+| Method | Processing | Time Target |
+|--------|------------|-------------|
+| Cash | Enter amount, calculate change | <10 sec |
+| GCash | QR scan or redirect | <20 sec |
+| Card | PayMongo card form | <20 sec |
+
+### Key Components
+| Component | Purpose |
+|-----------|---------|
+| `pending-orders-list.tsx` | Orders awaiting payment |
+| `payment-form.tsx` | Payment method tabs |
+| `cash-calculator.tsx` | Amount + change |
+| `receipt-preview.tsx` | BIR receipt preview |
+| `refund-dialog.tsx` | Process refunds |
+
+### BIR Receipt Requirements
+- Sequential receipt numbers (no gaps)
+- TIN and business registration
+- Itemized with tax breakdown
+- Date/time stamp
 
 ---
 
@@ -496,20 +529,58 @@ webhook results by polling order status or receiving realtime updates.
 
 ---
 
+## Troubleshooting
+
+### Common Cashier Issues
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Payment fails | Amount mismatch | Verify order total matches payment |
+| Receipt number gap | Transaction rolled back | Check BIR config for next number |
+| Duplicate payment | No idempotency key | Always use `order-{id}` key |
+| Order expired | 15-min timeout | Order auto-cancelled, inform guest |
+| Change calculation wrong | Floating point math | Use integer centavos |
+
+### BIR Receipt Checklist
+
+- [ ] Sequential receipt number
+- [ ] TIN and business name
+- [ ] Business address
+- [ ] Date and time
+- [ ] Itemized list with VAT breakdown
+- [ ] Total amount
+- [ ] Change amount (for cash)
+- [ ] Cashier name/ID
+
+### Testing Checklist
+
+- [ ] Cash payment works, change calculated correctly
+- [ ] GCash payment redirects and confirms
+- [ ] Card payment processes
+- [ ] Receipt generates with all BIR fields
+- [ ] Expired orders cannot be paid
+- [ ] Refund dialog processes refund
+- [ ] Shift summary shows correct totals
+
+---
+
 ## Version History
+
+### Version 2.1 (February 2026)
+**Changes**:
+- Added Quick Reference with payment flow
+- Added Troubleshooting section
+- Updated version references to PRD v1.2
 
 ### Version 2.0 (February 5, 2026)
 **Status**: Updated for PRD v1.1 and Architecture v2.0 alignment
 
 **Major Updates**:
-- ✅ Added promo code display and validation
-- ✅ Added order expiration (15-min timeout) handling
-- ✅ Added BIR-compliant receipt generation
-- ✅ Added guest phone number display
-- ✅ Added idempotency key for PayMongo requests
-- ✅ Added soft delete filtering in queries
-- ✅ Enhanced payment processing with server-side checks
-- ✅ Added react-pdf dependency for receipt generation
+- Added promo code display and validation
+- Added order expiration handling
+- Added BIR-compliant receipt generation
+- Added idempotency key for PayMongo requests
+- Added soft delete filtering in queries
 
 ### Version 1.0 (February 2, 2026)
 - Initial cashier module specification

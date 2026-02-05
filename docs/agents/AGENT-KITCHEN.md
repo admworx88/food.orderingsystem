@@ -1,9 +1,45 @@
 # Agent: Kitchen Display System (KDS)
 # Scope: /(kitchen) route group — Kitchen staff order management
 
-**Version:** 2.0 (Updated for PRD v1.1)
-**Date:** February 5, 2026
-**Status:** Aligned with PRD v1.1 and Architecture v2.0
+> **Version:** 2.1 | **Last Updated:** February 2026 | **Status:** Aligned with PRD v1.2
+
+---
+
+## Quick Reference
+
+### Order Status Flow
+```
+PAID → PREPARING → READY → SERVED
+ │         │          │        │
+ ▼         ▼          ▼        ▼
+New order  Kitchen   Ready for   Delivered
+received   working   pickup      to guest
+```
+
+### Key Components
+| Component | Purpose |
+|-----------|---------|
+| `order-queue.tsx` | Main display grid |
+| `order-card.tsx` | Individual order |
+| `order-timer.tsx` | Time since paid (color-coded) |
+| `status-controls.tsx` | Bump buttons |
+| `station-filter.tsx` | Filter by station |
+
+### Timer Color Coding
+| Age | Color | Status |
+|-----|-------|--------|
+| 0-5 min | Green | On track |
+| 5-10 min | Yellow | Needs attention |
+| 10+ min | Red | Overdue |
+
+### Realtime Subscription
+```typescript
+// Filter for active orders only
+.on('postgres_changes', {
+  event: '*', table: 'orders',
+  filter: 'status=in.(paid,preparing,ready)'
+})
+```
 
 ---
 
@@ -386,22 +422,63 @@ interface KitchenSettings {
 
 ---
 
+## Troubleshooting
+
+### Common KDS Issues
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Orders not appearing | Realtime disconnected | Check connection banner, verify subscription |
+| Timer showing wrong time | Using created_at | Ensure timer uses `paid_at` timestamp |
+| Sound not playing | Autoplay blocked | User must interact with page first |
+| Memory leak over time | Served orders not cleaned | Remove served orders from state |
+| Status update fails | Optimistic locking conflict | Retry with refreshed version field |
+
+### Realtime Debugging
+
+```typescript
+// Check subscription status
+const channel = supabase.channel('kitchen-orders');
+console.log('Channel state:', channel.state); // Should be 'joined'
+
+// Manual reconnect
+if (channel.state !== 'joined') {
+  channel.unsubscribe();
+  channel.subscribe();
+}
+```
+
+### Testing Checklist
+
+- [ ] Realtime subscription connects
+- [ ] New orders appear automatically
+- [ ] Timer shows correct elapsed time (from paid_at)
+- [ ] Status buttons advance order
+- [ ] Sound plays on new order
+- [ ] Station filter works
+- [ ] Served orders auto-hide
+- [ ] Recall drawer shows recent orders
+
+---
+
 ## Version History
+
+### Version 2.1 (February 2026)
+**Changes**:
+- Added Quick Reference with status flow and timer colors
+- Added Troubleshooting section
+- Updated version references to PRD v1.2
 
 ### Version 2.0 (February 5, 2026)
 **Status**: Updated for PRD v1.1 and Architecture v2.0 alignment
 
 **Major Updates**:
-- ✅ Added kitchen_stations multi-station routing support
-- ✅ Added order expiration handling (display expired orders)
-- ✅ FIXED: Timer calculation now uses paid_at field (not created_at)
-- ✅ Added version field for optimistic locking
-- ✅ Added soft delete filtering in queries
-- ✅ Added promo code display in order cards
-- ✅ Added guest phone display
-- ✅ Added allergen warnings display
-- ✅ Enhanced realtime subscription with soft delete filter
-- ✅ Added station-based filtering
+- Added kitchen_stations multi-station routing support
+- Added order expiration handling
+- FIXED: Timer calculation now uses paid_at field
+- Added version field for optimistic locking
+- Added soft delete filtering in queries
+- Added station-based filtering
 
 ### Version 1.0 (February 2, 2026)
 - Initial kitchen display specification
