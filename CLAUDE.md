@@ -1,15 +1,28 @@
-# CLAUDE.md — AI Agent Operating Manual
-# OrderFlow: Hotel Restaurant Web Ordering System
+# CLAUDE.md
 
-This file tells AI assistants (Claude Code, Cursor, Copilot, etc.) how to work
-in this codebase. Read this FIRST before touching any code.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+---
+
+## Project Status: Greenfield Implementation
+
+**IMPORTANT**: This is a **fresh Next.js 16 project** with no implementation yet. The comprehensive specification below describes the **target system** to be built. Currently, the codebase contains only the Next.js starter template.
+
+### Before You Start
+1. **Read the specs first**: Check `docs/` directory for detailed requirements
+   - `docs/prd/PRD.md` - Product requirements and features
+   - `docs/architecture/ARCHITECTURE.md` - System architecture
+   - `docs/agents/AGENT-*.md` - Module-specific implementation guides
+2. **Don't assume anything exists**: All directories and files mentioned in this doc need to be created
+3. **Follow the implementation roadmap**: See "Current Setup Status" section below
+4. **Set up dependencies incrementally**: Don't install everything at once; add packages as features require them
 
 ---
 
 ## Project Overview
 
 OrderFlow is a hotel restaurant ordering system with 4 isolated interfaces in
-a single Next.js 16 (App Router) app. The backend is Supabase (Postgres + Auth + Realtime).
+a single Next.js 16 (App Router) app. The backend will be Supabase (Postgres + Auth + Realtime).
 
 | Module | Route Group | Auth | Purpose |
 |--------|-------------|------|---------|
@@ -50,47 +63,92 @@ Every feature you implement should account for ALL of these:
 - **Performance**: Avoid N+1 queries, use Supabase `.select()` joins over
   multiple round-trips, consider what happens with 200 concurrent kiosk sessions
 
-### 4. Never Reset the Database in Production
-`pnpm supabase db reset` **WIPES ALL DATA**. Use it only in local development
-when testing migrations from scratch. For applying new migrations, always use
-`pnpm supabase db push`. Regenerate types with `pnpm supabase gen types`
-after any schema change.
+### 4. Setup Dependencies Before Implementation
+Before implementing features that require them:
+- **Supabase**: Set up project, link locally, add environment variables
+- **shadcn/ui**: Initialize with `npx shadcn@latest init` when UI components are needed
+- **Zustand**: Add when client state management is needed
+- **Zod**: Add when validation schemas are implemented
+
+### 5. Never Reset the Database in Production
+When Supabase is set up, `npm run supabase:reset` **WIPES ALL DATA**. Use it only
+in local development when testing migrations from scratch. For applying new migrations,
+always use `npm run supabase:push`. Regenerate types after any schema change.
 
 ---
 
 ## Version Pinning (Latest Stable as of Feb 2026)
 
-| Package | Version | Notes |
-|---------|---------|-------|
-| `next` | `16.1.x` | Latest stable. Turbopack is default bundler. |
-| `react` / `react-dom` | `19.2.x` | Ships with Next.js 16. Includes View Transitions, `useEffectEvent`. |
-| `tailwindcss` | `4.1.x` | CSS-first config. No `tailwind.config.js` needed. |
-| `@tailwindcss/postcss` | `4.1.x` | Required PostCSS plugin for Next.js integration. |
-| `typescript` | `5.7.x` | Strict mode enabled. |
-| `@supabase/supabase-js` | `2.x` | With `@supabase/ssr` for server/client helpers. |
-| `zustand` | `5.x` | Client state management. |
-| `zod` | `3.x` | Schema validation. |
-| Node.js | `20.9+` | Minimum required by Next.js 16. |
+| Package | Version | Status | Notes |
+|---------|---------|--------|-------|
+| `next` | `16.1.6` | ✅ Installed | Latest stable. Turbopack is default bundler. |
+| `react` / `react-dom` | `19.2.3` | ✅ Installed | Ships with Next.js 16. |
+| `tailwindcss` | `4.x` | ✅ Installed | CSS-first config. No `tailwind.config.js` needed. |
+| `@tailwindcss/postcss` | `4.x` | ✅ Installed | Required PostCSS plugin for Next.js integration. |
+| `typescript` | `5.x` | ✅ Installed | Strict mode enabled. |
+| `@supabase/supabase-js` | `2.x` | ⏳ To install | With `@supabase/ssr` for server/client helpers. |
+| `zustand` | `5.x` | ⏳ To install | Client state management. |
+| `zod` | `3.x` | ⏳ To install | Schema validation. |
+| Node.js | `20.9+` | ✅ Required | Minimum required by Next.js 16. |
 
-**Always install exact versions**: `pnpm add next@16.1 react@19.2 react-dom@19.2`
+**When installing new packages**: Use `npm install <package>` to maintain consistency with package-lock.json
 
 ---
 
 ## Essential Commands
 
+### Current (Available Now)
 ```bash
-pnpm dev                    # Start dev server (port 3000, Turbopack by default)
-pnpm build                  # Production build — run this to check for errors
-pnpm lint                   # ESLint check (run manually, Next.js 16 no longer auto-lints on build)
-pnpm type-check             # TypeScript strict check (tsc --noEmit)
-pnpm supabase db push       # Push migrations to Supabase
-pnpm supabase gen types typescript --linked > src/lib/supabase/types.ts  # Regen DB types
+npm run dev                 # Start dev server (port 3000, Turbopack by default)
+npm run build               # Production build — run this to check for errors
+npm run lint                # ESLint check
+npm run type-check          # TypeScript check (add this script: "type-check": "tsc --noEmit")
 ```
 
-**Always run `pnpm type-check` after making changes.** TypeScript is strict.
+### Future (When Supabase is set up)
+```bash
+npm run supabase:push       # Push migrations to Supabase
+npm run supabase:types      # Regenerate DB types
+npm run supabase:reset      # Reset local DB (dev only - WIPES DATA)
+```
+
+**Note**: The project uses `npm` (not `pnpm`) as shown in package-lock.json.
 
 > **Next.js 16 note:** `next build` no longer runs the linter automatically.
-> Add `"lint": "next lint"` to your package.json scripts and run it separately.
+> The lint script runs ESLint separately.
+
+---
+
+## Current Setup Status
+
+### ✅ Already Configured
+- Next.js 16.1.6 with App Router
+- React 19.2.3
+- TypeScript with strict mode (`tsconfig.json`)
+- Tailwind CSS v4 with PostCSS plugin (`postcss.config.mjs`)
+- ESLint with Next.js config
+- Basic Tailwind theme in `src/app/globals.css`
+
+### ⏳ To Be Set Up
+- Supabase project and local development environment
+- shadcn/ui component library
+- Zustand for state management
+- Zod for validation
+- Environment variables (`.env.local`)
+- Route groups: `(kiosk)`, `(kitchen)`, `(cashier)`, `(admin)`
+- Supabase client helpers in `src/lib/supabase/`
+- Database migrations in `supabase/migrations/`
+
+### Implementation Roadmap
+When implementing features, follow this general order:
+1. **Foundation**: Set up Supabase, environment variables, database schema
+2. **Core utilities**: Create Supabase clients, utility functions, constants
+3. **Admin module**: Build menu management (needed for other modules)
+4. **Kiosk module**: Guest ordering interface
+5. **Kitchen module**: Real-time order display
+6. **Cashier module**: Payment processing with PayMongo
+
+Refer to `docs/prd/PRD.md` for detailed feature specifications and milestones.
 
 ---
 
@@ -98,8 +156,21 @@ pnpm supabase gen types typescript --linked > src/lib/supabase/types.ts  # Regen
 
 ### File Organization — Where Things Go
 
+**Current structure** (as of now):
+```
+src/app/                    → Next.js 16 App Router (currently just starter page)
+  ├── layout.tsx           → Root layout
+  ├── page.tsx             → Home page (starter template)
+  └── globals.css          → Tailwind v4 CSS (already configured)
+```
+
+**Target structure** (to be created during implementation):
 ```
 src/app/(module)/           → Pages and layouts ONLY. No business logic here.
+  ├── (kiosk)/             → Guest ordering interface
+  ├── (kitchen)/           → Kitchen display system
+  ├── (cashier)/           → Payment processing
+  └── (admin)/             → Management dashboard
 src/components/(module)/    → UI components scoped to one module.
 src/components/shared/      → Components used across 2+ modules.
 src/components/ui/          → shadcn/ui primitives. Do NOT edit these directly.
@@ -113,6 +184,9 @@ src/lib/constants/          → Enums, status maps, config values.
 src/types/                  → TypeScript types and interfaces.
 supabase/migrations/        → Numbered SQL migration files.
 ```
+
+**When creating directories**: Create them as needed during feature implementation,
+following the structure above.
 
 ### The Golden Rules
 
@@ -244,19 +318,27 @@ export default {
 - **Do NOT create a `tailwind.config.js` or `tailwind.config.ts` file.**
   If you see one, delete it — v4 doesn't use it.
 
+### Package Manager
+- **Use `npm`** (NOT `pnpm` or `yarn`) - the project uses `package-lock.json`
+- Install packages: `npm install <package>`
+- Run scripts: `npm run <script>`
+
 ### Currency
 - Always format as Philippine Peso: `₱1,234.56`
-- Use the `formatCurrency()` util from `src/lib/utils/currency.ts`.
+- Use the `formatCurrency()` util from `src/lib/utils/currency.ts` (to be created).
 - Store prices as `DECIMAL(10,2)` in the database, never as floats.
 - PayMongo uses centavos (multiply by 100 before sending).
 
 ---
 
-## Supabase Patterns
+## Supabase Patterns (Reference for Implementation)
+
+**Note**: These patterns are for reference when implementing Supabase integration.
+The helper functions and types referenced below don't exist yet and will need to be created.
 
 ### Querying (Server Components)
 ```typescript
-// CORRECT — Server Component
+// TARGET PATTERN — Server Component
 import { createServerClient } from '@/lib/supabase/server';
 
 export default async function MenuPage() {
@@ -272,7 +354,7 @@ export default async function MenuPage() {
 
 ### Mutations (Server Actions)
 ```typescript
-// CORRECT — Server Action in src/services/
+// TARGET PATTERN — Server Action in src/services/
 'use server'
 import { createServerClient } from '@/lib/supabase/server';
 import { menuItemSchema } from '@/lib/validators/menu-item';
@@ -289,7 +371,7 @@ export async function createMenuItem(formData: FormData) {
 
 ### Realtime (Client Components)
 ```typescript
-// CORRECT — Client Component with realtime
+// TARGET PATTERN — Client Component with realtime
 'use client'
 import { createBrowserClient } from '@/lib/supabase/client';
 
