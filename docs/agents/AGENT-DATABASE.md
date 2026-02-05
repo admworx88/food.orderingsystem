@@ -1,6 +1,10 @@
 # Agent: Database & Infrastructure
 # Scope: Supabase schema, migrations, RLS policies, functions
 
+**Version:** 2.0 (Updated for PRD v1.1)
+**Date:** February 5, 2026
+**Status:** Aligned with PRD v1.1 and Architecture v2.0
+
 ---
 
 ## Mission
@@ -16,44 +20,66 @@ Every table must be protected. Every query must be fast.
 ```
 supabase/
 ├── migrations/
-│   ├── 001_create_profiles.sql
-│   ├── 002_create_categories.sql
-│   ├── 003_create_menu_items.sql
-│   ├── 004_create_addon_groups.sql
-│   ├── 005_create_addon_options.sql
-│   ├── 006_create_orders.sql
-│   ├── 007_create_order_items.sql
-│   ├── 008_create_order_item_addons.sql
-│   ├── 009_create_payments.sql
-│   ├── 010_create_settings.sql
-│   ├── 011_create_rls_policies.sql
-│   ├── 012_create_functions.sql
-│   └── 013_seed_data.sql
+│   ├── enums_schema_05022026_140000.sql
+│   ├── profiles_schema_05022026_140100.sql
+│   ├── categories_schema_05022026_140200.sql
+│   ├── menu_items_schema_05022026_140300.sql
+│   ├── addon_groups_schema_05022026_140400.sql
+│   ├── addon_options_schema_05022026_140500.sql
+│   ├── order_number_functions_05022026_140600.sql
+│   ├── promo_codes_schema_05022026_140700.sql
+│   ├── orders_schema_05022026_140800.sql
+│   ├── order_items_schema_05022026_140900.sql
+│   ├── order_item_addons_schema_05022026_141000.sql
+│   ├── payments_schema_05022026_141100.sql
+│   ├── order_events_schema_05022026_141200.sql
+│   ├── kitchen_stations_schema_05022026_141300.sql
+│   ├── bir_receipt_config_schema_05022026_141400.sql
+│   ├── settings_schema_05022026_141500.sql
+│   ├── audit_log_schema_05022026_141600.sql
+│   ├── menu_images_buckets_05022026_141700.sql
+│   ├── all_tables_indexes_05022026_141800.sql
+│   ├── orders_realtime_05022026_141900.sql
+│   ├── all_tables_rls_05022026_142000.sql
+│   └── system_seed_05022026_142100.sql
 ├── seed.sql
 └── config.toml
 
 src/lib/supabase/
 ├── client.ts           # createBrowserClient()
-├── server.ts           # createServerClient()
-├── admin.ts            # createServiceRoleClient()
-├── middleware.ts        # getSession() helper
-└── types.ts            # Generated database types
+├── server.ts           # createServerClient() — NOTE: Function name change
+├── admin.ts            # createAdminClient()
+├── middleware.ts       # getSession() helper
+└── types.ts            # Generated database types (auto-generated from migrations)
 ```
+
+**Migration Naming Convention:** `{table_name}_{type}_{DDMMYYYY}_{HHMMSS}.sql`
+
+**Types:**
+- `schema` — CREATE TABLE, ALTER TABLE
+- `rls` — Row Level Security policies
+- `functions` — Functions, triggers, sequences
+- `buckets` — Supabase Storage buckets + policies
+- `indexes` — CREATE INDEX statements
+- `seed` — INSERT initial/test data
 
 ---
 
 ## Enum Types
 
 ```sql
+-- enums_schema_05022026_140000.sql
 CREATE TYPE user_role AS ENUM ('admin', 'cashier', 'kitchen', 'kiosk');
 CREATE TYPE order_type AS ENUM ('dine_in', 'room_service', 'takeout');
 CREATE TYPE order_status AS ENUM (
   'pending_payment', 'paid', 'preparing', 'ready', 'served', 'cancelled'
 );
-CREATE TYPE payment_status AS ENUM ('unpaid', 'processing', 'paid', 'refunded');
+CREATE TYPE payment_status AS ENUM ('unpaid', 'processing', 'paid', 'refunded', 'expired');
 CREATE TYPE payment_method AS ENUM ('cash', 'gcash', 'card');
-CREATE TYPE discount_type AS ENUM ('senior', 'pwd', 'promo');
+CREATE TYPE discount_type AS ENUM ('percentage', 'fixed_amount');
 ```
+
+**Note:** Discounts are now managed via the `promo_codes` table, not as an enum on orders.
 
 ---
 
@@ -61,6 +87,7 @@ CREATE TYPE discount_type AS ENUM ('senior', 'pwd', 'promo');
 
 ### profiles
 ```sql
+-- profiles_schema_05022026_140100.sql
 CREATE TABLE profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name TEXT NOT NULL,
@@ -89,6 +116,7 @@ CREATE TRIGGER on_auth_user_created
 
 ### categories
 ```sql
+-- categories_schema_05022026_140200.sql
 CREATE TABLE categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
@@ -106,6 +134,7 @@ CREATE INDEX idx_categories_active ON categories(is_active, display_order);
 
 ### menu_items
 ```sql
+-- menu_items_schema_05022026_140300.sql
 CREATE TABLE menu_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   category_id UUID NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
@@ -118,16 +147,28 @@ CREATE TABLE menu_items (
   is_featured BOOLEAN DEFAULT false,
   preparation_time_minutes INT DEFAULT 15,
   display_order INT NOT NULL DEFAULT 0,
+  allergens TEXT[],                      -- NEW: Array of allergen strings
+  nutritional_info JSONB,                -- NEW: {calories, protein, carbs, fat, fiber, sodium}
+  translations JSONB,                     -- NEW: {en: {name, description}, tl: {name, description}}
   created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  deleted_at TIMESTAMPTZ                  -- NEW: Soft delete pattern
 );
 
 CREATE INDEX idx_menu_items_category ON menu_items(category_id, is_available, display_order);
 CREATE INDEX idx_menu_items_available ON menu_items(is_available) WHERE is_available = true;
+CREATE INDEX idx_menu_items_deleted ON menu_items(deleted_at) WHERE deleted_at IS NULL;
 ```
+
+**Soft Delete Pattern:**
+- Never hard delete menu items (breaks historical order data)
+- Set `deleted_at = NOW()` instead
+- Filter with `WHERE deleted_at IS NULL` in all queries
+- Preserves price integrity for old orders
 
 ### addon_groups
 ```sql
+-- addon_groups_schema_05022026_140400.sql
 CREATE TABLE addon_groups (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   menu_item_id UUID NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
@@ -144,6 +185,7 @@ CREATE INDEX idx_addon_groups_item ON addon_groups(menu_item_id, display_order);
 
 ### addon_options
 ```sql
+-- addon_options_schema_05022026_140500.sql
 CREATE TABLE addon_options (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   addon_group_id UUID NOT NULL REFERENCES addon_groups(id) ON DELETE CASCADE,
@@ -157,11 +199,42 @@ CREATE TABLE addon_options (
 CREATE INDEX idx_addon_options_group ON addon_options(addon_group_id, is_available);
 ```
 
+### promo_codes (NEW in PRD v1.1)
+```sql
+-- promo_codes_schema_05022026_140700.sql
+CREATE TABLE promo_codes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code TEXT NOT NULL UNIQUE,
+  description TEXT,
+  discount_type discount_type NOT NULL,  -- 'percentage' or 'fixed_amount'
+  discount_value DECIMAL(10,2) NOT NULL CHECK (discount_value > 0),
+  min_order_amount DECIMAL(10,2),        -- Minimum order subtotal required
+  max_usage_count INT,                    -- NULL = unlimited
+  current_usage_count INT DEFAULT 0,
+  valid_from TIMESTAMPTZ NOT NULL,
+  valid_until TIMESTAMPTZ NOT NULL,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_promo_codes_code ON promo_codes(code) WHERE is_active = true;
+CREATE INDEX idx_promo_codes_valid ON promo_codes(valid_from, valid_until) WHERE is_active = true;
+```
+
+**Validation Rules:**
+1. Code must be unique, case-insensitive, alphanumeric only
+2. Valid date range check: current date between valid_from and valid_until
+3. Usage limit check: current_usage_count < max_usage_count (if set)
+4. Minimum order check: order subtotal >= min_order_amount (if set)
+5. Discount applied BEFORE tax calculation
+
 ### orders
 ```sql
+-- orders_schema_05022026_140800.sql
 CREATE TABLE orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  order_number TEXT NOT NULL,         -- Human-readable: A001, A002...
+  order_number TEXT NOT NULL DEFAULT generate_order_number(), -- Auto-generated via sequence
   order_type order_type NOT NULL,
   table_number TEXT,                  -- For dine_in
   room_number TEXT,                   -- For room_service
@@ -169,25 +242,31 @@ CREATE TABLE orders (
   payment_status payment_status NOT NULL DEFAULT 'unpaid',
   payment_method payment_method,
   subtotal DECIMAL(10,2) NOT NULL DEFAULT 0,
-  discount_type discount_type,
+  promo_code_id UUID REFERENCES promo_codes(id),  -- NEW: FK to promo_codes
   discount_amount DECIMAL(10,2) DEFAULT 0,
   tax_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
   service_charge DECIMAL(10,2) DEFAULT 0,
   total_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
   special_instructions TEXT,
   estimated_ready_at TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ,              -- NEW: 15-minute timeout for unpaid orders
+  version INT DEFAULT 1,                -- NEW: Optimistic locking
+  guest_phone TEXT,                     -- NEW: For order history lookup
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
   paid_at TIMESTAMPTZ,
   ready_at TIMESTAMPTZ,
   served_at TIMESTAMPTZ,
-  cancelled_at TIMESTAMPTZ
+  cancelled_at TIMESTAMPTZ,
+  deleted_at TIMESTAMPTZ                -- NEW: Soft delete pattern
 );
 
 CREATE INDEX idx_orders_status ON orders(status) WHERE status NOT IN ('served', 'cancelled');
 CREATE INDEX idx_orders_payment ON orders(payment_status) WHERE payment_status = 'unpaid';
 CREATE INDEX idx_orders_created ON orders(created_at DESC);
 CREATE INDEX idx_orders_number ON orders(order_number);
+CREATE INDEX idx_orders_expires ON orders(expires_at) WHERE expires_at IS NOT NULL AND payment_status = 'unpaid';
+CREATE INDEX idx_orders_deleted ON orders(deleted_at) WHERE deleted_at IS NULL;
 
 -- Auto-update updated_at
 CREATE OR REPLACE FUNCTION update_updated_at()
@@ -203,8 +282,17 @@ CREATE TRIGGER orders_updated_at
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 ```
 
+**Optimistic Locking Pattern:**
+```sql
+-- In Server Actions, use version field to prevent concurrent updates
+UPDATE orders
+SET status = 'preparing', version = version + 1
+WHERE id = $1 AND version = $2;  -- Fails if version changed
+```
+
 ### order_items
 ```sql
+-- order_items_schema_05022026_140900.sql
 CREATE TABLE order_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -222,6 +310,7 @@ CREATE INDEX idx_order_items_order ON order_items(order_id);
 
 ### order_item_addons
 ```sql
+-- order_item_addons_schema_05022026_141000.sql
 CREATE TABLE order_item_addons (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_item_id UUID NOT NULL REFERENCES order_items(id) ON DELETE CASCADE,
@@ -236,28 +325,106 @@ CREATE INDEX idx_order_item_addons_item ON order_item_addons(order_item_id);
 
 ### payments
 ```sql
+-- payments_schema_05022026_141100.sql
 CREATE TABLE payments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
   method payment_method NOT NULL,
   amount DECIMAL(10,2) NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending',  -- pending, success, failed, refunded
-  provider_reference TEXT,            -- PayMongo payment ID
+  provider_reference TEXT,            -- PayMongo payment ID (unique for idempotency)
   cash_received DECIMAL(10,2),        -- For cash payments
   change_given DECIMAL(10,2),         -- For cash payments
   processed_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT now(),
   completed_at TIMESTAMPTZ,
-  
+
   UNIQUE(provider_reference)          -- Prevent duplicate webhook processing
 );
 
 CREATE INDEX idx_payments_order ON payments(order_id);
 CREATE INDEX idx_payments_reference ON payments(provider_reference) WHERE provider_reference IS NOT NULL;
+CREATE INDEX idx_payments_status ON payments(status);
 ```
+
+### order_events (NEW in PRD v1.1)
+```sql
+-- order_events_schema_05022026_141200.sql
+CREATE TABLE order_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL,           -- cart_started, item_added, checkout_initiated, payment_completed, etc.
+  metadata JSONB,                     -- Flexible event context (item_id, quantity, etc.)
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_order_events_order ON order_events(order_id);
+CREATE INDEX idx_order_events_type ON order_events(event_type);
+CREATE INDEX idx_order_events_created ON order_events(created_at DESC);
+```
+
+**Purpose:** Analytics tracking for success metrics
+- Average order time: `cart_started` → `payment_completed` timestamp diff
+- Cart abandonment: `cart_started` without matching `order_submitted`
+- Funnel analysis: track drop-off at each stage
+
+### kitchen_stations (NEW in PRD v1.1)
+```sql
+-- kitchen_stations_schema_05022026_141300.sql
+CREATE TABLE kitchen_stations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,                 -- 'Grill', 'Fryer', 'Salad', 'Dessert', etc.
+  description TEXT,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Junction table: many-to-many relationship
+CREATE TABLE menu_item_stations (
+  menu_item_id UUID NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
+  kitchen_station_id UUID NOT NULL REFERENCES kitchen_stations(id) ON DELETE CASCADE,
+  PRIMARY KEY (menu_item_id, kitchen_station_id)
+);
+
+CREATE INDEX idx_menu_item_stations_station ON menu_item_stations(kitchen_station_id);
+```
+
+**Purpose:** Multi-station order routing
+- Routes orders to specific kitchen stations
+- Enables parallel kitchen workflows
+- Each menu item can be assigned to multiple stations
+
+### bir_receipt_config (NEW in PRD v1.1)
+```sql
+-- bir_receipt_config_schema_05022026_141400.sql
+CREATE TABLE bir_receipt_config (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tin TEXT NOT NULL,                  -- Tax Identification Number
+  business_name TEXT NOT NULL,
+  business_address TEXT NOT NULL,
+  permit_number TEXT,
+  permit_date_issued DATE,
+  receipt_series_start INT NOT NULL DEFAULT 1,
+  receipt_series_current INT NOT NULL DEFAULT 1,
+  accreditation_number TEXT,
+  accreditation_date DATE,
+  pos_machine_id TEXT,
+  terminal_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+**Purpose:** Philippines BIR tax compliance
+- Stores TIN, business details, permit numbers
+- Receipt series tracking (sequential, no gaps)
+- POS machine and terminal IDs
+- Required for official receipts
 
 ### settings
 ```sql
+-- settings_schema_05022026_141500.sql
 CREATE TABLE settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   key TEXT NOT NULL UNIQUE,
@@ -266,20 +433,12 @@ CREATE TABLE settings (
   updated_by UUID REFERENCES profiles(id)
 );
 
--- Seed default settings
-INSERT INTO settings (key, value) VALUES
-  ('tax_rate', '0.12'),
-  ('service_charge_rate', '0.05'),
-  ('service_charge_enabled', 'true'),
-  ('restaurant_name', '"Hotel Restaurant"'),
-  ('currency_symbol', '"₱"'),
-  ('idle_timeout_seconds', '120'),
-  ('kds_auto_hide_seconds', '30'),
-  ('order_number_prefix', '"A"');
+CREATE INDEX idx_settings_key ON settings(key);
 ```
 
 ### audit_log
 ```sql
+-- audit_log_schema_05022026_141600.sql
 CREATE TABLE audit_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES profiles(id),
@@ -297,20 +456,146 @@ CREATE INDEX idx_audit_log_table ON audit_log(table_name, created_at DESC);
 
 ---
 
+## Order Number Generation (Race-Condition Safe)
+
+```sql
+-- order_number_functions_05022026_140600.sql
+
+-- Create sequence for thread-safe order numbers
+CREATE SEQUENCE IF NOT EXISTS order_number_seq START 1;
+
+-- Function to generate formatted order numbers (A0001, A0002, etc.)
+CREATE OR REPLACE FUNCTION generate_order_number()
+RETURNS TEXT AS $$
+DECLARE
+  next_num INT;
+BEGIN
+  next_num := nextval('order_number_seq');
+  RETURN 'A' || LPAD(next_num::TEXT, 4, '0');
+END;
+$$ LANGUAGE plpgsql;
+
+-- Set as default value on orders table
+ALTER TABLE orders
+  ALTER COLUMN order_number SET DEFAULT generate_order_number();
+
+-- Optional: Daily reset function (run via cron at midnight)
+-- Note: This is NOT automatic - requires manual cron job setup
+COMMENT ON SEQUENCE order_number_seq IS 'Auto-incrementing sequence for order numbers. Reset daily via cron if needed.';
+```
+
+**Result:** Thread-safe order numbers (A0001, A0002, ... A9999) with no duplicates even under 200+ concurrent inserts.
+
+**Optional Daily Reset:**
+```sql
+-- Run this via cron at midnight to reset sequence (optional)
+SELECT setval('order_number_seq', 1, false);
+```
+
+---
+
+## Performance Indexes
+
+```sql
+-- all_tables_indexes_05022026_141800.sql
+
+-- Order queries (kitchen display, cashier, admin)
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_payment_status ON orders(payment_status);
+CREATE INDEX IF NOT EXISTS idx_orders_paid_at ON orders(paid_at DESC) WHERE paid_at IS NOT NULL;
+
+-- Menu queries (kiosk, admin)
+CREATE INDEX IF NOT EXISTS idx_menu_items_category_id ON menu_items(category_id);
+CREATE INDEX IF NOT EXISTS idx_menu_items_is_available ON menu_items(is_available) WHERE is_available = true;
+CREATE INDEX IF NOT EXISTS idx_menu_items_deleted_at ON menu_items(deleted_at) WHERE deleted_at IS NULL;
+
+-- Analytics queries
+CREATE INDEX IF NOT EXISTS idx_order_events_order_id ON order_events(order_id);
+CREATE INDEX IF NOT EXISTS idx_order_events_event_type ON order_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_order_events_created_at ON order_events(created_at DESC);
+
+-- Payment queries
+CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);
+CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
+
+-- Addon queries
+CREATE INDEX IF NOT EXISTS idx_addon_groups_menu_item_id ON addon_groups(menu_item_id);
+CREATE INDEX IF NOT EXISTS idx_addon_options_addon_group_id ON addon_options(addon_group_id);
+```
+
+**Critical for scale:** 200+ concurrent kiosks, 500+ orders/day
+
+---
+
+## Supabase Storage Bucket
+
+```sql
+-- menu_images_buckets_05022026_141700.sql
+
+-- Create bucket (if not exists)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('menu-images', 'menu-images', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- RLS policies for storage
+CREATE POLICY "Public read menu images"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'menu-images');
+
+CREATE POLICY "Authenticated upload menu images"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'menu-images' AND
+  auth.role() = 'authenticated'
+);
+
+CREATE POLICY "Authenticated delete own images"
+ON storage.objects FOR DELETE
+USING (
+  bucket_id = 'menu-images' AND
+  auth.role() = 'authenticated'
+);
+```
+
+---
+
+## Realtime Configuration
+
+```sql
+-- orders_realtime_05022026_141900.sql
+
+-- Enable Realtime replication for orders table
+ALTER PUBLICATION supabase_realtime ADD TABLE orders;
+
+COMMENT ON TABLE orders IS 'Orders table with Realtime enabled for kitchen display updates';
+```
+
+**Note:** Only the `orders` table needs Realtime. Not order_items or payments.
+
+---
+
 ## Row Level Security Policies
 
 ```sql
+-- all_tables_rls_05022026_142000.sql
+
 -- Enable RLS on all tables
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE menu_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE addon_groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE addon_options ENABLE ROW LEVEL SECURITY;
+ALTER TABLE promo_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_item_addons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE kitchen_stations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bir_receipt_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
 
 -- Helper function to get current user's role
 CREATE OR REPLACE FUNCTION auth.user_role()
@@ -327,13 +612,14 @@ CREATE POLICY "Admins can manage profiles"
   ON profiles FOR ALL USING (auth.user_role() = 'admin');
 
 -- === MENU (Read: public, Write: admin) ===
+-- IMPORTANT: Filter out soft-deleted items
 CREATE POLICY "Anyone can read active categories"
   ON categories FOR SELECT USING (is_active = true);
 CREATE POLICY "Admin full access categories"
   ON categories FOR ALL USING (auth.user_role() = 'admin');
 
 CREATE POLICY "Anyone can read available items"
-  ON menu_items FOR SELECT USING (is_available = true);
+  ON menu_items FOR SELECT USING (is_available = true AND deleted_at IS NULL);
 CREATE POLICY "Admin full access items"
   ON menu_items FOR ALL USING (auth.user_role() = 'admin');
 
@@ -347,12 +633,18 @@ CREATE POLICY "Anyone can read available addon options"
 CREATE POLICY "Admin full access addon options"
   ON addon_options FOR ALL USING (auth.user_role() = 'admin');
 
+-- === PROMO CODES ===
+CREATE POLICY "Anyone can read active promo codes"
+  ON promo_codes FOR SELECT USING (is_active = true);
+CREATE POLICY "Admin full access promo codes"
+  ON promo_codes FOR ALL USING (auth.user_role() = 'admin');
+
 -- === ORDERS ===
 CREATE POLICY "Anyone can create orders"
   ON orders FOR INSERT WITH CHECK (true);
 CREATE POLICY "Kitchen can read active orders"
   ON orders FOR SELECT USING (
-    auth.user_role() IN ('kitchen', 'cashier', 'admin')
+    auth.user_role() IN ('kitchen', 'cashier', 'admin') AND deleted_at IS NULL
   );
 CREATE POLICY "Kitchen can update order status"
   ON orders FOR UPDATE USING (
@@ -379,38 +671,96 @@ CREATE POLICY "Cashier can manage payments"
     auth.user_role() IN ('cashier', 'admin')
   );
 
+-- === ORDER EVENTS ===
+CREATE POLICY "Anyone can create order events"
+  ON order_events FOR INSERT WITH CHECK (true);
+CREATE POLICY "Admin can read order events"
+  ON order_events FOR SELECT USING (auth.user_role() = 'admin');
+
+-- === KITCHEN STATIONS ===
+CREATE POLICY "Anyone can read active kitchen stations"
+  ON kitchen_stations FOR SELECT USING (is_active = true);
+CREATE POLICY "Admin full access kitchen stations"
+  ON kitchen_stations FOR ALL USING (auth.user_role() = 'admin');
+
+-- === BIR RECEIPT CONFIG ===
+CREATE POLICY "Staff can read BIR config"
+  ON bir_receipt_config FOR SELECT USING (
+    auth.user_role() IN ('cashier', 'admin')
+  );
+CREATE POLICY "Admin can manage BIR config"
+  ON bir_receipt_config FOR ALL USING (auth.user_role() = 'admin');
+
 -- === SETTINGS ===
 CREATE POLICY "Anyone can read settings"
   ON settings FOR SELECT USING (true);
 CREATE POLICY "Admin can manage settings"
   ON settings FOR ALL USING (auth.user_role() = 'admin');
+
+-- === AUDIT LOG ===
+CREATE POLICY "Admin can read audit log"
+  ON audit_log FOR SELECT USING (auth.user_role() = 'admin');
+```
+
+---
+
+## System Seed Data
+
+```sql
+-- system_seed_05022026_142100.sql
+
+-- System settings (required for order calculations)
+INSERT INTO settings (key, value) VALUES
+  ('tax_rate', '0.12'),
+  ('service_charge', '0.10'),
+  ('unpaid_order_timeout_minutes', '15'),
+  ('order_grace_period_minutes', '5'),
+  ('operating_hours', '{"open": "06:00", "close": "23:00"}'),
+  ('restaurant_name', '"Hotel Restaurant"'),
+  ('currency_symbol', '"₱"'),
+  ('idle_timeout_seconds', '120'),
+  ('kds_auto_hide_seconds', '30'),
+  ('order_number_prefix', '"A"');
+
+-- Sample categories
+INSERT INTO categories (name, slug, description, display_order, is_active) VALUES
+  ('Rice Meals', 'rice-meals', 'Filipino rice meals and combos', 1, true),
+  ('Soups', 'soups', 'Hot soups and broths', 2, true),
+  ('Desserts', 'desserts', 'Sweet treats', 3, true),
+  ('Beverages', 'beverages', 'Drinks hot and cold', 4, true);
+
+-- Sample kitchen stations
+INSERT INTO kitchen_stations (name, description, is_active) VALUES
+  ('Grill', 'Grilled items and BBQ', true),
+  ('Fryer', 'Fried dishes', true),
+  ('Salad', 'Cold prep and salads', true),
+  ('Dessert', 'Desserts and beverages', true);
+
+-- Sample BIR config (Philippines compliance)
+INSERT INTO bir_receipt_config (
+  tin, business_name, business_address,
+  permit_number, permit_date_issued,
+  receipt_series_start, receipt_series_current,
+  accreditation_number, accreditation_date,
+  pos_machine_id, terminal_id
+) VALUES (
+  '000-000-000-000',
+  'Hotel Restaurant',
+  '123 Main St, Manila, Philippines',
+  'FP-00000-2026',
+  '2026-01-01',
+  1,
+  1,
+  'ACC-00000-2026',
+  '2026-01-01',
+  'POS-001',
+  'TERM-001'
+);
 ```
 
 ---
 
 ## Database Functions
-
-### Generate Order Number
-```sql
-CREATE OR REPLACE FUNCTION generate_order_number()
-RETURNS TEXT AS $$
-DECLARE
-  prefix TEXT;
-  today_count INT;
-  new_number TEXT;
-BEGIN
-  SELECT value::text INTO prefix FROM settings WHERE key = 'order_number_prefix';
-  prefix := COALESCE(TRIM(BOTH '"' FROM prefix), 'A');
-  
-  SELECT COUNT(*) + 1 INTO today_count
-  FROM orders
-  WHERE created_at::date = CURRENT_DATE;
-  
-  new_number := prefix || LPAD(today_count::text, 3, '0');
-  RETURN new_number;
-END;
-$$ LANGUAGE plpgsql;
-```
 
 ### Dashboard Stats
 ```sql
@@ -427,20 +777,24 @@ BEGIN
       SELECT COUNT(*) FROM orders
       WHERE created_at BETWEEN date_from AND date_to
       AND status != 'cancelled'
+      AND deleted_at IS NULL
     ),
     'total_revenue', (
       SELECT COALESCE(SUM(total_amount), 0) FROM orders
       WHERE created_at BETWEEN date_from AND date_to
       AND payment_status = 'paid'
+      AND deleted_at IS NULL
     ),
     'avg_order_value', (
       SELECT COALESCE(AVG(total_amount), 0) FROM orders
       WHERE created_at BETWEEN date_from AND date_to
       AND payment_status = 'paid'
+      AND deleted_at IS NULL
     ),
     'active_orders', (
       SELECT COUNT(*) FROM orders
       WHERE status IN ('paid', 'preparing', 'ready')
+      AND deleted_at IS NULL
     ),
     'orders_by_type', (
       SELECT json_agg(row_to_json(t))
@@ -449,6 +803,7 @@ BEGIN
         FROM orders
         WHERE created_at BETWEEN date_from AND date_to
         AND status != 'cancelled'
+        AND deleted_at IS NULL
         GROUP BY order_type
       ) t
     ),
@@ -460,14 +815,31 @@ BEGIN
         JOIN orders o ON o.id = oi.order_id
         WHERE o.created_at BETWEEN date_from AND date_to
         AND o.status != 'cancelled'
+        AND o.deleted_at IS NULL
         GROUP BY oi.item_name
         ORDER BY total_qty DESC
         LIMIT 10
       ) t
     )
   ) INTO result;
-  
+
   RETURN result;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+```
+
+### Auto-Cancel Expired Orders (Cron Job)
+```sql
+-- Run this via Supabase Edge Function or external cron every 5 minutes
+CREATE OR REPLACE FUNCTION cancel_expired_orders()
+RETURNS void AS $$
+BEGIN
+  UPDATE orders
+  SET status = 'cancelled', payment_status = 'expired'
+  WHERE payment_status = 'unpaid'
+    AND expires_at < NOW()
+    AND status = 'pending_payment'
+    AND deleted_at IS NULL;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
@@ -476,10 +848,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 ## Key Implementation Notes
 
-1. **Type generation**: After migrations, run `supabase gen types typescript`
+1. **Type generation**: After migrations, run `pnpm supabase gen types typescript --linked > src/lib/supabase/types.ts`
    to generate TypeScript types. Commit these to `src/lib/supabase/types.ts`.
 
-2. **Realtime**: Enable realtime on `orders` table in Supabase dashboard.
+2. **Realtime**: Enabled via migration `orders_realtime_05022026_141900.sql`.
    Only the `orders` table needs realtime — not order_items or payments.
 
 3. **Indexes**: The partial indexes on `orders` (WHERE status NOT IN...)
@@ -493,3 +865,58 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 6. **Connection pooling**: For production, use Supabase's connection
    pooler (port 6543) instead of direct connections (port 5432).
+
+7. **Migration file management**:
+   - **NEVER** rename existing migration files
+   - **NEVER** delete applied migration files
+   - **NEVER** edit migration files after they've been applied
+   - **NEVER** run `supabase db reset` in production (WIPES ALL DATA)
+   - **ALWAYS** create new migration files for schema changes
+   - **ALWAYS** use `pnpm supabase db push` to apply new migrations
+   - **ALWAYS** regenerate types after schema changes
+   - **ALWAYS** follow naming convention: `{table}_{type}_{DDMMYYYY}_{HHMMSS}.sql`
+
+8. **Soft delete pattern**:
+   - Menu items and orders use `deleted_at` instead of hard deletes
+   - Preserves historical order data (BIR compliance - 2 years)
+   - Preserves price integrity for old orders
+   - Always filter with `WHERE deleted_at IS NULL` in queries
+   - Update RLS policies to check `deleted_at IS NULL`
+
+9. **Supabase client naming**:
+   - `src/lib/supabase/server.ts` exports `createServerClient()` (not `createClient()`)
+   - This avoids naming collisions with Supabase SSR package
+   - Always use `await createServerClient()` in Server Components/Actions
+
+---
+
+## Version History
+
+### Version 2.0 (February 5, 2026)
+**Status**: Updated for PRD v1.1 and Architecture v2.0 alignment
+
+**Major Updates**:
+- ✅ Changed migration naming from sequential to descriptive format
+- ✅ Increased migration count from 13 to 21 files
+- ✅ Added 4 new tables: promo_codes, order_events, kitchen_stations, bir_receipt_config
+- ✅ Enhanced orders table: expires_at, version, promo_code_id, guest_phone, deleted_at
+- ✅ Enhanced menu_items table: allergens, nutritional_info, translations, deleted_at
+- ✅ Replaced order number generation with PostgreSQL sequence (race-condition safe)
+- ✅ Added performance indexes migration
+- ✅ Added Realtime migration
+- ✅ Added Storage buckets migration
+- ✅ Documented soft delete pattern
+- ✅ Updated Supabase client naming (createServerClient)
+- ✅ Added optimistic locking pattern
+- ✅ Added auto-cancel expired orders function
+
+### Version 1.0 (February 2, 2026)
+- Initial database schema document
+
+---
+
+## Related Documents
+
+- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.1
+- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.0
+- **[PHASE-1-GUIDE.md](../phases/PHASE-1-GUIDE.md)** — Phase 1 Implementation Guide

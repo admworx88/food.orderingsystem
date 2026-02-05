@@ -1,6 +1,10 @@
 # System Architecture Document
 # OrderFlow — Hotel Restaurant Web Ordering System
 
+**Version:** 2.0 (Updated for PRD v1.1)
+**Date:** February 5, 2026
+**Status:** Aligned with PRD v1.1 and Phase 1 Guide
+
 ---
 
 ## 1. High-Level Architecture
@@ -91,6 +95,11 @@ app/
 │   └── webhooks/
 │       └── paymongo/
 │           └── route.ts  # Payment confirmation webhook
+│
+├── login/
+│   └── page.tsx        # Staff login page (email + password)
+├── unauthorized/
+│   └── page.tsx        # 403 - Unauthorized access page
 │
 ├── layout.tsx          # Root layout (providers, fonts)
 ├── not-found.tsx
@@ -402,10 +411,10 @@ hotel-restaurant-ordering/
 │   ├── lib/
 │   │   ├── supabase/
 │   │   │   ├── client.ts           # Browser client (createBrowserClient)
-│   │   │   ├── server.ts           # Server client (createServerClient)
-│   │   │   ├── admin.ts            # Service role client (migrations)
-│   │   │   ├── middleware.ts        # Auth helper for middleware
-│   │   │   └── types.ts            # Generated DB types
+│   │   │   ├── server.ts           # Server client (exports createServerClient function)
+│   │   │   ├── admin.ts            # Service role client (NEVER import in client components)
+│   │   │   ├── middleware.ts       # Auth helper for middleware
+│   │   │   └── types.ts            # Generated DB types (auto-generated from migrations)
 │   │   ├── utils/
 │   │   │   ├── cn.ts               # className merger
 │   │   │   ├── currency.ts         # PHP formatting
@@ -431,10 +440,10 @@ hotel-restaurant-ordering/
 │   │   └── kitchen-ui-store.ts     # Zustand: KDS preferences
 │   │
 │   ├── types/
-│   │   ├── database.ts             # Supabase generated types
-│   │   ├── order.ts                # Order-related types
+│   │   ├── order.ts                # Order-related types (OrderType, OrderStatus, etc.)
 │   │   ├── menu.ts                 # Menu-related types
 │   │   └── payment.ts              # Payment-related types
+│   │   # Note: Database types are in lib/supabase/types.ts (auto-generated)
 │   │
 │   └── services/
 │       ├── order-service.ts        # Order CRUD server actions
@@ -444,19 +453,28 @@ hotel-restaurant-ordering/
 │
 ├── supabase/
 │   ├── migrations/
-│   │   ├── 001_create_profiles.sql
-│   │   ├── 002_create_categories.sql
-│   │   ├── 003_create_menu_items.sql
-│   │   ├── 004_create_addon_groups.sql
-│   │   ├── 005_create_addon_options.sql
-│   │   ├── 006_create_orders.sql
-│   │   ├── 007_create_order_items.sql
-│   │   ├── 008_create_order_item_addons.sql
-│   │   ├── 009_create_payments.sql
-│   │   ├── 010_create_settings.sql
-│   │   ├── 011_create_rls_policies.sql
-│   │   ├── 012_create_functions.sql
-│   │   └── 013_seed_data.sql
+│   │   ├── enums_schema_05022026_140000.sql
+│   │   ├── profiles_schema_05022026_140100.sql
+│   │   ├── categories_schema_05022026_140200.sql
+│   │   ├── menu_items_schema_05022026_140300.sql
+│   │   ├── addon_groups_schema_05022026_140400.sql
+│   │   ├── addon_options_schema_05022026_140500.sql
+│   │   ├── order_number_functions_05022026_140600.sql
+│   │   ├── promo_codes_schema_05022026_140700.sql
+│   │   ├── orders_schema_05022026_140800.sql
+│   │   ├── order_items_schema_05022026_140900.sql
+│   │   ├── order_item_addons_schema_05022026_141000.sql
+│   │   ├── payments_schema_05022026_141100.sql
+│   │   ├── order_events_schema_05022026_141200.sql
+│   │   ├── kitchen_stations_schema_05022026_141300.sql
+│   │   ├── bir_receipt_config_schema_05022026_141400.sql
+│   │   ├── settings_schema_05022026_141500.sql
+│   │   ├── audit_log_schema_05022026_141600.sql
+│   │   ├── menu_images_buckets_05022026_141700.sql
+│   │   ├── all_tables_indexes_05022026_141800.sql
+│   │   ├── orders_realtime_05022026_141900.sql
+│   │   ├── all_tables_rls_05022026_142000.sql
+│   │   └── system_seed_05022026_142100.sql
 │   ├── seed.sql
 │   └── config.toml
 │
@@ -467,29 +485,331 @@ hotel-restaurant-ordering/
 │       └── placeholder-food.png
 │
 ├── .env.local.example
-├── middleware.ts
+├── middleware.ts           # Auth middleware (can also use proxy.ts for Next.js 16)
 ├── next.config.ts
-├── tailwind.config.ts
+├── postcss.config.mjs      # Tailwind v4 PostCSS plugin (@tailwindcss/postcss)
 ├── tsconfig.json
 ├── package.json
 └── README.md
+
+**Note**: Tailwind v4 uses CSS-first configuration in `src/app/globals.css` via `@theme` blocks.
+No `tailwind.config.ts` or `tailwind.config.js` file should exist.
 ```
 
 ---
 
-## 9. Key Design Decisions
+## 9. Database Schema Enhancements (PRD v1.1)
 
-### 9.1 Denormalized Order Items
+### New Tables Added in v1.1
+
+**promo_codes** — Discount and coupon management
+- Supports percentage and fixed-amount discounts
+- Usage limits and validity periods
+- Applied before tax calculation
+
+**order_events** — Analytics tracking for success metrics
+- Tracks cart_started, item_added, checkout_initiated, payment_completed events
+- Enables funnel analysis and average order time calculations
+- JSONB metadata for flexible event context
+
+**kitchen_stations** — Multi-station order routing
+- Routes orders to specific stations (Grill, Fryer, Salad, Dessert)
+- Junction table `menu_item_stations` links items to stations
+- Enables parallel kitchen workflows
+
+**bir_receipt_config** — Philippines BIR tax compliance
+- Stores TIN, business details, permit numbers
+- Receipt series tracking (sequential, no gaps)
+- POS machine and terminal IDs
+
+### Enhanced Table Fields
+
+**orders table**:
+- `expires_at` — 15-minute timeout for unpaid orders
+- `version` — Optimistic locking for concurrent updates
+- `promo_code_id` — FK to promo_codes table
+- `guest_phone` — For order history lookup
+- `deleted_at` — Soft delete pattern
+
+**menu_items table**:
+- `allergens` — Text array for dietary restrictions
+- `nutritional_info` — JSONB nutrition facts
+- `translations` — JSONB multi-language support
+- `deleted_at` — Soft delete to preserve order history
+
+### Performance Indexes
+
+Critical indexes for scalability (200+ concurrent kiosks, 500+ orders/day):
+- `idx_orders_status`, `idx_orders_payment_status` — Kitchen and cashier queries
+- `idx_menu_items_is_available` — Kiosk menu filtering
+- `idx_order_events_event_type` — Analytics queries
+- Partial indexes with `WHERE` clauses for optimization
+
+---
+
+## 10. Security Architecture
+
+### Input Validation & Sanitization
+
+```typescript
+// All Server Actions use Zod validation
+import { menuItemSchema } from '@/lib/validators/menu-item';
+
+export async function createMenuItem(formData: FormData) {
+  const validated = menuItemSchema.parse({
+    name: formData.get('name'),
+    base_price: parseFloat(formData.get('base_price') as string),
+    // ... Zod ensures type safety and validation
+  });
+}
+
+// XSS prevention via DOMPurify
+import DOMPurify from 'isomorphic-dompurify';
+const sanitized = DOMPurify.sanitize(userInput, { ALLOWED_TAGS: [] });
+```
+
+### Rate Limiting
+
+```typescript
+// middleware.ts
+import { Ratelimit } from '@upstash/ratelimit';
+
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(10, '1 m'), // 10 orders/min per IP
+});
+```
+
+### Server-Side Price Recalculation
+
+**CRITICAL**: All order totals are recalculated server-side to prevent client tampering.
+
+```typescript
+// Server Action: createOrder
+// NEVER trust client-submitted prices
+const menuItems = await supabase
+  .from('menu_items')
+  .select('id, base_price, addon_groups(addon_options(id, additional_price))')
+  .in('id', cartItems.map(item => item.id));
+
+// Recalculate from database prices only
+const calculatedTotal = cartItems.reduce((sum, cartItem) => {
+  const menuItem = menuItems.find(m => m.id === cartItem.id);
+  const itemTotal = menuItem.base_price * cartItem.quantity;
+  // ... add addons from DB prices
+}, 0);
+```
+
+### Webhook Security (PayMongo)
+
+```typescript
+// /api/webhooks/paymongo/route.ts
+export async function POST(req: Request) {
+  // 1. Verify HMAC signature
+  const signature = req.headers.get('paymongo-signature');
+  const isValid = verifyWebhookSignature(await req.text(), signature);
+  if (!isValid) return new Response('Unauthorized', { status: 401 });
+
+  // 2. Idempotency check (prevent duplicate processing)
+  const existingPayment = await supabase
+    .from('payments')
+    .select('*')
+    .eq('provider_reference', event.data.id)
+    .single();
+  if (existingPayment.data) return new Response('Already processed', { status: 200 });
+
+  // 3. Verify amount matches order total
+  const expectedAmount = Math.round(order.data.total_amount * 100);
+  if (event.data.attributes.amount !== expectedAmount) {
+    return new Response('Amount mismatch', { status: 400 });
+  }
+}
+```
+
+### Soft Delete Pattern
+
+Menu items and orders use `deleted_at` instead of hard deletes to preserve:
+- Historical order data (BIR compliance - 2 years)
+- Price integrity for old orders
+- Audit trail
+
+```sql
+-- Never hard delete
+UPDATE menu_items SET deleted_at = NOW() WHERE id = $1;
+
+-- Filter in all queries
+SELECT * FROM menu_items WHERE deleted_at IS NULL;
+```
+
+---
+
+## 11. Migration Naming Convention
+
+**Format**: `{table_name}_{type}_{DDMMYYYY}_{HHMMSS}.sql`
+
+**Types**:
+- `schema` — CREATE TABLE, ALTER TABLE
+- `rls` — Row Level Security policies
+- `functions` — Functions, triggers, sequences
+- `buckets` — Supabase Storage buckets + policies
+- `indexes` — CREATE INDEX statements
+- `seed` — INSERT initial/test data
+
+**Benefits**:
+- Descriptive: Instant clarity on what's affected
+- Team-friendly: No merge conflicts on sequential numbers
+- Searchable: `ls *orders*` shows all order-related migrations
+- Chronological: Sorts naturally by timestamp (HHMMSS precision)
+
+---
+
+## 12. Key Design Decisions
+
+### 12.1 Denormalized Order Items
 Order items store `item_name` and `unit_price` at time of order, not just FK references. This ensures historical orders remain accurate even after menu price changes.
 
-### 9.2 Order Number Reset
-Order numbers reset daily (A001 → A999, then B001...). This matches how fast-food restaurants cycle through manageable order numbers that kitchen staff can call out.
+### 12.2 Order Number Generation
+Order numbers are generated via PostgreSQL sequence using `generate_order_number()` function, returning A0001, A0002, A0003, etc. This prevents race conditions even with 200+ concurrent order submissions. The sequence can optionally be reset daily via cron job for human-readable numbers, but this is not automatic.
 
-### 9.3 Optimistic UI for Kitchen
+### 12.3 Optimistic UI for Kitchen
 Kitchen status changes use optimistic updates — the UI advances immediately while the database write happens in background. If the write fails, the UI reverts and shows a toast error.
 
-### 9.4 Separate Payment Records
+### 12.4 Separate Payment Records
 Payments are a separate table from orders to support split payments, refunds, and audit trails. One order can have multiple payment records.
 
-### 9.5 Server Actions over API Routes
+### 12.5 Server Actions over API Routes
 Most mutations use Next.js Server Actions (form actions) rather than API routes. This reduces boilerplate, provides automatic revalidation, and keeps business logic co-located. API routes are reserved for webhooks and external integrations only.
+
+---
+
+## 13. Important Implementation Notes
+
+### Supabase Client Usage
+
+⚠️ **CRITICAL**: Always use the correct client for the context:
+
+```typescript
+// ✅ CORRECT
+// In Server Components and Server Actions
+import { createServerClient } from '@/lib/supabase/server';
+const supabase = await createServerClient();
+
+// In Client Components
+import { createClient } from '@/lib/supabase/client';
+const supabase = createClient();
+
+// ❌ NEVER do this in client components
+import { createAdminClient } from '@/lib/supabase/admin'; // Bypasses RLS!
+```
+
+**Note**: The server.ts file exports a function named `createServerClient()` (not `createClient()`) to avoid naming collisions with the Supabase SSR package.
+
+### Tailwind CSS v4 Configuration
+
+⚠️ **BREAKING CHANGE from Tailwind v3**:
+
+- **NO `tailwind.config.ts` or `tailwind.config.js` file**
+- Configuration is CSS-first in `src/app/globals.css` via `@theme` blocks
+- PostCSS plugin changed to `@tailwindcss/postcss`
+- Use `@import "tailwindcss"` instead of `@tailwind` directives
+
+```css
+/* src/app/globals.css */
+@import "tailwindcss";
+
+@theme {
+  --color-brand-500: #2563eb;
+  --font-display: "Cabinet Grotesk", sans-serif;
+}
+```
+
+### Next.js 16 Async Params
+
+All `params` and `searchParams` in pages/layouts are now async:
+
+```typescript
+// ✅ CORRECT - Next.js 16
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+}
+
+// ❌ WRONG - Old Next.js 15 pattern
+export default function Page({ params }: { params: { id: string } }) {
+  const { id } = params; // Will throw runtime error
+}
+```
+
+### Migration File Management
+
+**NEVER**:
+- Rename existing migration files
+- Delete applied migration files
+- Edit migration files after they've been applied
+- Run `supabase db reset` in production (WIPES ALL DATA)
+
+**ALWAYS**:
+- Create new migration files for schema changes
+- Use `supabase db push` to apply new migrations
+- Regenerate types after schema changes: `pnpm supabase gen types typescript --linked > src/lib/supabase/types.ts`
+- Follow naming convention: `{table}_{type}_{DDMMYYYY}_{HHMMSS}.sql`
+
+---
+
+## 14. Version History
+
+### Version 2.0 (February 5, 2026)
+**Status**: Updated for PRD v1.1 and Phase 1 Guide alignment
+
+**Major Updates**:
+- ✅ Updated **migration naming convention** from sequential (001_, 002_) to descriptive format (`{table}_{type}_{DDMMYYYY}_{HHMMSS}.sql`)
+- ✅ Increased **migration count** from 13 to 21 files
+- ✅ Added **4 new database tables**:
+  - `promo_codes` (discount/coupon management)
+  - `order_events` (analytics tracking for success metrics)
+  - `kitchen_stations` (multi-station routing)
+  - `bir_receipt_config` (Philippines BIR tax compliance)
+- ✅ Enhanced **orders table** with: `expires_at`, `version`, `promo_code_id`, `guest_phone`, `deleted_at`
+- ✅ Enhanced **menu_items table** with: `allergens`, `nutritional_info`, `translations`, `deleted_at`
+- ✅ Added **security architecture section**: Input validation, rate limiting, server-side price recalculation, webhook security, soft delete pattern
+- ✅ Added **performance indexes** section with critical indexes for scalability
+- ✅ Documented **order number generation** via PostgreSQL sequence (prevents race conditions)
+- ✅ Added **login and unauthorized pages** to route structure
+- ✅ Fixed **Tailwind v4 configuration** (removed tailwind.config.ts, documented CSS-first approach)
+- ✅ Fixed **types file location** (lib/supabase/types.ts, not types/database.ts)
+- ✅ Added **Supabase client naming warning** (createServerClient vs createClient)
+- ✅ Added **Next.js 16 async params** note
+- ✅ Added **migration management guidelines**
+
+**Breaking Changes**:
+- Migration files must use new naming convention
+- Tailwind config file removed (use CSS-first config)
+- Order number generation changed (no automatic daily reset or prefix cycling)
+- Types location changed to lib/supabase/types.ts
+
+**Alignment Status**:
+- ✅ Fully aligned with PRD v1.1
+- ✅ Fully aligned with Phase 1 Guide
+- ✅ All 21 migrations documented
+- ✅ Security architecture complete
+- ✅ Folder structure accurate
+
+### Version 1.0 (February 2, 2026)
+- Initial architecture document
+- 13 sequential migration files
+- Basic security notes
+- No version tracking
+
+---
+
+## 15. Related Documents
+
+- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.1
+- **[PHASE-1-GUIDE.md](../phases/PHASE-1-GUIDE.md)** — Phase 1 Implementation Guide
+- **[AGENT-DATABASE.md](../agents/AGENT-DATABASE.md)** — Complete SQL schema and RLS policies
+- **[AGENT-KIOSK.md](../agents/AGENT-KIOSK.md)** — Kiosk module specification
+- **[AGENT-KITCHEN.md](../agents/AGENT-KITCHEN.md)** — Kitchen Display System specification
+- **[AGENT-CASHIER.md](../agents/AGENT-CASHIER.md)** — Cashier module specification
+- **[AGENT-ADMIN.md](../agents/AGENT-ADMIN.md)** — Admin dashboard specification
+- **[AGENT-PAYMENTS.md](../agents/AGENT-PAYMENTS.md)** — PayMongo integration guide
+
+---
