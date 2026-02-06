@@ -160,7 +160,7 @@ export function MenuItemForm({
 
         {imagePreview ? (
           <div className="relative group">
-            <div className="aspect-video bg-gray-100 rounded-xl overflow-hidden border-2 border-gray-200">
+            <div className="aspect-video bg-slate-100 rounded-xl overflow-hidden border-2 border-slate-200">
               <img
                 src={imagePreview}
                 alt="Preview"
@@ -170,7 +170,7 @@ export function MenuItemForm({
             <button
               type="button"
               onClick={removeImage}
-              className="absolute top-3 right-3 p-2 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+              className="absolute top-3 right-3 p-2 bg-rose-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
             >
               <X className="h-4 w-4" />
             </button>
@@ -188,12 +188,12 @@ export function MenuItemForm({
             />
             <label
               htmlFor="image"
-              className="flex flex-col items-center justify-center aspect-video bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border-2 border-dashed border-gray-300 cursor-pointer hover:border-gray-400 hover:bg-gray-100 transition-all group"
+              className="flex flex-col items-center justify-center aspect-video bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border-2 border-dashed border-slate-300 cursor-pointer hover:border-slate-400 hover:bg-slate-100 transition-all group"
             >
-              <div className="flex flex-col items-center gap-2 text-gray-600">
+              <div className="flex flex-col items-center gap-2 text-slate-600">
                 {isUploadingImage ? (
                   <>
-                    <div className="animate-spin h-10 w-10 border-3 border-gray-300 border-t-blue-500 rounded-full" />
+                    <div className="animate-spin h-10 w-10 border-3 border-slate-300 border-t-amber-500 rounded-full" />
                     <span className="text-sm font-medium">Uploading...</span>
                   </>
                 ) : (
@@ -202,7 +202,7 @@ export function MenuItemForm({
                       <ImageIcon className="h-6 w-6" />
                     </div>
                     <span className="text-sm font-medium">Upload Image</span>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-slate-500">
                       JPG, PNG or WebP (Max 2MB)
                     </span>
                   </>
@@ -263,7 +263,7 @@ export function MenuItemForm({
           placeholder="Describe your menu item..."
           className="resize-none"
         />
-        <p className="text-xs text-gray-500 text-right">
+        <p className="text-xs text-slate-500 text-right">
           {formData.description?.length || 0}/500 characters
         </p>
       </div>
@@ -371,7 +371,7 @@ export function MenuItemForm({
         <Button
           type="submit"
           disabled={isSubmitting || isUploadingImage}
-          className="px-6 h-11 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 transition-all"
+          className="px-6 h-11 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-medium shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 transition-all"
         >
           {isSubmitting ? (
             <>

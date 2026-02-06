@@ -159,14 +159,14 @@ export function OrderDetailDialog({
           <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
             Order #{orderNumber}
           </DialogTitle>
-          <DialogDescription className="text-gray-600">
+          <DialogDescription className="text-slate-600">
             Full order details and timeline
           </DialogDescription>
         </DialogHeader>
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
           </div>
         ) : order ? (
           <div className="space-y-6 mt-4">
@@ -183,32 +183,32 @@ export function OrderDetailDialog({
 
             {/* Order Info */}
             <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="flex items-center gap-2 text-gray-600">
+              <div className="flex items-center gap-2 text-slate-600">
                 <Calendar className="h-4 w-4" />
                 <span>
                   {format(new Date(order.created_at!), 'MMM d, yyyy h:mm a')}
                 </span>
               </div>
               {order.guest_phone && (
-                <div className="flex items-center gap-2 text-gray-600">
+                <div className="flex items-center gap-2 text-slate-600">
                   <Phone className="h-4 w-4" />
                   <span>{order.guest_phone}</span>
                 </div>
               )}
               {order.table_number && (
-                <div className="flex items-center gap-2 text-gray-600">
+                <div className="flex items-center gap-2 text-slate-600">
                   <UtensilsCrossed className="h-4 w-4" />
                   <span>Table {order.table_number}</span>
                 </div>
               )}
               {order.room_number && (
-                <div className="flex items-center gap-2 text-gray-600">
+                <div className="flex items-center gap-2 text-slate-600">
                   <MapPin className="h-4 w-4" />
                   <span>Room {order.room_number}</span>
                 </div>
               )}
               {order.payment_method && (
-                <div className="flex items-center gap-2 text-gray-600">
+                <div className="flex items-center gap-2 text-slate-600">
                   <CreditCard className="h-4 w-4" />
                   <span className="capitalize">{order.payment_method}</span>
                 </div>
@@ -227,7 +227,7 @@ export function OrderDetailDialog({
                 {order.order_items.map((item) => (
                   <div
                     key={item.id}
-                    className="flex justify-between items-start p-3 bg-gray-50 rounded-lg"
+                    className="flex justify-between items-start p-3 bg-slate-50 rounded-lg"
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
@@ -237,12 +237,12 @@ export function OrderDetailDialog({
                         </Badge>
                       </div>
                       {item.order_item_addons.length > 0 && (
-                        <div className="mt-1 text-sm text-gray-500">
+                        <div className="mt-1 text-sm text-slate-500">
                           {item.order_item_addons.map((addon) => (
                             <span key={addon.id} className="mr-2">
                               + {addon.addon_name}
                               {addon.additional_price > 0 && (
-                                <span className="text-gray-400">
+                                <span className="text-slate-400">
                                   {' '}
                                   ({formatCurrency(addon.additional_price)})
                                 </span>
@@ -259,7 +259,7 @@ export function OrderDetailDialog({
                     </div>
                     <div className="text-right">
                       <p className="font-medium">{formatCurrency(item.total_price)}</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-slate-500">
                         {formatCurrency(item.unit_price)} each
                       </p>
                     </div>
@@ -273,18 +273,18 @@ export function OrderDetailDialog({
             {/* Order Totals */}
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600">Subtotal</span>
+                <span className="text-slate-600">Subtotal</span>
                 <span>{formatCurrency(order.subtotal)}</span>
               </div>
               {order.tax_amount > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Tax</span>
+                  <span className="text-slate-600">Tax</span>
                   <span>{formatCurrency(order.tax_amount)}</span>
                 </div>
               )}
               {order.service_charge && order.service_charge > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Service Charge</span>
+                  <span className="text-slate-600">Service Charge</span>
                   <span>{formatCurrency(order.service_charge)}</span>
                 </div>
               )}
@@ -306,7 +306,7 @@ export function OrderDetailDialog({
                 <Separator />
                 <div>
                   <h3 className="font-semibold mb-2">Special Instructions</h3>
-                  <p className="text-sm text-gray-600 p-3 bg-amber-50 rounded-lg border border-amber-100">
+                  <p className="text-sm text-slate-600 p-3 bg-amber-50 rounded-lg border border-amber-100">
                     {order.special_instructions}
                   </p>
                 </div>
@@ -332,7 +332,7 @@ export function OrderDetailDialog({
                       .map((event, index) => (
                         <div key={event.id} className="flex items-start gap-3">
                           <div className="relative">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full mt-2" />
+                            <div className="w-2 h-2 bg-amber-500 rounded-full mt-2" />
                             {index < order.order_events.length - 1 && (
                               <div className="absolute top-4 left-0.5 w-0.5 h-full bg-gray-200" />
                             )}
@@ -341,7 +341,7 @@ export function OrderDetailDialog({
                             <p className="font-medium text-sm">
                               {formatEventType(event.event_type)}
                             </p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-slate-500">
                               {format(
                                 new Date(event.created_at!),
                                 'MMM d, yyyy h:mm:ss a'

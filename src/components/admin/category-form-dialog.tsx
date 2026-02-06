@@ -118,7 +118,7 @@ export function CategoryFormDialog({ mode, category, trigger }: CategoryFormDial
         <Button
           variant="outline"
           size="sm"
-          className="hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 transition-colors"
+          className="hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 transition-colors"
         >
           <Edit2 className="h-3.5 w-3.5 mr-1.5" />
           Edit
@@ -130,7 +130,7 @@ export function CategoryFormDialog({ mode, category, trigger }: CategoryFormDial
       <Button
         variant="outline"
         size="sm"
-        className="hover:bg-red-50 hover:text-red-700 hover:border-red-300 transition-colors"
+        className="hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 transition-colors"
       >
         <Trash2 className="h-3.5 w-3.5 mr-1.5" />
         Delete
@@ -143,18 +143,18 @@ export function CategoryFormDialog({ mode, category, trigger }: CategoryFormDial
       return (
         <>
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-gray-900">
+            <DialogTitle className="text-xl font-bold text-slate-900">
               Delete Category
             </DialogTitle>
-            <DialogDescription className="text-gray-600 pt-2">
+            <DialogDescription className="text-slate-600 pt-2">
               Are you sure you want to delete{' '}
-              <span className="font-semibold text-gray-900">{category?.name}</span>? This will
+              <span className="font-semibold text-slate-900">{category?.name}</span>? This will
               also affect all menu items in this category.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 my-4">
-            <p className="text-sm text-red-900">
+          <div className="bg-rose-50 border border-rose-200 rounded-lg p-4 my-4">
+            <p className="text-sm text-rose-900">
               <span className="font-semibold">Warning:</span> This action cannot be undone.
             </p>
           </div>
@@ -164,14 +164,14 @@ export function CategoryFormDialog({ mode, category, trigger }: CategoryFormDial
               variant="outline"
               onClick={() => setOpen(false)}
               disabled={isSubmitting}
-              className="hover:bg-gray-100"
+              className="hover:bg-slate-100"
             >
               Cancel
             </Button>
             <Button
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 transition-all"
+              className="bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-red-800 text-white shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 transition-all"
             >
               {isSubmitting ? (
                 <>
@@ -193,7 +193,7 @@ export function CategoryFormDialog({ mode, category, trigger }: CategoryFormDial
           <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
             {mode === 'create' ? 'Create New Category' : 'Edit Category'}
           </DialogTitle>
-          <DialogDescription className="text-gray-600">
+          <DialogDescription className="text-slate-600">
             {mode === 'create'
               ? 'Add a new category to organize your menu items.'
               : 'Update the category details below.'}

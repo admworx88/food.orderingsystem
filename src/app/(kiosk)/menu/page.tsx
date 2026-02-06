@@ -18,8 +18,7 @@ export default async function KioskMenuPage() {
     .order('display_order');
 
   return (
-    <div>
-      <h2 className="text-3xl font-bold mb-6">Menu</h2>
+    <div className="h-full">
       <MenuGrid categories={categories || []} menuItems={menuItems || []} />
     </div>
   );

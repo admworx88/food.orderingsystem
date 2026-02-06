@@ -1,9 +1,9 @@
 # System Architecture Document
 # OrderFlow — Hotel Restaurant Web Ordering System
 
-**Version:** 2.1 (Enhanced Documentation)
-**Date:** February 2026
-**Status:** Aligned with PRD v1.2 and Phase 1 Guide
+**Version:** 2.2 (Updated with Kiosk Frontend Completion)
+**Date:** February 6, 2026
+**Status:** Phase 1 + Kiosk Frontend Complete ✅ — Backend Integration in Progress
 
 ---
 

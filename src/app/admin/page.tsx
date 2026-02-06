@@ -45,10 +45,10 @@ export default function AdminDashboardPage() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
           Dashboard
         </h1>
-        <p className="text-gray-600 mt-1">
+        <p className="text-slate-600 mt-1">
           Welcome back! Here&apos;s what&apos;s happening today.
         </p>
       </div>

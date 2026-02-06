@@ -96,7 +96,7 @@ function PaginationWrapper({
     if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
     if (filters.dateTo) params.set('dateTo', filters.dateTo);
     params.set('page', page.toString());
-    return `/order-history?${params.toString()}`;
+    return `/admin/order-history?${params.toString()}`;
   };
 
   return (
@@ -144,10 +144,10 @@ export default async function OrderHistoryPage({
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
           Order History
         </h1>
-        <p className="text-gray-600 mt-1">
+        <p className="text-slate-600 mt-1">
           Search and view past orders, export reports
         </p>
       </div>

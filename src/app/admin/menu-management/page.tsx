@@ -13,10 +13,10 @@ export default async function MenuManagementPage() {
     return (
       <div className="space-y-8">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
             Menu Management
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-slate-600 mt-1">
             Manage your restaurant&apos;s menu items and categories
           </p>
         </div>
@@ -43,10 +43,10 @@ export default async function MenuManagementPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
           Menu Management
         </h1>
-        <p className="text-gray-600 mt-1">
+        <p className="text-slate-600 mt-1">
           Manage your restaurant&apos;s menu items and categories
         </p>
       </div>

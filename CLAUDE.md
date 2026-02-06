@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-> **Version**: 2.0 | **Last Updated**: February 2026 | **Status**: Phase 1 Complete
+> **Version**: 2.1 | **Last Updated**: February 2026 | **Status**: Phase 1 + Kiosk UI Complete
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -35,14 +35,16 @@ npm run supabase:types  # Regenerate database types after schema changes
 
 ---
 
-## Project Status: Phase 1 Complete ✅
+## Project Status: Phase 1 Complete + Kiosk UI Complete + Admin UI Refined ✅
 
 **Phase 1 Foundation is COMPLETE.** The system now has:
 - ✅ Full database schema with 22 migrations applied
 - ✅ Authentication middleware with role-based routing
 - ✅ All route group layouts (kiosk, kitchen, cashier, admin)
 - ✅ Admin menu management with CRUD operations
-- ✅ Kiosk menu display (read-only)
+- ✅ **Kiosk module fully functional** with cart, checkout, and confirmation
+- ✅ **Premium UI with responsive design** (flat borders, generous spacing, 48px+ touch targets)
+- ✅ **Admin UI refined with Executive Precision design** (slate + amber palette, professional polish)
 
 ### Before Working on New Features
 1. **Read the specs first**: Check `docs/` directory for detailed requirements
@@ -122,9 +124,9 @@ always use `npm run supabase:push`. Regenerate types after any schema change.
 | `tailwindcss` | `4.x` | ✅ Installed | CSS-first config. No `tailwind.config.js` needed. |
 | `@tailwindcss/postcss` | `4.x` | ✅ Installed | Required PostCSS plugin for Next.js integration. |
 | `typescript` | `5.x` | ✅ Installed | Strict mode enabled. |
-| `@supabase/supabase-js` | `2.x` | ⏳ To install | With `@supabase/ssr` for server/client helpers. |
-| `zustand` | `5.x` | ⏳ To install | Client state management. |
-| `zod` | `3.x` | ⏳ To install | Schema validation. |
+| `@supabase/supabase-js` | `2.x` | ✅ Installed | With `@supabase/ssr` for server/client helpers. |
+| `zustand` | `5.x` | ✅ Installed | Client state management. |
+| `zod` | `3.x` | ✅ Installed | Schema validation. |
 | Node.js | `20.9+` | ✅ Required | Minimum required by Next.js 16. |
 
 **When installing new packages**: Use `npm install <package>` to maintain consistency with package-lock.json
@@ -172,26 +174,43 @@ npm run supabase:reset      # Reset local DB (dev only - WIPES DATA)
 - Database migrations in `supabase/migrations/`
 - Auth middleware with role-based routing
 - Admin menu CRUD with image upload
-- Kiosk menu display (read-only)
 
-### ⏳ Phase 2 - Next to Build
-- Zustand cart store with localStorage persistence
-- Kiosk cart functionality with add/remove items
-- Kiosk checkout flow with order type selection
-- Order submission Server Actions
+### ✅ Kiosk Module Complete (Frontend)
+- **Zustand cart store** with localStorage persistence (`src/stores/cart-store.ts`)
+- **Welcome/splash page** with animated gradient hero (`/kiosk/`)
+- **Menu display** with responsive grid/list view, category sidebar with flat borders
+- **Cart review page** with quantity controls and special instructions (`/kiosk/cart`)
+- **Checkout page** with 4-step flow: order type, promo code, phone, payment (`/kiosk/checkout`)
+- **Confirmation page** with large order number and auto-redirect (`/kiosk/confirmation`)
+- **Premium UI design**: Flat borders, 48px+ touch targets, generous spacing, bold typography
+- **Fully responsive**: Mobile-first design, works on all screen sizes
+- **Add to cart functionality**: MenuItemCard integrated with cart store
+- **Idle timer**: 2-minute warning, auto-reset with cart clearing
+
+### ⏳ Phase 2 - Backend Integration & Other Modules
+- Order submission Server Actions (connect checkout to database)
+- Promo code validation Server Action
+- PayMongo payment integration (GCash, card, webhook)
+- Item detail sheet with addons and customization
 - Kitchen Display System with Realtime
-- Cashier payment processing
-- PayMongo integration
+- Cashier payment processing and receipt generation
+- Real-time order status updates
 
 ### Implementation Roadmap
 ~~1. **Foundation**: Set up Supabase, environment variables, database schema~~ ✅ **DONE**
 ~~2. **Core utilities**: Create Supabase clients, utility functions, constants~~ ✅ **DONE**
 ~~3. **Admin module**: Build menu management (needed for other modules)~~ ✅ **DONE**
-4. **Kiosk module**: Cart functionality and checkout flow (Phase 2)
-5. **Kitchen module**: Real-time order display (Phase 2)
-6. **Cashier module**: Payment processing with PayMongo (Phase 2)
+~~4. **Kiosk module**: Complete customer-facing UI with cart, checkout, confirmation~~ ✅ **DONE**
+5. **Backend integration**: Server Actions for order submission, promo codes, payments (Phase 2)
+6. **Kitchen module**: Real-time order display (Phase 2)
+7. **Cashier module**: Payment processing with PayMongo (Phase 2)
 
-Refer to `IMPLEMENTATION-NOTES.md` for all Phase 1 changes and `docs/prd/PRD.md` for Phase 2 roadmap.
+**Documentation**:
+- `IMPLEMENTATION-NOTES.md` — Phase 1 foundation changes
+- `KIOSK-UI-IMPLEMENTATION.md` — Complete kiosk UI breakdown
+- `KIOSK-VISUAL-GUIDE.md` — Design system reference
+- `MENU-UI-IMPROVEMENTS.md` — Recent menu enhancements (flat borders, spacing)
+- `docs/prd/PRD.md` — Product requirements for Phase 2
 
 ---
 

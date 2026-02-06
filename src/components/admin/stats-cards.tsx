@@ -21,7 +21,7 @@ function formatCurrency(amount: number): string {
 function ChangeIndicator({ value }: { value: number }) {
   if (value === 0) {
     return (
-      <span className="flex items-center text-sm text-gray-500">
+      <span className="flex items-center text-sm text-slate-500">
         <Minus className="h-4 w-4 mr-1" />
         No change
       </span>
@@ -35,7 +35,7 @@ function ChangeIndicator({ value }: { value: number }) {
     <span
       className={cn(
         'flex items-center text-sm font-medium',
-        isPositive ? 'text-emerald-600' : 'text-red-600'
+        isPositive ? 'text-emerald-600' : 'text-rose-600'
       )}
     >
       <Icon className="h-4 w-4 mr-1" />
@@ -52,8 +52,8 @@ export function StatsCards({ stats }: StatsCardsProps) {
       value: stats.ordersToday.toString(),
       change: stats.ordersChange,
       icon: ShoppingCart,
-      iconBg: 'bg-blue-100',
-      iconColor: 'text-blue-600',
+      iconBg: 'bg-amber-100',
+      iconColor: 'text-amber-600',
     },
     {
       title: 'Revenue Today',
@@ -68,8 +68,8 @@ export function StatsCards({ stats }: StatsCardsProps) {
       value: formatCurrency(stats.avgOrderValue),
       change: stats.avgOrderChange,
       icon: Receipt,
-      iconBg: 'bg-violet-100',
-      iconColor: 'text-violet-600',
+      iconBg: 'bg-slate-100',
+      iconColor: 'text-slate-600',
     },
     {
       title: 'Active Orders',
@@ -86,22 +86,22 @@ export function StatsCards({ stats }: StatsCardsProps) {
       {cards.map((card) => {
         const Icon = card.icon;
         return (
-          <Card key={card.title} className="hover:shadow-lg transition-shadow">
+          <Card key={card.title} className="hover:shadow-lg hover:border-slate-200 transition-all group">
             <CardContent className="pt-6">
               <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-500">{card.title}</p>
-                  <p className="text-2xl font-bold mt-2">{card.value}</p>
+                <div className="flex-1">
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">{card.title}</p>
+                  <p className="text-3xl font-bold mt-3 admin-data text-slate-900">{card.value}</p>
                   {card.change !== null && (
-                    <div className="mt-2">
+                    <div className="mt-3">
                       <ChangeIndicator value={card.change} />
                     </div>
                   )}
                   {card.change === null && (
-                    <p className="text-sm text-gray-500 mt-2">Currently processing</p>
+                    <p className="text-sm text-slate-500 mt-3">Currently processing</p>
                   )}
                 </div>
-                <div className={cn('p-3 rounded-xl', card.iconBg)}>
+                <div className={cn('p-3 rounded-xl transition-transform group-hover:scale-110', card.iconBg)}>
                   <Icon className={cn('h-6 w-6', card.iconColor)} />
                 </div>
               </div>

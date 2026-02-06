@@ -65,7 +65,7 @@ export function EditMenuItemDialog({ item, categories, trigger }: EditMenuItemDi
           <Button
             variant="outline"
             size="sm"
-            className="hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 transition-colors"
+            className="hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 transition-colors"
           >
             <Edit2 className="h-3.5 w-3.5 mr-1.5" />
             Edit
@@ -77,8 +77,8 @@ export function EditMenuItemDialog({ item, categories, trigger }: EditMenuItemDi
           <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
             Edit Menu Item
           </DialogTitle>
-          <DialogDescription className="text-gray-600">
-            Update the details for <span className="font-semibold text-gray-900">{item.name}</span>
+          <DialogDescription className="text-slate-600">
+            Update the details for <span className="font-semibold text-slate-900">{item.name}</span>
           </DialogDescription>
         </DialogHeader>
 

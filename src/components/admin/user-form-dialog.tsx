@@ -106,7 +106,7 @@ export function UserFormDialog({ trigger }: UserFormDialogProps) {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg shadow-blue-500/30">
+          <Button className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-lg shadow-blue-500/30">
             <UserPlus className="h-4 w-4 mr-2" />
             Add Staff User
           </Button>
@@ -117,7 +117,7 @@ export function UserFormDialog({ trigger }: UserFormDialogProps) {
           <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
             Add Staff User
           </DialogTitle>
-          <DialogDescription className="text-gray-600">
+          <DialogDescription className="text-slate-600">
             Create a new staff account with role-based access
           </DialogDescription>
         </DialogHeader>
@@ -173,7 +173,7 @@ export function UserFormDialog({ trigger }: UserFormDialogProps) {
                       <role.icon className="h-4 w-4" />
                       <div>
                         <span className="font-medium">{role.label}</span>
-                        <span className="text-gray-500 ml-2 text-xs">
+                        <span className="text-slate-500 ml-2 text-xs">
                           {role.description}
                         </span>
                       </div>
@@ -190,7 +190,7 @@ export function UserFormDialog({ trigger }: UserFormDialogProps) {
           {/* PIN */}
           <div className="space-y-2">
             <Label htmlFor="pin">
-              PIN <span className="text-gray-400 text-sm">(optional)</span>
+              PIN <span className="text-slate-400 text-sm">(optional)</span>
             </Label>
             <Input
               id="pin"
@@ -203,7 +203,7 @@ export function UserFormDialog({ trigger }: UserFormDialogProps) {
             {errors.pin && (
               <p className="text-sm text-red-500">{errors.pin.message}</p>
             )}
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-slate-500">
               Used for quick login at kiosk/POS terminals
             </p>
           </div>
@@ -221,7 +221,7 @@ export function UserFormDialog({ trigger }: UserFormDialogProps) {
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+              className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white"
             >
               {isSubmitting ? (
                 <>

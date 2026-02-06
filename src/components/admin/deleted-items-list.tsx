@@ -57,8 +57,8 @@ export function DeletedItemsList({ items }: DeletedItemsListProps) {
 
   if (items.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
-        <Trash2 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+      <div className="text-center py-12 text-slate-500">
+        <Trash2 className="h-12 w-12 mx-auto mb-4 text-slate-300" />
         <p className="text-lg font-medium">No deleted items</p>
         <p className="text-sm">Items you delete will appear here for recovery</p>
       </div>
@@ -77,7 +77,7 @@ export function DeletedItemsList({ items }: DeletedItemsListProps) {
       <div className="rounded-lg border overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-gray-50">
+            <TableRow className="bg-slate-50">
               <TableHead className="w-[80px]">Image</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Category</TableHead>
@@ -88,9 +88,9 @@ export function DeletedItemsList({ items }: DeletedItemsListProps) {
           </TableHeader>
           <TableBody>
             {items.map((item) => (
-              <TableRow key={item.id} className="hover:bg-gray-50">
+              <TableRow key={item.id} className="hover:bg-slate-50">
                 <TableCell>
-                  <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden opacity-60">
+                  <div className="w-12 h-12 rounded-lg bg-slate-100 overflow-hidden opacity-60">
                     {item.image_url ? (
                       <Image
                         src={item.image_url}
@@ -101,7 +101,7 @@ export function DeletedItemsList({ items }: DeletedItemsListProps) {
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <ImageIcon className="h-5 w-5 text-gray-400" />
+                        <ImageIcon className="h-5 w-5 text-slate-400" />
                       </div>
                     )}
                   </div>
@@ -110,7 +110,7 @@ export function DeletedItemsList({ items }: DeletedItemsListProps) {
                   <div className="opacity-75">
                     <p className="font-medium">{item.name}</p>
                     {item.description && (
-                      <p className="text-sm text-gray-500 line-clamp-1">
+                      <p className="text-sm text-slate-500 line-clamp-1">
                         {item.description}
                       </p>
                     )}
@@ -124,7 +124,7 @@ export function DeletedItemsList({ items }: DeletedItemsListProps) {
                 <TableCell className="text-right font-medium opacity-75">
                   {formatCurrency(Number(item.base_price))}
                 </TableCell>
-                <TableCell className="text-sm text-gray-500">
+                <TableCell className="text-sm text-slate-500">
                   {item.deleted_at
                     ? formatDistanceToNow(new Date(item.deleted_at), { addSuffix: true })
                     : '-'}

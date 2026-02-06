@@ -81,7 +81,7 @@ export function OrderHistoryFilters() {
     params.delete('page');
 
     startTransition(() => {
-      router.push(`/order-history?${params.toString()}`);
+      router.push(`/admin/order-history?${params.toString()}`);
     });
   };
 
@@ -97,7 +97,7 @@ export function OrderHistoryFilters() {
     setPaymentStatus('all');
     setDateRange(undefined);
     startTransition(() => {
-      router.push('/order-history');
+      router.push('/admin/order-history');
     });
   };
 
@@ -130,7 +130,7 @@ export function OrderHistoryFilters() {
       {/* Search Bar */}
       <form onSubmit={handleSearchSubmit} className="flex gap-2">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
             type="text"
             placeholder="Search by order # or phone..."

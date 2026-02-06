@@ -67,8 +67,8 @@ export function MenuItemTable({ items, categories }: MenuItemTableProps) {
 
   if (items.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
-        <ImageIcon className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+      <div className="text-center py-12 text-slate-500">
+        <ImageIcon className="h-12 w-12 mx-auto mb-4 text-slate-300" />
         <p className="text-lg font-medium">No menu items found</p>
         <p className="text-sm">Add your first menu item to get started</p>
       </div>
@@ -79,7 +79,7 @@ export function MenuItemTable({ items, categories }: MenuItemTableProps) {
     <div className="rounded-lg border overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow className="bg-gray-50">
+          <TableRow className="bg-slate-50">
             <TableHead className="w-[80px]">Image</TableHead>
             <TableHead>Name</TableHead>
             <TableHead>Category</TableHead>
@@ -90,9 +90,9 @@ export function MenuItemTable({ items, categories }: MenuItemTableProps) {
         </TableHeader>
         <TableBody>
           {items.map((item) => (
-            <TableRow key={item.id} className="hover:bg-gray-50">
+            <TableRow key={item.id} className="hover:bg-slate-50">
               <TableCell>
-                <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden">
+                <div className="w-12 h-12 rounded-lg bg-slate-100 overflow-hidden">
                   {item.image_url ? (
                     <Image
                       src={item.image_url}
@@ -103,7 +103,7 @@ export function MenuItemTable({ items, categories }: MenuItemTableProps) {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <ImageIcon className="h-5 w-5 text-gray-400" />
+                      <ImageIcon className="h-5 w-5 text-slate-400" />
                     </div>
                   )}
                 </div>
@@ -112,7 +112,7 @@ export function MenuItemTable({ items, categories }: MenuItemTableProps) {
                 <div>
                   <p className="font-medium">{item.name}</p>
                   {item.description && (
-                    <p className="text-sm text-gray-500 line-clamp-1">
+                    <p className="text-sm text-slate-500 line-clamp-1">
                       {item.description}
                     </p>
                   )}
@@ -159,7 +159,7 @@ export function MenuItemTable({ items, categories }: MenuItemTableProps) {
                       trigger={
                         <DropdownMenuItem
                           onSelect={(e) => e.preventDefault()}
-                          className="text-red-600"
+                          className="text-rose-600"
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
                           Delete

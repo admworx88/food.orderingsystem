@@ -60,7 +60,7 @@ export function CreateMenuItemDialog({ categories, trigger }: CreateMenuItemDial
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 transition-all">
+          <Button className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 transition-all">
             <Plus className="h-4 w-4 mr-2" />
             Add Menu Item
           </Button>
@@ -71,7 +71,7 @@ export function CreateMenuItemDialog({ categories, trigger }: CreateMenuItemDial
           <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
             Create New Menu Item
           </DialogTitle>
-          <DialogDescription className="text-gray-600">
+          <DialogDescription className="text-slate-600">
             Add a new item to your restaurant menu. Fill in the details below.
           </DialogDescription>
         </DialogHeader>

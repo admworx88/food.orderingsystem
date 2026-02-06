@@ -8,27 +8,27 @@ import { toast } from 'sonner';
 
 const navItems = [
   {
-    href: '/',
+    href: '/admin',
     label: 'Dashboard',
     icon: LayoutDashboard,
   },
   {
-    href: '/menu-management',
+    href: '/admin/menu-management',
     label: 'Menu',
     icon: UtensilsCrossed,
   },
   {
-    href: '/order-history',
+    href: '/admin/order-history',
     label: 'Orders',
     icon: ClipboardList,
   },
   {
-    href: '/users',
+    href: '/admin/users',
     label: 'Users',
     icon: Users,
   },
   {
-    href: '/settings',
+    href: '/admin/settings',
     label: 'Settings',
     icon: Settings,
   },
@@ -45,20 +45,23 @@ export default function AdminLayout({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       <div className="flex">
-        <aside className="w-64 min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white p-6 flex flex-col">
+        <aside className="w-64 min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white p-6 flex flex-col border-r border-slate-700/50 relative">
+          {/* Subtle gradient border accent */}
+          <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-amber-500/20 to-transparent" />
+
           <div className="mb-8">
-            <h1 className="text-xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+            <h1 className="text-xl font-bold bg-gradient-to-r from-white via-amber-100 to-amber-200 bg-clip-text text-transparent">
               OrderFlow Admin
             </h1>
-            <p className="text-xs text-gray-400 mt-1">Restaurant Management</p>
+            <p className="text-xs text-slate-400 mt-1">Restaurant Management</p>
           </div>
 
           <nav className="space-y-1 flex-1">
             {navItems.map((item) => {
               const isActive = pathname === item.href ||
-                (item.href !== '/' && pathname.startsWith(item.href));
+                (item.href !== '/admin' && pathname.startsWith(item.href));
               const Icon = item.icon;
 
               return (
@@ -66,31 +69,34 @@ export default function AdminLayout({
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    'flex items-center gap-3 px-4 py-3 rounded-lg transition-all',
+                    'flex items-center gap-3 px-4 py-3 rounded-lg transition-all relative group',
                     isActive
-                      ? 'bg-white/10 text-white shadow-lg shadow-white/5'
-                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                      ? 'bg-amber-500/10 text-white border-l-4 border-amber-500 -ml-6 pl-8 shadow-lg shadow-amber-500/10'
+                      : 'text-slate-400 hover:bg-slate-700/30 hover:text-white'
                   )}
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon className={cn(
+                    'h-5 w-5 transition-transform',
+                    isActive ? 'text-amber-500' : 'group-hover:scale-110'
+                  )} />
                   <span className="font-medium">{item.label}</span>
                 </Link>
               );
             })}
           </nav>
 
-          <div className="pt-4 border-t border-gray-700">
+          <div className="pt-4 border-t border-slate-700/50">
             <button
               onClick={handleLogout}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg w-full text-gray-400 hover:bg-red-500/10 hover:text-red-400 transition-all"
+              className="flex items-center gap-3 px-4 py-3 rounded-lg w-full text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-all group"
             >
-              <LogOut className="h-5 w-5" />
+              <LogOut className="h-5 w-5 group-hover:scale-110 transition-transform" />
               <span className="font-medium">Logout</span>
             </button>
           </div>
         </aside>
 
-        <main className="flex-1 p-8">
+        <main className="flex-1 p-8 bg-slate-50">
           {children}
         </main>
       </div>

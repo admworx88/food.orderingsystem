@@ -17,7 +17,7 @@ interface TopItemsChartProps {
   data: TopSellingItem[];
 }
 
-const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'];
+const COLORS = ['#f59e0b', '#1e293b', '#334155', '#10b981', '#475569'];
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-PH', {
@@ -42,7 +42,7 @@ export function TopItemsChart({ data }: TopItemsChartProps) {
           <CardTitle className="text-lg font-semibold">Top Selling Items</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px] flex items-center justify-center text-gray-500">
+          <div className="h-[300px] flex items-center justify-center text-slate-500">
             No orders yet today
           </div>
         </CardContent>
@@ -53,8 +53,8 @@ export function TopItemsChart({ data }: TopItemsChartProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg font-semibold">Top Selling Items</CardTitle>
-        <p className="text-sm text-gray-500">Today&apos;s best performers</p>
+        <CardTitle className="text-xl font-semibold text-slate-900">Top Selling Items</CardTitle>
+        <p className="text-sm text-slate-600">Today&apos;s best performers</p>
       </CardHeader>
       <CardContent>
         <div className="h-[300px]">
@@ -64,10 +64,10 @@ export function TopItemsChart({ data }: TopItemsChartProps) {
               layout="vertical"
               margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={true} vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={true} vertical={false} />
               <XAxis
                 type="number"
-                stroke="#888888"
+                stroke="#64748b"
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
@@ -75,7 +75,7 @@ export function TopItemsChart({ data }: TopItemsChartProps) {
               <YAxis
                 type="category"
                 dataKey="displayName"
-                stroke="#888888"
+                stroke="#64748b"
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
@@ -95,7 +95,7 @@ export function TopItemsChart({ data }: TopItemsChartProps) {
                 }}
                 contentStyle={{
                   backgroundColor: 'white',
-                  border: '1px solid #e5e7eb',
+                  border: '1px solid #e2e8f0',
                   borderRadius: '8px',
                   boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                 }}
@@ -112,17 +112,17 @@ export function TopItemsChart({ data }: TopItemsChartProps) {
         {/* List view below chart */}
         <div className="mt-4 space-y-2">
           {data.map((item, index) => (
-            <div key={item.id} className="flex items-center justify-between py-2 border-b last:border-0">
+            <div key={item.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
               <div className="flex items-center gap-3">
                 <span
                   className="w-3 h-3 rounded-full"
                   style={{ backgroundColor: COLORS[index % COLORS.length] }}
                 />
-                <span className="font-medium text-sm">{item.name}</span>
+                <span className="font-medium text-sm text-slate-900">{item.name}</span>
               </div>
               <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-500">{item.orderCount} orders</span>
-                <span className="text-sm font-medium">{formatCurrency(item.revenue)}</span>
+                <span className="text-sm text-slate-500 admin-data">{item.orderCount} orders</span>
+                <span className="text-sm font-semibold text-slate-900 admin-data">{formatCurrency(item.revenue)}</span>
               </div>
             </div>
           ))}

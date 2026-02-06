@@ -18,7 +18,7 @@ export function OrderTypeBreakdown({ data }: OrderTypeBreakdownProps) {
           <CardTitle className="text-lg font-semibold">Order Types</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px] flex items-center justify-center text-gray-500">
+          <div className="h-[300px] flex items-center justify-center text-slate-500">
             No orders yet today
           </div>
         </CardContent>
@@ -29,8 +29,8 @@ export function OrderTypeBreakdown({ data }: OrderTypeBreakdownProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg font-semibold">Order Types</CardTitle>
-        <p className="text-sm text-gray-500">Distribution by type today</p>
+        <CardTitle className="text-xl font-semibold text-slate-900">Order Types</CardTitle>
+        <p className="text-sm text-slate-600">Distribution by type today</p>
       </CardHeader>
       <CardContent>
         <div className="h-[200px]">
@@ -57,7 +57,7 @@ export function OrderTypeBreakdown({ data }: OrderTypeBreakdownProps) {
                 ]}
                 contentStyle={{
                   backgroundColor: 'white',
-                  border: '1px solid #e5e7eb',
+                  border: '1px solid #e2e8f0',
                   borderRadius: '8px',
                   boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                 }}
@@ -75,9 +75,9 @@ export function OrderTypeBreakdown({ data }: OrderTypeBreakdownProps) {
                 className="w-3 h-3 rounded-full mx-auto mb-1"
                 style={{ backgroundColor: item.color }}
               />
-              <p className="text-2xl font-bold">{item.count}</p>
-              <p className="text-xs text-gray-500">{item.label}</p>
-              <p className="text-xs font-medium text-gray-400">{item.percentage}%</p>
+              <p className="text-2xl font-bold admin-data text-slate-900">{item.count}</p>
+              <p className="text-xs text-slate-600 font-medium">{item.label}</p>
+              <p className="text-xs font-medium text-slate-500">{item.percentage}%</p>
             </div>
           ))}
         </div>

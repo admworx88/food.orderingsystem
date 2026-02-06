@@ -291,7 +291,7 @@ export async function getOrderTypeBreakdown(): Promise<
         label: 'Dine-in',
         count: counts.dine_in,
         percentage: Math.round((counts.dine_in / total) * 100),
-        color: '#3b82f6', // Blue
+        color: '#f59e0b', // Amber
       },
       {
         type: 'room_service',
@@ -305,7 +305,7 @@ export async function getOrderTypeBreakdown(): Promise<
         label: 'Takeout',
         count: counts.takeout,
         percentage: Math.round((counts.takeout / total) * 100),
-        color: '#f59e0b', // Amber
+        color: '#334155', // Slate
       },
     ];
 

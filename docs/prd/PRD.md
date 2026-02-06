@@ -1,10 +1,10 @@
 # Product Requirements Document (PRD)
 # Hotel Restaurant Web Ordering System — "OrderFlow"
 
-**Version:** 1.2
-**Date:** February 5, 2026
+**Version:** 1.3
+**Date:** February 6, 2026
 **Author:** System Architect
-**Status:** Complete PRD with User Stories, Risk Assessment, Testing & Recovery Plans
+**Status:** Complete PRD — Phase 1 + Kiosk Frontend Complete ✅
 
 ---
 
@@ -909,9 +909,10 @@ FROM funnel;
 
 | Phase | Scope | Duration | Key Deliverables |
 |---|---|---|---|
-| **Phase 1 — Foundation** | Auth, DB schema, menu CRUD, basic kiosk UI | 2 weeks | ✅ Supabase setup with RLS<br>✅ Menu management admin panel<br>✅ Categories & items CRUD<br>✅ Image upload to Supabase Storage<br>✅ Staff authentication (PIN + role)<br>✅ Order number generation (DB sequence) |
-| **Phase 2 — Ordering** | Cart, order flow, kitchen display, real-time | 2 weeks | ✅ Kiosk menu browsing + cart<br>✅ Order submission with add-ons<br>✅ Kitchen Display System (KDS)<br>✅ Realtime order updates<br>✅ Order age color coding<br>✅ Touch-optimized UI (≥48px targets) |
-| **Phase 3 — Payments** | Cash, GCash, card integration, cashier module | **3 weeks** | ✅ PayMongo GCash integration<br>✅ PayMongo card payments (3DS)<br>✅ Webhook handler with idempotency<br>✅ Cashier POS interface<br>✅ Cash payment + change calculation<br>✅ Unpaid order timeout (15 min)<br>✅ BIR-compliant receipt generation |
+| **Phase 1 — Foundation** | Auth, DB schema, menu CRUD, basic kiosk UI | 2 weeks | ✅ **COMPLETE**<br>✅ Supabase setup with RLS<br>✅ Menu management admin panel<br>✅ Categories & items CRUD<br>✅ Image upload to Supabase Storage<br>✅ Staff authentication (PIN + role)<br>✅ Order number generation (DB sequence) |
+| **Phase 1.5 — Kiosk Frontend** | Complete customer-facing UI with cart & checkout | 1 week | ✅ **COMPLETE** (Feb 2026)<br>✅ Zustand cart store with persistence<br>✅ Welcome page with animated hero<br>✅ Responsive menu grid/list view<br>✅ Category sidebar with flat borders<br>✅ Cart review page with special instructions<br>✅ 4-step checkout flow (order type, promo, phone, payment)<br>✅ Confirmation page with 144px order number<br>✅ Touch-optimized UI (48-60px targets)<br>✅ Premium design (flat borders, generous spacing, bold typography) |
+| **Phase 2 — Backend Integration** | Order submission, kitchen display, real-time | 2 weeks | ⏳ **IN PROGRESS**<br>⏳ Server Action for order submission<br>⏳ Server Action for promo code validation<br>⏳ Item detail sheet with addon selection<br>⏳ Kitchen Display System (KDS)<br>⏳ Realtime order updates<br>⏳ Order age color coding |
+| **Phase 3 — Payments** | Cash, GCash, card integration, cashier module | **3 weeks** | ⏳ **PENDING**<br>⏳ PayMongo GCash integration<br>⏳ PayMongo card payments (3DS)<br>⏳ Webhook handler with idempotency<br>⏳ Cashier POS interface<br>⏳ Cash payment + change calculation<br>⏳ Unpaid order timeout (15 min)<br>⏳ BIR-compliant receipt generation |
 | **Phase 4 — Admin & Polish** | Analytics, reports, promo codes, multi-language | 2 weeks | ✅ Real-time dashboard (revenue, orders)<br>✅ Sales reports (date range, category)<br>✅ Promo code management<br>✅ Multi-language (EN, TL)<br>✅ Allergen/nutrition info<br>✅ Audit log |
 | **Phase 5 — Testing & Deploy** | E2E testing, load testing, security audit, deployment | **2 weeks** | ✅ Playwright E2E tests (kiosk → kitchen flow)<br>✅ Load testing (200 concurrent users)<br>✅ Security audit (OWASP top 10)<br>✅ Vercel production deployment<br>✅ Monitoring + alerts setup |
 

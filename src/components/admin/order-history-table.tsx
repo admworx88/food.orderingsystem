@@ -102,8 +102,8 @@ function getOrderTypeIcon(type: string) {
 export function OrderHistoryTable({ orders }: OrderHistoryTableProps) {
   if (orders.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
-        <ClipboardList className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+      <div className="text-center py-12 text-slate-500">
+        <ClipboardList className="h-12 w-12 mx-auto mb-4 text-slate-300" />
         <p className="text-lg font-medium">No orders found</p>
         <p className="text-sm">Try adjusting your search or filter criteria</p>
       </div>
@@ -114,7 +114,7 @@ export function OrderHistoryTable({ orders }: OrderHistoryTableProps) {
     <div className="rounded-lg border overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow className="bg-gray-50">
+          <TableRow className="bg-slate-50">
             <TableHead>Order #</TableHead>
             <TableHead>Type</TableHead>
             <TableHead>Items</TableHead>
@@ -128,9 +128,9 @@ export function OrderHistoryTable({ orders }: OrderHistoryTableProps) {
         </TableHeader>
         <TableBody>
           {orders.map((order) => (
-            <TableRow key={order.id} className="hover:bg-gray-50">
+            <TableRow key={order.id} className="hover:bg-slate-50">
               <TableCell>
-                <span className="font-mono font-semibold text-blue-600">
+                <span className="font-mono font-semibold text-amber-600">
                   {order.order_number}
                 </span>
               </TableCell>
@@ -149,23 +149,23 @@ export function OrderHistoryTable({ orders }: OrderHistoryTableProps) {
               <TableCell>
                 <div className="text-sm space-y-1">
                   {order.guest_phone && (
-                    <div className="flex items-center gap-1 text-gray-600">
+                    <div className="flex items-center gap-1 text-slate-600">
                       <Phone className="h-3 w-3" />
                       {order.guest_phone}
                     </div>
                   )}
                   {order.table_number && (
-                    <div className="flex items-center gap-1 text-gray-500">
+                    <div className="flex items-center gap-1 text-slate-500">
                       Table {order.table_number}
                     </div>
                   )}
                   {order.room_number && (
-                    <div className="flex items-center gap-1 text-gray-500">
+                    <div className="flex items-center gap-1 text-slate-500">
                       Room {order.room_number}
                     </div>
                   )}
                   {!order.guest_phone && !order.table_number && !order.room_number && (
-                    <span className="text-gray-400">-</span>
+                    <span className="text-slate-400">-</span>
                   )}
                 </div>
               </TableCell>
@@ -185,7 +185,7 @@ export function OrderHistoryTable({ orders }: OrderHistoryTableProps) {
                 </Badge>
               </TableCell>
               <TableCell>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-slate-500">
                   {format(new Date(order.created_at!), 'MMM d, yyyy')}
                   <br />
                   <span className="text-xs">

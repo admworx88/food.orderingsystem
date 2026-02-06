@@ -97,8 +97,8 @@ export function UserTable({ users }: UserTableProps) {
 
   if (users.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
-        <UserCog className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+      <div className="text-center py-12 text-slate-500">
+        <UserCog className="h-12 w-12 mx-auto mb-4 text-slate-300" />
         <p className="text-lg font-medium">No staff users yet</p>
         <p className="text-sm">Create your first staff user to get started</p>
       </div>
@@ -109,7 +109,7 @@ export function UserTable({ users }: UserTableProps) {
     <div className="rounded-lg border overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow className="bg-gray-50">
+          <TableRow className="bg-slate-50">
             <TableHead>User</TableHead>
             <TableHead>Email</TableHead>
             <TableHead>Role</TableHead>
@@ -122,20 +122,20 @@ export function UserTable({ users }: UserTableProps) {
           {users.map((user) => (
             <TableRow
               key={user.id}
-              className={`hover:bg-gray-50 ${!user.is_active ? 'opacity-60' : ''}`}
+              className={`hover:bg-slate-50 ${!user.is_active ? 'opacity-60' : ''}`}
             >
               <TableCell>
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10">
                     <AvatarImage src={user.avatar_url || undefined} alt={user.full_name} />
-                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-violet-500 text-white">
+                    <AvatarFallback className="bg-gradient-to-br from-amber-500 to-amber-600 text-white">
                       {getInitials(user.full_name)}
                     </AvatarFallback>
                   </Avatar>
                   <span className="font-medium">{user.full_name}</span>
                 </div>
               </TableCell>
-              <TableCell className="text-gray-500">{user.email || '-'}</TableCell>
+              <TableCell className="text-slate-500">{user.email || '-'}</TableCell>
               <TableCell>
                 <Badge
                   variant={getRoleBadgeVariant(user.role)}
@@ -152,7 +152,7 @@ export function UserTable({ users }: UserTableProps) {
                     Set
                   </Badge>
                 ) : (
-                  <span className="text-gray-400 text-sm">-</span>
+                  <span className="text-slate-400 text-sm">-</span>
                 )}
               </TableCell>
               <TableCell className="text-center">
@@ -185,7 +185,7 @@ export function UserTable({ users }: UserTableProps) {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={() => handleToggleActive(user)}
-                      className={user.is_active ? 'text-red-600' : 'text-green-600'}
+                      className={user.is_active ? 'text-rose-600' : 'text-green-600'}
                     >
                       {user.is_active ? (
                         <>

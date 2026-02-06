@@ -54,7 +54,7 @@ export function DeleteMenuItemDialog({ item, trigger }: DeleteMenuItemDialogProp
           <Button
             variant="outline"
             size="sm"
-            className="hover:bg-red-50 hover:text-red-700 hover:border-red-300 transition-colors"
+            className="hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 transition-colors"
           >
             <Trash2 className="h-3.5 w-3.5 mr-1.5" />
             Delete
@@ -64,16 +64,16 @@ export function DeleteMenuItemDialog({ item, trigger }: DeleteMenuItemDialogProp
       <DialogContent className="max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2.5 bg-red-100 rounded-full">
-              <AlertTriangle className="h-5 w-5 text-red-600" />
+            <div className="p-2.5 bg-rose-100 rounded-full">
+              <AlertTriangle className="h-5 w-5 text-rose-600" />
             </div>
-            <DialogTitle className="text-xl font-bold text-gray-900">
+            <DialogTitle className="text-xl font-bold text-slate-900">
               Delete Menu Item
             </DialogTitle>
           </div>
-          <DialogDescription className="text-gray-600 pt-2">
+          <DialogDescription className="text-slate-600 pt-2">
             Are you sure you want to delete{' '}
-            <span className="font-semibold text-gray-900">{item.name}</span>? This action will
+            <span className="font-semibold text-slate-900">{item.name}</span>? This action will
             soft-delete the item from your menu.
           </DialogDescription>
         </DialogHeader>
@@ -90,14 +90,14 @@ export function DeleteMenuItemDialog({ item, trigger }: DeleteMenuItemDialogProp
             variant="outline"
             onClick={() => setOpen(false)}
             disabled={isDeleting}
-            className="hover:bg-gray-100"
+            className="hover:bg-slate-100"
           >
             Cancel
           </Button>
           <Button
             onClick={handleDelete}
             disabled={isDeleting}
-            className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 transition-all"
+            className="bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-red-800 text-white shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 transition-all"
           >
             {isDeleting ? (
               <>

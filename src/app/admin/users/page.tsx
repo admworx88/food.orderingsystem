@@ -10,10 +10,10 @@ export default async function UsersPage() {
     return (
       <div className="space-y-8">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
             Staff Users
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-slate-600 mt-1">
             Manage staff accounts and permissions
           </p>
         </div>
@@ -35,10 +35,10 @@ export default async function UsersPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
             Staff Users
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-slate-600 mt-1">
             Manage staff accounts and permissions
           </p>
         </div>
@@ -47,53 +47,53 @@ export default async function UsersPage() {
 
       {/* Stats Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg border p-4">
+        <div className="bg-white rounded-lg border p-4 hover:shadow-md transition-shadow">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
-              <Users className="h-5 w-5 text-blue-600" />
+            <div className="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center">
+              <Users className="h-5 w-5 text-amber-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{users.length}</p>
-              <p className="text-sm text-gray-500">Total Users</p>
+              <p className="text-2xl font-bold admin-data text-slate-900">{users.length}</p>
+              <p className="text-xs text-slate-500 font-medium">Total Users</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg border p-4">
+        <div className="bg-white rounded-lg border p-4 hover:shadow-md transition-shadow">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
-              <span className="text-red-600 font-semibold text-sm">A</span>
+            <div className="h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center">
+              <span className="text-slate-600 font-semibold text-sm">A</span>
             </div>
             <div>
-              <p className="text-2xl font-bold">
+              <p className="text-2xl font-bold admin-data text-slate-900">
                 {users.filter((u) => u.role === 'admin').length}
               </p>
-              <p className="text-sm text-gray-500">Admins</p>
+              <p className="text-xs text-slate-500 font-medium">Admins</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg border p-4">
+        <div className="bg-white rounded-lg border p-4 hover:shadow-md transition-shadow">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
-              <span className="text-green-600 font-semibold text-sm">C</span>
+            <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+              <span className="text-emerald-600 font-semibold text-sm">C</span>
             </div>
             <div>
-              <p className="text-2xl font-bold">
+              <p className="text-2xl font-bold admin-data text-slate-900">
                 {users.filter((u) => u.role === 'cashier').length}
               </p>
-              <p className="text-sm text-gray-500">Cashiers</p>
+              <p className="text-xs text-slate-500 font-medium">Cashiers</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg border p-4">
+        <div className="bg-white rounded-lg border p-4 hover:shadow-md transition-shadow">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-orange-100 flex items-center justify-center">
-              <span className="text-orange-600 font-semibold text-sm">K</span>
+            <div className="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center">
+              <span className="text-amber-600 font-semibold text-sm">K</span>
             </div>
             <div>
-              <p className="text-2xl font-bold">
+              <p className="text-2xl font-bold admin-data text-slate-900">
                 {users.filter((u) => u.role === 'kitchen').length}
               </p>
-              <p className="text-sm text-gray-500">Kitchen</p>
+              <p className="text-xs text-slate-500 font-medium">Kitchen</p>
             </div>
           </div>
         </div>
