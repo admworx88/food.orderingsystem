@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { MenuItemCard } from './menu-item-card';
+import { ItemDetailSheet } from './item-detail-sheet';
 import { cn } from '@/lib/utils';
 import type { Database } from '@/lib/supabase/types';
 
@@ -66,6 +67,13 @@ export function MenuGrid({ categories, menuItems }: MenuGridProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | 'all'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const menuScrollRef = useRef<HTMLDivElement>(null);
+  const [detailItem, setDetailItem] = useState<MenuItem | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  const handleItemClick = (item: MenuItem) => {
+    setDetailItem(item);
+    setDetailOpen(true);
+  };
 
   const filteredItems =
     selectedCategory === 'all'
@@ -257,7 +265,7 @@ export function MenuGrid({ categories, menuItems }: MenuGridProps) {
                     animationFillMode: 'both'
                   }}
                 >
-                  <MenuItemCard item={item} />
+                  <MenuItemCard item={item} onItemClick={() => handleItemClick(item)} />
                 </div>
               ))}
             </div>
@@ -273,7 +281,7 @@ export function MenuGrid({ categories, menuItems }: MenuGridProps) {
                     animationFillMode: 'both'
                   }}
                 >
-                  <MenuItemCard item={item} compact />
+                  <MenuItemCard item={item} compact onItemClick={() => handleItemClick(item)} />
                 </div>
               ))}
             </div>
@@ -283,6 +291,13 @@ export function MenuGrid({ categories, menuItems }: MenuGridProps) {
           <div className="h-32" />
         </div>
       </main>
+
+      {/* Item Detail Sheet */}
+      <ItemDetailSheet
+        item={detailItem}
+        isOpen={detailOpen}
+        onClose={() => setDetailOpen(false)}
+      />
     </div>
   );
 }

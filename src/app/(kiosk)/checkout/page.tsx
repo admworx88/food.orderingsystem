@@ -14,8 +14,10 @@ import {
   Check,
   ChevronRight,
   X,
+  Loader2,
 } from 'lucide-react';
 import { useCartStore, type OrderType, type PaymentMethod } from '@/stores/cart-store';
+import { validatePromoCode, createOrder } from '@/services/order-service';
 import { formatCurrency } from '@/lib/utils/currency';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,6 +46,7 @@ export default function CheckoutPage() {
     roomNumber,
     setRoomNumber,
     promoCode,
+    promoCodeId,
     discountAmount,
     applyPromoCode,
     removePromoCode,
@@ -51,6 +54,7 @@ export default function CheckoutPage() {
     setGuestPhone,
     paymentMethod,
     setPaymentMethod,
+    specialInstructions,
     getSubtotal,
     getTaxAmount,
     getServiceCharge,
@@ -60,9 +64,10 @@ export default function CheckoutPage() {
   const [promoInput, setPromoInput] = useState('');
   const [promoError, setPromoError] = useState('');
   const [isValidatingPromo, setIsValidatingPromo] = useState(false);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [orderError, setOrderError] = useState('');
 
   const subtotal = getSubtotal();
-  const discountedSubtotal = subtotal - discountAmount;
   const tax = getTaxAmount();
   const serviceCharge = getServiceCharge();
   const total = getTotal();
@@ -78,43 +83,74 @@ export default function CheckoutPage() {
     setIsValidatingPromo(true);
     setPromoError('');
 
-    // TODO: Replace with actual server action call
-    // Simulating validation for now
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    const result = await validatePromoCode(promoInput.trim(), subtotal);
 
-    // Mock validation (replace with real server action)
-    if (promoInput.toUpperCase() === 'WELCOME10') {
-      applyPromoCode('WELCOME10', subtotal * 0.1, 'demo-promo-id');
+    if (result.success) {
+      applyPromoCode(result.data.code, result.data.discountAmount, result.data.promoId);
       setPromoInput('');
     } else {
-      setPromoError('Invalid promo code');
+      setPromoError(result.error);
     }
 
     setIsValidatingPromo(false);
   };
 
-  const handlePlaceOrder = () => {
-    // Validation
+  const handlePlaceOrder = async () => {
+    setOrderError('');
+
+    // Client-side validation
     if (!orderType) {
-      alert('Please select an order type');
+      setOrderError('Please select an order type');
       return;
     }
     if (orderType === 'dine_in' && !tableNumber) {
-      alert('Please enter your table number');
+      setOrderError('Please enter your table number');
       return;
     }
     if (orderType === 'room_service' && !roomNumber) {
-      alert('Please enter your room number');
+      setOrderError('Please enter your room number');
       return;
     }
     if (!paymentMethod) {
-      alert('Please select a payment method');
+      setOrderError('Please select a payment method');
       return;
     }
 
-    // TODO: Call server action to create order
-    // For now, navigate to confirmation
-    router.push('/confirmation?orderNumber=1234');
+    setIsPlacingOrder(true);
+
+    const result = await createOrder({
+      items: items.map((item) => ({
+        menuItemId: item.menuItemId,
+        name: item.name,
+        basePrice: item.basePrice,
+        quantity: item.quantity,
+        addons: item.addons,
+        specialInstructions: item.specialInstructions,
+      })),
+      orderType,
+      tableNumber: tableNumber || null,
+      roomNumber: roomNumber || null,
+      paymentMethod,
+      promoCode: promoCode || null,
+      promoCodeId: promoCodeId || null,
+      guestPhone: guestPhone || null,
+      specialInstructions: specialInstructions || null,
+    });
+
+    if (result.success) {
+      const params = new URLSearchParams({
+        orderNumber: result.data.orderNumber,
+        total: result.data.totalAmount.toString(),
+        orderId: result.data.orderId,
+      });
+      if (result.data.expiresAt) {
+        params.set('expiresAt', result.data.expiresAt);
+      }
+      router.push(`/confirmation?${params.toString()}`);
+    } else {
+      setOrderError(result.error);
+      setIsPlacingOrder(false);
+    }
   };
 
   return (
@@ -279,9 +315,6 @@ export default function CheckoutPage() {
                     {promoError}
                   </p>
                 )}
-                <p className="text-xs text-stone-500">
-                  💡 Try: <strong>WELCOME10</strong> for 10% off
-                </p>
               </div>
             )}
           </section>
@@ -422,18 +455,32 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        {/* Place order button */}
-        <div className="p-6 border-t border-stone-200">
+        {/* Place order button + error */}
+        <div className="p-6 border-t border-stone-200 space-y-3">
+          {orderError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
+              <p className="text-sm text-red-700 font-medium">{orderError}</p>
+            </div>
+          )}
           <Button
             onClick={handlePlaceOrder}
-            disabled={!orderType || !paymentMethod}
+            disabled={!orderType || !paymentMethod || isPlacingOrder}
             className="w-full h-14 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-lg font-bold rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all group"
           >
-            <span>Place Order</span>
-            <ChevronRight
-              className="w-6 h-6 ml-2 group-hover:translate-x-1 transition-transform"
-              strokeWidth={2.5}
-            />
+            {isPlacingOrder ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                <span>Placing Order...</span>
+              </>
+            ) : (
+              <>
+                <span>Place Order</span>
+                <ChevronRight
+                  className="w-6 h-6 ml-2 group-hover:translate-x-1 transition-transform"
+                  strokeWidth={2.5}
+                />
+              </>
+            )}
           </Button>
         </div>
       </div>

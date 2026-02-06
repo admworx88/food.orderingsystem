@@ -2,7 +2,9 @@
 
 import { createServerClient } from '@/lib/supabase/server';
 import { z } from 'zod';
+import { revalidatePath } from 'next/cache';
 import type { Database } from '@/lib/supabase/types';
+import { orderInputSchema, promoCodeInputSchema, type OrderInput } from '@/lib/validators/order';
 
 // Type definitions
 type Order = Database['public']['Tables']['orders']['Row'];
@@ -413,4 +415,509 @@ export async function getOrderCountByStatus(): Promise<
   }
 
   return { success: true, data: counts };
+}
+
+// ==========================================
+// Phase 2: Order Submission & Promo Codes
+// ==========================================
+
+/**
+ * Validate a promo code and return discount amount
+ */
+export async function validatePromoCode(
+  code: string,
+  subtotal: number
+): Promise<ServiceResult<{ promoId: string; discountAmount: number; code: string; description: string | null }>> {
+  const parseResult = promoCodeInputSchema.safeParse({ code, subtotal });
+  if (!parseResult.success) {
+    return { success: false, error: parseResult.error.issues[0]?.message || 'Invalid input' };
+  }
+
+  const { code: cleanCode, subtotal: validSubtotal } = parseResult.data;
+  const supabase = await createServerClient();
+
+  const { data: promo, error } = await supabase
+    .from('promo_codes')
+    .select('*')
+    .ilike('code', cleanCode)
+    .eq('is_active', true)
+    .single();
+
+  if (error || !promo) {
+    return { success: false, error: 'Invalid promo code' };
+  }
+
+  // Check date range
+  const now = new Date();
+  if (new Date(promo.valid_from) > now) {
+    return { success: false, error: 'This promo code is not yet active' };
+  }
+  if (new Date(promo.valid_until) < now) {
+    return { success: false, error: 'This promo code has expired' };
+  }
+
+  // Check usage limit
+  if (promo.max_usage_count !== null && (promo.current_usage_count ?? 0) >= promo.max_usage_count) {
+    return { success: false, error: 'This promo code has reached its usage limit' };
+  }
+
+  // Check minimum order amount
+  if (promo.min_order_amount !== null && validSubtotal < promo.min_order_amount) {
+    return {
+      success: false,
+      error: `Minimum order of ₱${promo.min_order_amount.toFixed(2)} required for this promo`,
+    };
+  }
+
+  // Calculate discount
+  let discountAmount: number;
+  if (promo.discount_type === 'percentage') {
+    discountAmount = validSubtotal * (promo.discount_value / 100);
+  } else {
+    discountAmount = Math.min(promo.discount_value, validSubtotal);
+  }
+
+  return {
+    success: true,
+    data: {
+      promoId: promo.id,
+      discountAmount: Math.round(discountAmount * 100) / 100,
+      code: promo.code,
+      description: promo.description,
+    },
+  };
+}
+
+/**
+ * Create a new order from cart data.
+ * Server-side price recalculation ensures integrity.
+ */
+export async function createOrder(
+  input: OrderInput
+): Promise<ServiceResult<{ orderId: string; orderNumber: string; totalAmount: number; expiresAt: string | null }>> {
+  // 1. Validate input
+  const parseResult = orderInputSchema.safeParse(input);
+  if (!parseResult.success) {
+    const firstError = parseResult.error.issues[0];
+    return { success: false, error: firstError?.message || 'Invalid order data' };
+  }
+  const validated = parseResult.data;
+
+  const supabase = await createServerClient();
+
+  try {
+    // 2. Re-fetch menu item prices from DB (NEVER trust client prices)
+    const menuItemIds = validated.items.map((item) => item.menuItemId);
+    const { data: dbMenuItems, error: menuError } = await supabase
+      .from('menu_items')
+      .select('id, base_price, name, is_available, deleted_at')
+      .in('id', menuItemIds);
+
+    if (menuError) {
+      console.error('createOrder: Failed to fetch menu items:', menuError);
+      return { success: false, error: 'Failed to verify menu items' };
+    }
+
+    if (!dbMenuItems || dbMenuItems.length === 0) {
+      return { success: false, error: 'No valid menu items found' };
+    }
+
+    // Build a map for quick lookup
+    const menuItemMap = new Map(dbMenuItems.map((item) => [item.id, item]));
+
+    // 3. Verify all items exist and are available
+    for (const cartItem of validated.items) {
+      const dbItem = menuItemMap.get(cartItem.menuItemId);
+      if (!dbItem) {
+        return { success: false, error: `Menu item "${cartItem.name}" not found` };
+      }
+      if (!dbItem.is_available || dbItem.deleted_at) {
+        return { success: false, error: `"${dbItem.name}" is no longer available` };
+      }
+    }
+
+    // 4. Fetch addon prices from DB if any addons are selected
+    const allAddonIds = validated.items.flatMap((item) => item.addons.map((a) => a.id));
+    const addonPriceMap = new Map<string, { price: number; name: string }>();
+
+    if (allAddonIds.length > 0) {
+      const { data: dbAddons, error: addonError } = await supabase
+        .from('addon_options')
+        .select('id, additional_price, name, is_available')
+        .in('id', allAddonIds);
+
+      if (addonError) {
+        console.error('createOrder: Failed to fetch addon options:', addonError);
+        return { success: false, error: 'Failed to verify addon options' };
+      }
+
+      for (const addon of dbAddons || []) {
+        if (!addon.is_available) {
+          return { success: false, error: `Addon "${addon.name}" is no longer available` };
+        }
+        addonPriceMap.set(addon.id, { price: addon.additional_price, name: addon.name });
+      }
+    }
+
+    // 5. Recalculate subtotal server-side
+    let calculatedSubtotal = 0;
+    const orderItemsData: Array<{
+      menuItemId: string;
+      itemName: string;
+      quantity: number;
+      unitPrice: number;
+      totalPrice: number;
+      specialInstructions: string | null;
+      addons: Array<{ addonOptionId: string; addonName: string; additionalPrice: number }>;
+    }> = [];
+
+    for (const cartItem of validated.items) {
+      const dbItem = menuItemMap.get(cartItem.menuItemId)!;
+      const basePrice = Number(dbItem.base_price);
+
+      let addonsTotal = 0;
+      const itemAddons: Array<{ addonOptionId: string; addonName: string; additionalPrice: number }> = [];
+
+      for (const addon of cartItem.addons) {
+        const dbAddon = addonPriceMap.get(addon.id);
+        if (dbAddon) {
+          addonsTotal += dbAddon.price;
+          itemAddons.push({
+            addonOptionId: addon.id,
+            addonName: dbAddon.name,
+            additionalPrice: dbAddon.price,
+          });
+        }
+      }
+
+      const unitPrice = basePrice + addonsTotal;
+      const totalPrice = unitPrice * cartItem.quantity;
+      calculatedSubtotal += totalPrice;
+
+      orderItemsData.push({
+        menuItemId: cartItem.menuItemId,
+        itemName: dbItem.name,
+        quantity: cartItem.quantity,
+        unitPrice,
+        totalPrice,
+        specialInstructions: cartItem.specialInstructions || null,
+        addons: itemAddons,
+      });
+    }
+
+    // 6. Re-validate promo code if provided
+    let discountAmount = 0;
+    let promoCodeId: string | null = null;
+
+    if (validated.promoCodeId && validated.promoCode) {
+      const promoResult = await validatePromoCode(validated.promoCode, calculatedSubtotal);
+      if (promoResult.success) {
+        discountAmount = promoResult.data.discountAmount;
+        promoCodeId = promoResult.data.promoId;
+      }
+      // If promo validation fails, we proceed without discount (don't block the order)
+    }
+
+    // 7. Calculate tax and service charge on discounted subtotal
+    const discountedSubtotal = calculatedSubtotal - discountAmount;
+    const taxAmount = Math.round(discountedSubtotal * 0.12 * 100) / 100; // 12% VAT
+    const serviceCharge = Math.round(discountedSubtotal * 0.10 * 100) / 100; // 10%
+    const totalAmount = Math.round((discountedSubtotal + taxAmount + serviceCharge) * 100) / 100;
+
+    // 8. Set expiration for cash orders (15 minutes)
+    const isCash = validated.paymentMethod === 'cash';
+    const expiresAt = isCash ? new Date(Date.now() + 15 * 60 * 1000).toISOString() : null;
+    const paidAt = !isCash ? new Date().toISOString() : null; // Digital payments marked as paid immediately (placeholder)
+
+    // 9. Insert the order (order_number auto-generated by DB sequence)
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .insert({
+        order_type: validated.orderType,
+        table_number: validated.tableNumber || null,
+        room_number: validated.roomNumber || null,
+        status: isCash ? 'pending_payment' : 'paid',
+        payment_status: isCash ? 'unpaid' : 'paid',
+        payment_method: validated.paymentMethod,
+        subtotal: calculatedSubtotal,
+        discount_amount: discountAmount,
+        tax_amount: taxAmount,
+        service_charge: serviceCharge,
+        total_amount: totalAmount,
+        promo_code_id: promoCodeId,
+        guest_phone: validated.guestPhone || null,
+        special_instructions: validated.specialInstructions || null,
+        expires_at: expiresAt,
+        paid_at: paidAt,
+        estimated_ready_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      })
+      .select('id, order_number, total_amount, expires_at')
+      .single();
+
+    if (orderError || !order) {
+      console.error('createOrder: Failed to insert order:', orderError);
+      return { success: false, error: 'Failed to create order. Please try again.' };
+    }
+
+    // 10. Insert order items
+    for (const item of orderItemsData) {
+      const { data: orderItem, error: itemError } = await supabase
+        .from('order_items')
+        .insert({
+          order_id: order.id,
+          menu_item_id: item.menuItemId,
+          item_name: item.itemName,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+          total_price: item.totalPrice,
+          special_instructions: item.specialInstructions,
+        })
+        .select('id')
+        .single();
+
+      if (itemError || !orderItem) {
+        console.error('createOrder: Failed to insert order item:', itemError);
+        continue;
+      }
+
+      // 11. Insert order item addons
+      if (item.addons.length > 0) {
+        const addonInserts = item.addons.map((addon) => ({
+          order_item_id: orderItem.id,
+          addon_option_id: addon.addonOptionId,
+          addon_name: addon.addonName,
+          additional_price: addon.additionalPrice,
+        }));
+
+        const { error: addonError } = await supabase
+          .from('order_item_addons')
+          .insert(addonInserts);
+
+        if (addonError) {
+          console.error('createOrder: Failed to insert addons:', addonError);
+        }
+      }
+    }
+
+    // 12. Log order event for analytics
+    await supabase.from('order_events').insert({
+      order_id: order.id,
+      event_type: 'order_submitted',
+      metadata: {
+        item_count: validated.items.length,
+        total_amount: totalAmount,
+        payment_method: validated.paymentMethod,
+        order_type: validated.orderType,
+      },
+    });
+
+    // 13. Increment promo code usage count
+    if (promoCodeId) {
+      const { data: promoData } = await supabase
+        .from('promo_codes')
+        .select('current_usage_count')
+        .eq('id', promoCodeId)
+        .single();
+
+      await supabase
+        .from('promo_codes')
+        .update({ current_usage_count: (promoData?.current_usage_count ?? 0) + 1 })
+        .eq('id', promoCodeId);
+    }
+
+    revalidatePath('/admin/order-history');
+
+    return {
+      success: true,
+      data: {
+        orderId: order.id,
+        orderNumber: order.order_number,
+        totalAmount: order.total_amount,
+        expiresAt: order.expires_at,
+      },
+    };
+  } catch (error) {
+    console.error('createOrder failed:', error);
+    return { success: false, error: 'An unexpected error occurred. Please try again.' };
+  }
+}
+
+// ==========================================
+// Phase 2: Kitchen Display System
+// ==========================================
+
+/**
+ * Get active orders for the Kitchen Display System
+ */
+export async function getActiveKitchenOrders(): Promise<ServiceResult<OrderWithItems[]>> {
+  const supabase = await createServerClient();
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select(`
+      *,
+      order_items(
+        *,
+        order_item_addons(*)
+      )
+    `)
+    .in('status', ['paid', 'preparing', 'ready'])
+    .is('deleted_at', null)
+    .order('paid_at', { ascending: true });
+
+  if (error) {
+    console.error('getActiveKitchenOrders failed:', error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, data: (data || []) as OrderWithItems[] };
+}
+
+/**
+ * Update order status (Kitchen workflow: paid → preparing → ready → served)
+ */
+export async function updateOrderStatus(
+  orderId: string,
+  newStatus: Database['public']['Enums']['order_status'],
+  currentVersion?: number
+): Promise<ServiceResult<{ status: string; version: number }>> {
+  const idValidation = validateId(orderId);
+  if (!idValidation.valid) {
+    return { success: false, error: idValidation.error };
+  }
+
+  // Validate status transitions
+  const validTransitions: Record<string, string[]> = {
+    paid: ['preparing'],
+    preparing: ['ready'],
+    ready: ['served'],
+    pending_payment: ['paid', 'cancelled'],
+  };
+
+  const supabase = await createServerClient();
+
+  // Fetch current order
+  const { data: currentOrder, error: fetchError } = await supabase
+    .from('orders')
+    .select('status, version')
+    .eq('id', orderId)
+    .is('deleted_at', null)
+    .single();
+
+  if (fetchError || !currentOrder) {
+    return { success: false, error: 'Order not found' };
+  }
+
+  const allowedNext = validTransitions[currentOrder.status];
+  if (!allowedNext || !allowedNext.includes(newStatus)) {
+    return {
+      success: false,
+      error: `Cannot transition from "${currentOrder.status}" to "${newStatus}"`,
+    };
+  }
+
+  // Optimistic locking: check version matches
+  if (currentVersion !== undefined && currentOrder.version !== currentVersion) {
+    return { success: false, error: 'Order was modified by another user. Please refresh.' };
+  }
+
+  // Build update payload
+  const updateData: Record<string, unknown> = {
+    status: newStatus,
+    version: (currentOrder.version ?? 0) + 1,
+  };
+
+  if (newStatus === 'paid') {
+    updateData.paid_at = new Date().toISOString();
+    updateData.payment_status = 'paid';
+  }
+  if (newStatus === 'ready') {
+    updateData.ready_at = new Date().toISOString();
+  }
+  if (newStatus === 'served') {
+    updateData.served_at = new Date().toISOString();
+  }
+  if (newStatus === 'cancelled') {
+    updateData.cancelled_at = new Date().toISOString();
+  }
+
+  let query = supabase
+    .from('orders')
+    .update(updateData)
+    .eq('id', orderId);
+
+  // Apply version check if provided
+  if (currentVersion !== undefined) {
+    query = query.eq('version', currentVersion);
+  }
+
+  const { data, error: updateError } = await query
+    .select('status, version')
+    .single();
+
+  if (updateError || !data) {
+    console.error('updateOrderStatus failed:', updateError);
+    return { success: false, error: 'Failed to update order status' };
+  }
+
+  // Log status change event
+  await supabase.from('order_events').insert({
+    order_id: orderId,
+    event_type: `status_${newStatus}`,
+    metadata: {
+      previous_status: currentOrder.status,
+      new_status: newStatus,
+    },
+  });
+
+  revalidatePath('/admin/order-history');
+
+  return {
+    success: true,
+    data: { status: data.status, version: data.version ?? 0 },
+  };
+}
+
+/**
+ * Get menu item addon groups and options for the item detail sheet
+ */
+export async function getMenuItemAddons(menuItemId: string): Promise<
+  ServiceResult<Array<{
+    id: string;
+    name: string;
+    is_required: boolean | null;
+    min_selections: number | null;
+    max_selections: number | null;
+    display_order: number | null;
+    addon_options: Array<{
+      id: string;
+      name: string;
+      additional_price: number;
+      is_available: boolean | null;
+      display_order: number | null;
+    }>;
+  }>>
+> {
+  const idValidation = validateId(menuItemId);
+  if (!idValidation.valid) {
+    return { success: false, error: idValidation.error };
+  }
+
+  const supabase = await createServerClient();
+
+  const { data, error } = await supabase
+    .from('addon_groups')
+    .select(`
+      id, name, is_required, min_selections, max_selections, display_order,
+      addon_options(id, name, additional_price, is_available, display_order)
+    `)
+    .eq('menu_item_id', menuItemId)
+    .order('display_order');
+
+  if (error) {
+    console.error('getMenuItemAddons failed:', error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, data: data || [] };
 }
