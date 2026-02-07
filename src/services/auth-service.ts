@@ -128,13 +128,13 @@ export async function signInWithEmail(
     let defaultRedirect = '/menu';
     switch (profile.role) {
       case 'admin':
-        defaultRedirect = '/admin/dashboard';
+        defaultRedirect = '/admin';
         break;
       case 'cashier':
         defaultRedirect = '/cashier';
         break;
       case 'kitchen':
-        defaultRedirect = '/kitchen';
+        defaultRedirect = '/orders';
         break;
     }
 
