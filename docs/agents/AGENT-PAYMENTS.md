@@ -1,7 +1,7 @@
 # Agent: Payments Integration
 # Scope: PayMongo integration, payment processing, webhooks
 
-> **Version:** 2.1 | **Last Updated:** February 2026 | **Status:** Aligned with PRD v1.2
+> **Version:** 2.2 | **Last Updated:** February 7, 2026 | **Status:** Aligned with PRD v1.3
 
 ---
 
@@ -710,6 +710,10 @@ curl -X POST https://your-ngrok-url.ngrok.io/api/webhooks/paymongo \
 
 ## Version History
 
+### Version 2.2 (February 7, 2026)
+**Changes**:
+- Updated all version references to PRD v1.3 and Architecture v2.3
+
 ### Version 2.1 (February 2026)
 **Changes**:
 - Added Quick Reference with API endpoints
@@ -733,7 +737,7 @@ curl -X POST https://your-ngrok-url.ngrok.io/api/webhooks/paymongo \
 
 ## Related Documents
 
-- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.1
-- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.0
-- **[AGENT-DATABASE.md](./AGENT-DATABASE.md)** — Database schema v2.0
-- **[AGENT-CASHIER.md](./AGENT-CASHIER.md)** — Cashier POS module
+- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.3
+- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.3
+- **[AGENT-DATABASE.md](./AGENT-DATABASE.md)** — Database schema v2.2
+- **[AGENT-CASHIER.md](./AGENT-CASHIER.md)** — Cashier POS module v2.2

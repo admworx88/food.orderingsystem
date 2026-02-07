@@ -1,7 +1,7 @@
 # Agent: Kiosk Module
 # Scope: /(kiosk) route group — Guest-facing ordering interface
 
-> **Version:** 2.2 | **Last Updated:** February 2026 | **Status:** ✅ Frontend Complete
+> **Version:** 2.2 | **Last Updated:** February 7, 2026 | **Status:** ✅ Frontend Complete, Aligned with PRD v1.3
 
 ---
 
@@ -591,6 +591,10 @@ trackOrderEvent('payment_started', { method: paymentMethod });
 
 ## Version History
 
+### Version 2.2 (February 7, 2026)
+**Changes**:
+- Updated all version references to PRD v1.3 and Architecture v2.3
+
 ### Version 2.1 (February 2026)
 **Changes**:
 - Added Quick Reference section with user flow diagram
@@ -619,6 +623,6 @@ trackOrderEvent('payment_started', { method: paymentMethod });
 
 ## Related Documents
 
-- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.1
-- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.0
-- **[AGENT-DATABASE.md](./AGENT-DATABASE.md)** — Database schema v2.0
+- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.3
+- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.3
+- **[AGENT-DATABASE.md](./AGENT-DATABASE.md)** — Database schema v2.2
