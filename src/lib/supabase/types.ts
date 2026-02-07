@@ -762,6 +762,7 @@ export type Database = {
     }
     Functions: {
       generate_order_number: { Args: never; Returns: string }
+      increment_promo_usage: { Args: { promo_id: string }; Returns: undefined }
       user_role: {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]

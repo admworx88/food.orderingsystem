@@ -659,43 +659,61 @@ export async function createOrder(
       return { success: false, error: 'Failed to create order. Please try again.' };
     }
 
-    // 10. Insert order items
-    for (const item of orderItemsData) {
-      const { data: orderItem, error: itemError } = await supabase
-        .from('order_items')
-        .insert({
-          order_id: order.id,
-          menu_item_id: item.menuItemId,
-          item_name: item.itemName,
-          quantity: item.quantity,
-          unit_price: item.unitPrice,
-          total_price: item.totalPrice,
-          special_instructions: item.specialInstructions,
-        })
-        .select('id')
-        .single();
+    // 10. Insert order items (batch insert for atomicity)
+    const orderItemInserts = orderItemsData.map((item) => ({
+      order_id: order.id,
+      menu_item_id: item.menuItemId,
+      item_name: item.itemName,
+      quantity: item.quantity,
+      unit_price: item.unitPrice,
+      total_price: item.totalPrice,
+      special_instructions: item.specialInstructions,
+    }));
 
-      if (itemError || !orderItem) {
-        console.error('createOrder: Failed to insert order item:', itemError);
-        continue;
-      }
+    const { data: insertedItems, error: itemsError } = await supabase
+      .from('order_items')
+      .insert(orderItemInserts)
+      .select('id');
 
-      // 11. Insert order item addons
-      if (item.addons.length > 0) {
-        const addonInserts = item.addons.map((addon) => ({
-          order_item_id: orderItem.id,
+    if (itemsError || !insertedItems || insertedItems.length !== orderItemsData.length) {
+      console.error('createOrder: Failed to insert order items:', itemsError);
+      // Rollback: delete the order since items failed
+      await supabase.from('orders').delete().eq('id', order.id);
+      return { success: false, error: 'Failed to create order items. Please try again.' };
+    }
+
+    // 11. Insert order item addons (batch insert)
+    const allAddonInserts: Array<{
+      order_item_id: string;
+      addon_option_id: string;
+      addon_name: string;
+      additional_price: number;
+    }> = [];
+
+    for (let i = 0; i < orderItemsData.length; i++) {
+      const item = orderItemsData[i];
+      const orderItemId = insertedItems[i].id;
+
+      for (const addon of item.addons) {
+        allAddonInserts.push({
+          order_item_id: orderItemId,
           addon_option_id: addon.addonOptionId,
           addon_name: addon.addonName,
           additional_price: addon.additionalPrice,
-        }));
+        });
+      }
+    }
 
-        const { error: addonError } = await supabase
-          .from('order_item_addons')
-          .insert(addonInserts);
+    if (allAddonInserts.length > 0) {
+      const { error: addonError } = await supabase
+        .from('order_item_addons')
+        .insert(allAddonInserts);
 
-        if (addonError) {
-          console.error('createOrder: Failed to insert addons:', addonError);
-        }
+      if (addonError) {
+        console.error('createOrder: Failed to insert addons:', addonError);
+        // Rollback: delete the order (cascade will delete items)
+        await supabase.from('orders').delete().eq('id', order.id);
+        return { success: false, error: 'Failed to create order addons. Please try again.' };
       }
     }
 
@@ -711,18 +729,17 @@ export async function createOrder(
       },
     });
 
-    // 13. Increment promo code usage count
+    // 13. Increment promo code usage count (atomic operation via RPC)
+    // Uses database function to prevent race conditions with concurrent orders
     if (promoCodeId) {
-      const { data: promoData } = await supabase
-        .from('promo_codes')
-        .select('current_usage_count')
-        .eq('id', promoCodeId)
-        .single();
+      const { error: incrementError } = await supabase.rpc('increment_promo_usage', {
+        promo_id: promoCodeId,
+      });
 
-      await supabase
-        .from('promo_codes')
-        .update({ current_usage_count: (promoData?.current_usage_count ?? 0) + 1 })
-        .eq('id', promoCodeId);
+      if (incrementError) {
+        console.error('createOrder: Failed to increment promo usage:', incrementError);
+        // Non-critical error - order is already created, just log it
+      }
     }
 
     revalidatePath('/admin/order-history');
