@@ -1,7 +1,7 @@
 # Agent: Admin Module
-# Scope: /(admin) route group — Restaurant management dashboard
+# Scope: /admin regular folder — Restaurant management dashboard
 
-> **Version:** 2.1 | **Last Updated:** February 2026 | **Status:** Aligned with PRD v1.2
+> **Version:** 2.2 | **Last Updated:** February 7, 2026 | **Status:** Aligned with PRD v1.3
 
 ---
 
@@ -48,7 +48,7 @@ restaurant manager can control menus, staff, operations, and promotions without 
 ## Owned Files
 
 ```
-src/app/(admin)/
+src/app/admin/                    # Regular folder (NOT route group) — URL: /admin/*
 ├── layout.tsx                  # Sidebar nav + top bar with user info
 ├── page.tsx                    # Dashboard: today's KPIs at a glance
 ├── menu-management/page.tsx    # CRUD for items, categories, addons
@@ -601,7 +601,7 @@ async function assignMenuItemToStations(
 
 | Issue | Cause | Solution |
 |-------|-------|----------|
-| Image upload fails | File too large or wrong type | Max 2MB, JPG/PNG/WebP only |
+| Image upload fails | File too large or wrong type | Max 5MB, JPG/PNG/WebP only (auto-resized to 800px) |
 | Category delete blocked | Items still linked | Reassign items first |
 | Promo code not working | Expired or usage limit | Check valid_from, valid_until, usage_limit |
 | Analytics not updating | Cache stale | Refresh or disable caching |
@@ -631,6 +631,13 @@ Ensure admin user has:
 
 ## Version History
 
+### Version 2.2 (February 7, 2026)
+**Changes**:
+- Fixed admin scope: `/admin` regular folder (NOT `/(admin)` route group) — aligned with CLAUDE.md and ARCHITECTURE.md
+- Fixed image upload max size: 5MB (aligned with PRD)
+- Updated all version references to PRD v1.3 and Architecture v2.3
+- Updated migration count to 25
+
 ### Version 2.1 (February 2026)
 **Changes**:
 - Added Quick Reference with admin pages
@@ -655,6 +662,6 @@ Ensure admin user has:
 
 ## Related Documents
 
-- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.1
-- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.0
-- **[AGENT-DATABASE.md](./AGENT-DATABASE.md)** — Database schema v2.0
+- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.3
+- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.3
+- **[AGENT-DATABASE.md](./AGENT-DATABASE.md)** — Database schema v2.2

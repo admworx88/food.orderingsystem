@@ -13,6 +13,7 @@ type MenuItem = Database['public']['Tables']['menu_items']['Row'];
 interface MenuItemCardProps {
   item: MenuItem;
   onAddToCart?: (item: MenuItem) => void;
+  onItemClick?: () => void;
   compact?: boolean;
 }
 
@@ -38,7 +39,7 @@ function PlaceholderIcon({ size = 'md' }: { size?: 'sm' | 'md' }) {
   );
 }
 
-export function MenuItemCard({ item, onAddToCart, compact = false }: MenuItemCardProps) {
+export function MenuItemCard({ item, onAddToCart, onItemClick, compact = false }: MenuItemCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const addItem = useCartStore((state) => state.addItem);
@@ -70,7 +71,7 @@ export function MenuItemCard({ item, onAddToCart, compact = false }: MenuItemCar
   // Compact/List View
   if (compact) {
     return (
-      <div className="kiosk-card flex items-center gap-5 p-5 hover:border-stone-300">
+      <div onClick={onItemClick} className="kiosk-card flex items-center gap-5 p-5 hover:border-stone-300 cursor-pointer">
         {/* Image */}
         <div className="relative w-24 h-24 rounded-xl bg-stone-100 flex-shrink-0 overflow-hidden">
           {item.image_url && !imageError ? (
@@ -118,7 +119,7 @@ export function MenuItemCard({ item, onAddToCart, compact = false }: MenuItemCar
 
   // Grid View - Premium Card
   return (
-    <div className="kiosk-card overflow-hidden h-full flex flex-col group hover:shadow-lg transition-shadow">
+    <div onClick={onItemClick} className="kiosk-card overflow-hidden h-full flex flex-col group hover:shadow-lg transition-shadow cursor-pointer">
       {/* Image Container */}
       <div className="relative aspect-square bg-stone-100 overflow-hidden">
         {item.image_url && !imageError ? (

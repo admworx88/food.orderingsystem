@@ -475,3 +475,387 @@
     @apply text-xs font-medium text-slate-500 uppercase tracking-wider;
   }
 }
+
+/* ============================================
+   KDS MODULE - Mission Control Theme
+   ============================================ */
+
+/* KDS color palette */
+:root {
+  /* Base surfaces */
+  --kds-void: #050506;
+  --kds-base: #0a0a0c;
+  --kds-surface: #111114;
+  --kds-elevated: #18181c;
+  --kds-border: rgba(255, 255, 255, 0.06);
+  --kds-border-bright: rgba(255, 255, 255, 0.12);
+
+  /* Text hierarchy */
+  --kds-text: #f4f4f5;
+  --kds-text-muted: #71717a;
+  --kds-text-dim: #52525b;
+
+  /* Status colors - high saturation for visibility */
+  --kds-new: #22d3ee;
+  --kds-new-glow: rgba(34, 211, 238, 0.4);
+  --kds-preparing: #fbbf24;
+  --kds-preparing-glow: rgba(251, 191, 36, 0.4);
+  --kds-ready: #4ade80;
+  --kds-ready-glow: rgba(74, 222, 128, 0.4);
+  --kds-critical: #f43f5e;
+  --kds-critical-glow: rgba(244, 63, 94, 0.5);
+}
+
+/* KDS Animations */
+@keyframes kds-glow-pulse {
+  0%, 100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 0.7;
+    filter: brightness(1.2);
+  }
+}
+
+@keyframes kds-critical-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 var(--kds-critical-glow),
+                inset 0 0 20px rgba(244, 63, 94, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 30px 5px var(--kds-critical-glow),
+                inset 0 0 30px rgba(244, 63, 94, 0.2);
+  }
+}
+
+@keyframes kds-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes kds-status-flash {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.05);
+    filter: brightness(1.3);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes kds-scan {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(100vh);
+  }
+}
+
+@keyframes kds-number-glow {
+  0%, 100% {
+    text-shadow: 0 0 20px currentColor;
+  }
+  50% {
+    text-shadow: 0 0 40px currentColor, 0 0 60px currentColor;
+  }
+}
+
+/* KDS utility classes */
+@layer utilities {
+  /* Card styles */
+  .kds-card {
+    background: linear-gradient(
+      145deg,
+      rgba(24, 24, 28, 0.9) 0%,
+      rgba(17, 17, 20, 0.95) 100%
+    );
+    border: 1px solid var(--kds-border);
+    border-radius: 12px;
+    backdrop-filter: blur(12px);
+    animation: kds-card-enter 0.4s ease-out forwards;
+  }
+
+  .kds-card-new {
+    border-color: rgba(34, 211, 238, 0.3);
+    box-shadow: 0 0 20px -5px var(--kds-new-glow),
+                inset 0 1px 0 rgba(34, 211, 238, 0.1);
+  }
+
+  .kds-card-preparing {
+    border-color: rgba(251, 191, 36, 0.3);
+    box-shadow: 0 0 20px -5px var(--kds-preparing-glow),
+                inset 0 1px 0 rgba(251, 191, 36, 0.1);
+  }
+
+  .kds-card-ready {
+    border-color: rgba(74, 222, 128, 0.3);
+    box-shadow: 0 0 20px -5px var(--kds-ready-glow),
+                inset 0 1px 0 rgba(74, 222, 128, 0.1);
+  }
+
+  .kds-card-critical {
+    animation: kds-critical-pulse 1.5s ease-in-out infinite;
+    border-color: rgba(244, 63, 94, 0.5);
+  }
+
+  /* Status badges with glow */
+  .kds-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .kds-badge-new {
+    background: rgba(34, 211, 238, 0.15);
+    color: var(--kds-new);
+    box-shadow: 0 0 12px -2px var(--kds-new-glow);
+  }
+
+  .kds-badge-preparing {
+    background: rgba(251, 191, 36, 0.15);
+    color: var(--kds-preparing);
+    box-shadow: 0 0 12px -2px var(--kds-preparing-glow);
+  }
+
+  .kds-badge-ready {
+    background: rgba(74, 222, 128, 0.15);
+    color: var(--kds-ready);
+    box-shadow: 0 0 12px -2px var(--kds-ready-glow);
+  }
+
+  /* Order number styling */
+  .kds-order-number {
+    font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+    font-weight: 800;
+    font-size: 2rem;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .kds-order-number-new {
+    color: var(--kds-new);
+    text-shadow: 0 0 20px var(--kds-new-glow);
+  }
+
+  .kds-order-number-preparing {
+    color: var(--kds-preparing);
+    text-shadow: 0 0 20px var(--kds-preparing-glow);
+  }
+
+  .kds-order-number-ready {
+    color: var(--kds-ready);
+    text-shadow: 0 0 20px var(--kds-ready-glow);
+  }
+
+  .kds-order-number-critical {
+    color: var(--kds-critical);
+    animation: kds-number-glow 1.5s ease-in-out infinite;
+  }
+
+  /* Timer styling */
+  .kds-timer {
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    font-weight: 600;
+    font-size: 1.125rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+  }
+
+  .kds-timer-ok {
+    color: #4ade80;
+  }
+
+  .kds-timer-warning {
+    color: #fbbf24;
+  }
+
+  .kds-timer-danger {
+    color: #fb923c;
+  }
+
+  .kds-timer-critical {
+    color: var(--kds-critical);
+    animation: kds-glow-pulse 1s ease-in-out infinite;
+  }
+
+  /* Bump button styles */
+  .kds-bump-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 16px;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 0 0 11px 11px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .kds-bump-btn:active {
+    transform: scale(0.98);
+  }
+
+  .kds-bump-btn-new {
+    background: linear-gradient(135deg, #22d3ee 0%, #06b6d4 100%);
+    color: #042f2e;
+  }
+
+  .kds-bump-btn-new:hover {
+    background: linear-gradient(135deg, #67e8f9 0%, #22d3ee 100%);
+    box-shadow: 0 4px 20px -4px var(--kds-new-glow);
+  }
+
+  .kds-bump-btn-preparing {
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+    color: #422006;
+  }
+
+  .kds-bump-btn-preparing:hover {
+    background: linear-gradient(135deg, #fcd34d 0%, #fbbf24 100%);
+    box-shadow: 0 4px 20px -4px var(--kds-preparing-glow);
+  }
+
+  .kds-bump-btn-ready {
+    background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+    color: #052e16;
+  }
+
+  .kds-bump-btn-ready:hover {
+    background: linear-gradient(135deg, #86efac 0%, #4ade80 100%);
+    box-shadow: 0 4px 20px -4px var(--kds-ready-glow);
+  }
+
+  /* Filter buttons */
+  .kds-filter-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    font-weight: 600;
+    font-size: 13px;
+    border-radius: 8px;
+    border: 1px solid var(--kds-border);
+    background: var(--kds-surface);
+    color: var(--kds-text-muted);
+    transition: all 0.15s ease;
+    cursor: pointer;
+  }
+
+  .kds-filter-btn:hover {
+    border-color: var(--kds-border-bright);
+    color: var(--kds-text);
+    background: var(--kds-elevated);
+  }
+
+  .kds-filter-btn-active {
+    color: var(--kds-text);
+    border-color: var(--kds-border-bright);
+    background: var(--kds-elevated);
+  }
+
+  .kds-filter-btn-new.kds-filter-btn-active {
+    border-color: rgba(34, 211, 238, 0.4);
+    box-shadow: 0 0 15px -5px var(--kds-new-glow);
+  }
+
+  .kds-filter-btn-preparing.kds-filter-btn-active {
+    border-color: rgba(251, 191, 36, 0.4);
+    box-shadow: 0 0 15px -5px var(--kds-preparing-glow);
+  }
+
+  .kds-filter-btn-ready.kds-filter-btn-active {
+    border-color: rgba(74, 222, 128, 0.4);
+    box-shadow: 0 0 15px -5px var(--kds-ready-glow);
+  }
+
+  /* Count badges in filters */
+  .kds-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  /* Grid pattern background */
+  .kds-grid-bg {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* Scan line effect */
+  .kds-scanline::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      rgba(34, 211, 238, 0.03),
+      transparent
+    );
+    animation: kds-scan 8s linear infinite;
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  /* Header status indicators */
+  .kds-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    animation: kds-glow-pulse 2s ease-in-out infinite;
+  }
+
+  .kds-status-dot-new {
+    background: var(--kds-new);
+    box-shadow: 0 0 8px var(--kds-new-glow);
+  }
+
+  .kds-status-dot-preparing {
+    background: var(--kds-preparing);
+    box-shadow: 0 0 8px var(--kds-preparing-glow);
+    animation-delay: 0.3s;
+  }
+
+  .kds-status-dot-ready {
+    background: var(--kds-ready);
+    box-shadow: 0 0 8px var(--kds-ready-glow);
+    animation-delay: 0.6s;
+  }
+}

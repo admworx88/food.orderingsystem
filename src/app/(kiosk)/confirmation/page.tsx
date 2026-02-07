@@ -12,17 +12,21 @@ function ConfirmationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const clearCart = useCartStore((state) => state.clearCart);
-  const total = useCartStore((state) => state.getTotal());
-  const paymentMethod = useCartStore((state) => state.paymentMethod);
 
+  // Read paymentMethod from URL params (reliable) — survives clearCart()
+  const paymentMethod = searchParams.get('paymentMethod') || 'cash';
   const orderNumber = searchParams.get('orderNumber') || '0000';
-  const [autoRedirect, setAutoRedirect] = useState(15);
+  const totalAmount = searchParams.get('total') ? parseFloat(searchParams.get('total')!) : 0;
+  const expiresAt = searchParams.get('expiresAt');
+  const [autoRedirect, setAutoRedirect] = useState(30);
+  const [expiryCountdown, setExpiryCountdown] = useState<number | null>(null);
 
   useEffect(() => {
     // Clear cart on successful order
-    // In production, only clear after payment confirmation
     clearCart();
+  }, [clearCart]);
 
+  useEffect(() => {
     // Auto-redirect countdown
     const interval = setInterval(() => {
       setAutoRedirect((prev) => {
@@ -35,7 +39,27 @@ function ConfirmationContent() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [clearCart, router]);
+  }, [router]);
+
+  // Expiry countdown for cash orders
+  useEffect(() => {
+    if (!expiresAt) return;
+
+    const updateCountdown = () => {
+      const remaining = Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
+      setExpiryCountdown(remaining);
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [expiresAt]);
+
+  const formatCountdown = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   return (
     <div className="h-full flex flex-col items-center justify-center bg-gradient-to-br from-green-50 via-white to-amber-50 px-6 relative overflow-hidden">
@@ -90,8 +114,8 @@ function ConfirmationContent() {
             <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-amber-100 flex items-center justify-center">
               <Receipt className="w-6 h-6 text-amber-600" strokeWidth={2} />
             </div>
-            <p className="text-sm text-stone-500 mb-1">Total Paid</p>
-            <p className="text-2xl font-bold text-stone-800">{formatCurrency(total)}</p>
+            <p className="text-sm text-stone-500 mb-1">Total Amount</p>
+            <p className="text-2xl font-bold text-stone-800">{formatCurrency(totalAmount)}</p>
           </div>
 
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-stone-200 text-center">
@@ -108,27 +132,39 @@ function ConfirmationContent() {
         </div>
 
         {/* Payment-specific message */}
-        {paymentMethod === 'cash' && (
+        {paymentMethod === 'cash' && expiryCountdown !== null && (
           <div className="bg-amber-50 rounded-2xl border border-amber-200 p-6 mb-8 animate-fade-in-up animation-delay-500">
             <h3 className="text-lg font-bold text-amber-900 mb-2 flex items-center gap-2">
               <span>💵</span>
-              Cash Payment Instructions
+              Cash Payment - Please pay at the counter
             </h3>
-            <p className="text-amber-800">
-              Please proceed to the cashier counter to complete your payment. Your order will be
-              prepared once payment is confirmed.
+            <p className="text-amber-800 mb-3">
+              Your order will be prepared once payment is confirmed. Please proceed to the cashier.
             </p>
+            {expiryCountdown > 0 && (
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-700" />
+                <span className="text-sm font-semibold text-amber-900">
+                  Time remaining: {formatCountdown(expiryCountdown)}
+                </span>
+              </div>
+            )}
+            {expiryCountdown === 0 && (
+              <p className="text-sm font-semibold text-red-700">
+                Order expired. Please place a new order.
+              </p>
+            )}
           </div>
         )}
 
-        {paymentMethod === 'gcash' && (
+        {(paymentMethod === 'gcash' || paymentMethod === 'card') && (
           <div className="bg-blue-50 rounded-2xl border border-blue-200 p-6 mb-8 animate-fade-in-up animation-delay-500">
             <h3 className="text-lg font-bold text-blue-900 mb-2 flex items-center gap-2">
-              <span>📱</span>
-              GCash Payment Confirmed
+              <span>{paymentMethod === 'gcash' ? '📱' : '💳'}</span>
+              Payment Confirmed
             </h3>
             <p className="text-blue-800">
-              Your payment has been processed successfully. Your order is now being prepared.
+              Your payment has been processed. Your order is now being prepared.
             </p>
           </div>
         )}
@@ -164,7 +200,7 @@ function ConfirmationContent() {
       {/* Footer message */}
       <div className="absolute bottom-8 left-0 right-0 text-center animate-fade-in animation-delay-800">
         <p className="text-sm text-stone-500 mb-2">
-          🙏 Thank you for dining with us!
+          Thank you for dining with us!
         </p>
         <p className="text-xs text-stone-400">
           Need help? Ask our staff at the counter

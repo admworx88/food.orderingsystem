@@ -1,7 +1,7 @@
 # Agent: Kitchen Display System (KDS)
 # Scope: /(kitchen) route group — Kitchen staff order management
 
-> **Version:** 2.1 | **Last Updated:** February 2026 | **Status:** Aligned with PRD v1.2
+> **Version:** 2.2 | **Last Updated:** February 7, 2026 | **Status:** Aligned with PRD v1.3
 
 ---
 
@@ -25,12 +25,12 @@ received   working   pickup      to guest
 | `status-controls.tsx` | Bump buttons |
 | `station-filter.tsx` | Filter by station |
 
-### Timer Color Coding
-| Age | Color | Status |
+### Timer Color Coding (PRD Section 5: F-KD04)
+| Age (from paid_at) | Color | Status |
 |-----|-------|--------|
-| 0-5 min | Green | On track |
-| 5-10 min | Yellow | Needs attention |
-| 10+ min | Red | Overdue |
+| 0-5 min | Green (#22C55E) | On track |
+| 5-10 min | Yellow (#EAB308) | Needs attention |
+| > 10 min | Red (#EF4444) | Overdue |
 
 ### Realtime Subscription
 ```typescript
@@ -83,7 +83,7 @@ src/stores/kitchen-ui-store.ts    # KDS display preferences (ENHANCED)
 ### Display Optimized for Kitchen Environment
 - **Dark theme ONLY** — reduces glare, easier on eyes in bright kitchens
 - **High contrast** — white/yellow text on dark backgrounds
-- **Large text** — item names 20px+, order numbers 32px+
+- **Large text** — item names 20px+, order numbers 28px+ (WCAG/PRD minimum)
 - **No scroll within cards** — all items visible without scrolling
 - **Touch targets 64px+** — large buttons for gloved/wet hands
 
@@ -109,13 +109,12 @@ src/stores/kitchen-ui-store.ts    # KDS display preferences (ENHANCED)
 └─────────────────────────────────────┘
 ```
 
-### Color Coding (Time-Based Urgency - FIXED)
+### Color Coding (Time-Based Urgency — PRD Section 5: F-KD04)
 | Age (from paid_at) | Color | Meaning |
 |-----|-------|---------|
 | < 5 min | Green (#22C55E) | On time |
 | 5-10 min | Yellow (#EAB308) | Getting late |
-| 10-15 min | Orange (#F97316) | Urgent |
-| > 15 min | Red (#EF4444) | Critical — flashing |
+| > 10 min | Red (#EF4444) | Overdue — flashing |
 
 **CRITICAL**: Timer reference changed from `created_at` to `paid_at` to accurately track kitchen processing time.
 
@@ -128,7 +127,7 @@ NEW (blue) → PREPARING (orange) → READY (green) → SERVED (gray, auto-hide)
 - Single tap advances to next status
 - Long press opens status selector for skipping/reverting
 - "READY" status triggers notification to cashier/kiosk
-- "SERVED" auto-hides after 30 seconds (configurable)
+- "SERVED" auto-hides after 5 minutes (configurable via settings)
 - **NEW**: Expired orders show with "EXPIRED" badge, auto-hide after 5min
 
 ### Audio Alerts
@@ -345,12 +344,11 @@ function useOrderAge(paidAt: string | null) {
   return age;
 }
 
-// Color coding based on age
+// Color coding based on age (3 levels per PRD Section 5: F-KD04)
 function getOrderColorClass(age: number) {
   if (age < 5) return 'text-green-500';
   if (age < 10) return 'text-yellow-500';
-  if (age < 15) return 'text-orange-500';
-  return 'text-red-500 animate-pulse';
+  return 'text-red-500 animate-pulse';  // >10 min = overdue
 }
 ```
 
@@ -363,7 +361,7 @@ interface KitchenSettings {
   soundEnabled: boolean;
   soundVolume: number;          // 0-100
   autoHideServed: boolean;
-  autoHideDelay: number;        // seconds (default 30)
+  autoHideDelay: number;        // seconds (default 300 = 5 min, per CLAUDE.md)
   layoutMode: 'columns' | 'timeline' | 'station';
   showOrderAge: boolean;
   flashCriticalOrders: boolean;
@@ -463,6 +461,13 @@ if (channel.state !== 'joined') {
 
 ## Version History
 
+### Version 2.2 (February 7, 2026)
+**Changes**:
+- Fixed color coding: 3 levels (green/yellow/red) aligned with PRD Section 5 (F-KD04) — removed orange 10-15min tier
+- Fixed auto-hide served delay: 300s (5 min) aligned with CLAUDE.md — was 30s
+- Fixed order number minimum font size: 28px+ aligned with PRD accessibility — was 32px+
+- Updated all version references to PRD v1.3 and Architecture v2.3
+
 ### Version 2.1 (February 2026)
 **Changes**:
 - Added Quick Reference with status flow and timer colors
@@ -487,6 +492,6 @@ if (channel.state !== 'joined') {
 
 ## Related Documents
 
-- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.1
-- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.0
-- **[AGENT-DATABASE.md](./AGENT-DATABASE.md)** — Database schema v2.0
+- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.3
+- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.3
+- **[AGENT-DATABASE.md](./AGENT-DATABASE.md)** — Database schema v2.2

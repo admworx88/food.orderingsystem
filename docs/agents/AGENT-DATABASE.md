@@ -1,7 +1,7 @@
 # Agent: Database & Infrastructure
 # Scope: Supabase schema, migrations, RLS policies, functions
 
-> **Version:** 2.1 | **Last Updated:** February 2026 | **Status:** Aligned with PRD v1.2
+> **Version:** 2.2 | **Last Updated:** February 7, 2026 | **Status:** Aligned with PRD v1.3
 
 ---
 
@@ -10,7 +10,7 @@
 ### Database Statistics
 | Metric | Count |
 |--------|-------|
-| Migration Files | 21 |
+| Migration Files | 25 |
 | Tables | 15 |
 | Enum Types | 6 |
 | Indexes | 15+ |
@@ -71,7 +71,10 @@ supabase/
 │   ├── 20260205141800_all_tables_indexes_performance.sql
 │   ├── 20260205141900_orders_realtime.sql
 │   ├── 20260205142000_all_tables_rls_security.sql
-│   └── 20260205142100_system_seed_data.sql
+│   ├── 20260205142100_system_seed_data.sql
+│   ├── 20260206000001_fix_profile_trigger.sql
+│   ├── 20260207000001_add_increment_promo_usage_function.sql
+│   └── 20260207000002_menu_categories_seed_data.sql
 ├── seed.sql
 └── config.toml
 
@@ -908,7 +911,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
    - **ALWAYS** create new migration files for schema changes
    - **ALWAYS** use `npm run supabase:push` to apply new migrations
    - **ALWAYS** regenerate types after schema changes
-   - **ALWAYS** follow naming convention: `{table}_{type}_{DDMMYYYY}_{HHMMSS}.sql`
+   - **ALWAYS** follow naming convention: `YYYYMMDDHHMMSS_description.sql` (Supabase default timestamp)
 
 8. **Soft delete pattern**:
    - Menu items and orders use `deleted_at` instead of hard deletes
@@ -980,6 +983,12 @@ FROM pg_stat_user_tables WHERE relname = 'orders';
 
 ## Version History
 
+### Version 2.2 (February 7, 2026)
+**Changes**:
+- Fixed migration count: 25 files (was 21) — added 3 new migrations (profile trigger fix, promo usage function, menu categories seed)
+- Fixed migration naming convention note: `YYYYMMDDHHMMSS_description.sql` (was incorrectly documented as `{table}_{type}_{DDMMYYYY}_{HHMMSS}.sql`)
+- Updated all version references to PRD v1.3 and Architecture v2.3
+
 ### Version 2.1 (February 2026)
 **Changes**:
 - Added Quick Reference section with table dependencies
@@ -1012,6 +1021,5 @@ FROM pg_stat_user_tables WHERE relname = 'orders';
 
 ## Related Documents
 
-- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.1
-- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.0
-- **[PHASE-1-GUIDE.md](../phases/PHASE-1-GUIDE.md)** — Phase 1 Implementation Guide
+- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.3
+- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.3

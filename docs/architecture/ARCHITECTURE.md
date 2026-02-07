@@ -1,9 +1,9 @@
 # System Architecture Document
 # OrderFlow — Hotel Restaurant Web Ordering System
 
-**Version:** 2.2 (Updated with Kiosk Frontend Completion)
-**Date:** February 6, 2026
-**Status:** Phase 1 + Kiosk Frontend Complete ✅ — Backend Integration in Progress
+**Version:** 2.3 (Aligned with PRD and actual codebase)
+**Date:** February 7, 2026
+**Status:** Phase 1 + Kiosk Frontend Complete ✅ — Phase 2 Backend Integration in Progress
 
 ---
 
@@ -89,51 +89,40 @@ each with its own layout, auth requirements, and UI paradigm.
 
 ```
 app/
-├── (kiosk)/            # Public-facing, touch-optimized
+├── (kiosk)/            # Public-facing, touch-optimized (route group)
 │   ├── layout.tsx      # Full-screen, no nav, idle timer
 │   ├── page.tsx        # Welcome / splash screen
 │   ├── menu/
 │   │   └── page.tsx    # Category grid → item list → detail sheet
 │   ├── cart/
-│   │   └── page.tsx    # Order summary, order type selection
+│   │   └── page.tsx    # Order summary, special instructions
 │   ├── checkout/
-│   │   └── page.tsx    # Payment method selection + processing
+│   │   └── page.tsx    # 4-step flow: order type, promo, phone, payment
 │   └── confirmation/
-│       └── page.tsx    # Order number + estimated wait
+│       └── page.tsx    # Order number + auto-redirect
 │
-├── (kitchen)/          # Staff-only, large display optimized
+├── (kitchen)/          # Staff-only, large display optimized (route group)
 │   ├── layout.tsx      # Dark theme, full-screen, status bar
-│   ├── orders/
-│   │   └── page.tsx    # Real-time order queue (KDS)
-│   └── settings/
-│       └── page.tsx    # KDS preferences (sound, auto-hide, filters)
+│   └── orders/
+│       └── page.tsx    # Real-time order queue (KDS)
 │
-├── (cashier)/          # Staff-only, point-of-sale layout
-│   ├── layout.tsx      # Split panel (orders | payment)
-│   ├── payments/
-│   │   └── page.tsx    # Pending orders + payment processing
-│   └── reports/
-│       └── page.tsx    # Shift summary, cash drawer
+├── (cashier)/          # Staff-only, point-of-sale layout (route group)
+│   └── layout.tsx      # POS layout (pages pending Phase 3)
 │
-├── (admin)/            # Admin-only, dashboard layout
+├── admin/              # Admin-only, dashboard layout (regular folder, NOT route group)
 │   ├── layout.tsx      # Sidebar navigation
-│   ├── page.tsx        # Dashboard (today's stats)
+│   ├── page.tsx        # Dashboard (today's stats, charts)
 │   ├── menu-management/
 │   │   └── page.tsx    # CRUD items, categories, addons
 │   ├── users/
 │   │   └── page.tsx    # Staff accounts, roles, PINs
-│   ├── analytics/
-│   │   └── page.tsx    # Charts, reports, exports
-│   └── settings/
-│       └── page.tsx    # Tax, charges, hours, system config
-│
-├── api/
-│   └── webhooks/
-│       └── paymongo/
-│           └── route.ts  # Payment confirmation webhook
+│   └── order-history/
+│       └── page.tsx    # Order history + reports
 │
 ├── login/
 │   └── page.tsx        # Staff login page (email + password)
+├── signup/
+│   └── page.tsx        # Staff signup page
 ├── unauthorized/
 │   └── page.tsx        # 403 - Unauthorized access page
 │
@@ -141,6 +130,10 @@ app/
 ├── not-found.tsx
 └── globals.css
 ```
+
+**Note**: Admin uses a regular `admin/` folder (not a route group) because admin
+pages need the `/admin` URL prefix (e.g., `/admin/menu-management`). Route groups
+remove the folder name from the URL, which would cause conflicts for admin pages.
 
 ---
 
@@ -333,7 +326,7 @@ Request → Check path
   ├── /(kiosk)/*   → Allow (public)
   ├── /(kitchen)/* → Require auth + role in [kitchen, admin]
   ├── /(cashier)/* → Require auth + role in [cashier, admin]
-  ├── /(admin)/*   → Require auth + role = admin
+  ├── /admin/*     → Require auth + role = admin
   └── /api/*       → Validate webhook signatures or auth
 ```
 
@@ -385,7 +378,7 @@ Kiosk                    PayMongo API           Webhook Handler
 ## 8. Folder Structure — Full Project
 
 ```
-hotel-restaurant-ordering/
+food.orderingsystem/
 ├── docs/
 │   ├── prd/
 │   │   └── PRD.md
@@ -402,115 +395,88 @@ hotel-restaurant-ordering/
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx              # Root: providers, fonts, metadata
-│   │   ├── globals.css             # Tailwind base + custom vars
+│   │   ├── globals.css             # Tailwind v4 CSS (design tokens in @theme)
+│   │   ├── page.tsx                # Home page
 │   │   ├── not-found.tsx
 │   │   │
-│   │   ├── (kiosk)/
+│   │   ├── (kiosk)/               # Route group — public, touch-optimized
 │   │   │   ├── layout.tsx          # Fullscreen, idle timer, no nav
-│   │   │   ├── page.tsx            # Welcome screen
+│   │   │   ├── page.tsx            # Welcome/splash screen
 │   │   │   ├── menu/page.tsx
 │   │   │   ├── cart/page.tsx
 │   │   │   ├── checkout/page.tsx
 │   │   │   └── confirmation/page.tsx
 │   │   │
-│   │   ├── (kitchen)/
+│   │   ├── (kitchen)/             # Route group — staff, dark theme
 │   │   │   ├── layout.tsx          # Dark theme, fullscreen
-│   │   │   ├── orders/page.tsx
-│   │   │   └── settings/page.tsx
+│   │   │   └── orders/page.tsx     # Real-time KDS
 │   │   │
-│   │   ├── (cashier)/
-│   │   │   ├── layout.tsx          # POS layout
-│   │   │   ├── payments/page.tsx
-│   │   │   └── reports/page.tsx
+│   │   ├── (cashier)/             # Route group — staff, POS layout
+│   │   │   └── layout.tsx          # POS layout (pages pending Phase 3)
 │   │   │
-│   │   ├── (admin)/
+│   │   ├── admin/                 # Regular folder (NOT route group) — URL: /admin/*
 │   │   │   ├── layout.tsx          # Sidebar nav
-│   │   │   ├── page.tsx            # Dashboard
+│   │   │   ├── page.tsx            # Dashboard (stats, charts)
 │   │   │   ├── menu-management/page.tsx
 │   │   │   ├── users/page.tsx
-│   │   │   ├── analytics/page.tsx
-│   │   │   └── settings/page.tsx
+│   │   │   └── order-history/page.tsx
 │   │   │
-│   │   └── api/
-│   │       └── webhooks/
-│   │           └── paymongo/
-│   │               └── route.ts
+│   │   ├── login/page.tsx          # Staff login
+│   │   ├── signup/page.tsx         # Staff signup
+│   │   └── unauthorized/page.tsx   # 403 page
 │   │
 │   ├── components/
-│   │   ├── ui/                     # shadcn/ui primitives
-│   │   ├── kiosk/                  # Kiosk-specific
-│   │   ├── kitchen/                # KDS-specific
-│   │   ├── cashier/                # Cashier-specific
-│   │   ├── admin/                  # Admin-specific
-│   │   └── shared/                 # Cross-cutting
+│   │   ├── ui/                     # shadcn/ui primitives (20 components)
+│   │   ├── kiosk/                  # Kiosk-specific (menu-grid, item-card, cart-drawer, etc.)
+│   │   ├── kitchen/                # KDS-specific (order-card, order-queue)
+│   │   ├── admin/                  # Admin-specific (stats-cards, menu-item-form, charts, etc.)
+│   │   ├── auth/                   # Auth components (login-form, signup-form)
+│   │   └── shared/                 # Cross-module (date-range-picker, pagination)
 │   │
 │   ├── lib/
 │   │   ├── supabase/
-│   │   │   ├── client.ts           # Browser client (createBrowserClient)
-│   │   │   ├── server.ts           # Server client (exports createServerClient function)
-│   │   │   ├── admin.ts            # Service role client (NEVER import in client components)
-│   │   │   ├── middleware.ts       # Auth helper for middleware
+│   │   │   ├── client.ts           # createBrowserClient() — browser/client components
+│   │   │   ├── server.ts           # createServerClient() — Server Components + Actions
+│   │   │   ├── admin.ts            # createAdminClient() — webhooks/admin scripts ONLY
 │   │   │   └── types.ts            # Generated DB types (auto-generated from migrations)
 │   │   ├── utils/
-│   │   │   ├── cn.ts               # className merger
-│   │   │   ├── currency.ts         # PHP formatting
-│   │   │   ├── order-number.ts     # Generate A001, A002...
-│   │   │   └── date.ts             # Date helpers
+│   │   │   ├── cn.ts               # className merger (Tailwind)
+│   │   │   ├── currency.ts         # formatCurrency() — Philippine Peso
+│   │   │   └── rate-limiter.ts     # Rate limiting utility
 │   │   ├── validators/
-│   │   │   ├── order.ts            # Zod schemas for orders
-│   │   │   ├── menu-item.ts        # Zod schemas for menu items
-│   │   │   └── payment.ts          # Zod schemas for payments
+│   │   │   ├── auth.ts             # Login/signup validation
+│   │   │   ├── category.ts         # Category validation
+│   │   │   ├── menu-item.ts        # Menu item validation
+│   │   │   ├── order.ts            # Order validation
+│   │   │   └── user.ts             # User validation
 │   │   └── constants/
-│   │       ├── order-status.ts     # Status enums and labels
-│   │       └── payment-methods.ts  # Payment method configs
+│   │       └── order-status.ts     # Status enums and labels
 │   │
 │   ├── hooks/
-│   │   ├── use-realtime-orders.ts  # Supabase realtime subscription
-│   │   ├── use-menu-items.ts       # Fetch + cache menu items
-│   │   ├── use-sound.ts            # Audio notification hook
-│   │   └── use-idle-timer.ts       # Inactivity detection
+│   │   └── use-realtime-orders.ts  # Supabase realtime subscription
 │   │
 │   ├── stores/
-│   │   ├── cart-store.ts           # Zustand: cart state + actions
-│   │   ├── kiosk-ui-store.ts       # Zustand: kiosk UI state
-│   │   └── kitchen-ui-store.ts     # Zustand: KDS preferences
+│   │   └── cart-store.ts           # Zustand: cart state + localStorage persistence
 │   │
 │   ├── types/
-│   │   ├── order.ts                # Order-related types (OrderType, OrderStatus, etc.)
-│   │   ├── menu.ts                 # Menu-related types
-│   │   └── payment.ts              # Payment-related types
+│   │   ├── auth.ts                 # Auth-related types
+│   │   ├── dashboard.ts            # Dashboard/analytics types
+│   │   └── order.ts                # Order-related types
 │   │   # Note: Database types are in lib/supabase/types.ts (auto-generated)
 │   │
 │   └── services/
 │       ├── order-service.ts        # Order CRUD server actions
 │       ├── menu-service.ts         # Menu CRUD server actions
-│       ├── payment-service.ts      # Payment processing
-│       └── analytics-service.ts    # Reporting queries
+│       ├── analytics-service.ts    # Reporting queries
+│       ├── auth-service.ts         # Authentication operations
+│       └── user-service.ts         # User management
 │
 ├── supabase/
-│   ├── migrations/
-│   │   ├── enums_schema_05022026_140000.sql
-│   │   ├── profiles_schema_05022026_140100.sql
-│   │   ├── categories_schema_05022026_140200.sql
-│   │   ├── menu_items_schema_05022026_140300.sql
-│   │   ├── addon_groups_schema_05022026_140400.sql
-│   │   ├── addon_options_schema_05022026_140500.sql
-│   │   ├── order_number_functions_05022026_140600.sql
-│   │   ├── promo_codes_schema_05022026_140700.sql
-│   │   ├── orders_schema_05022026_140800.sql
-│   │   ├── order_items_schema_05022026_140900.sql
-│   │   ├── order_item_addons_schema_05022026_141000.sql
-│   │   ├── payments_schema_05022026_141100.sql
-│   │   ├── order_events_schema_05022026_141200.sql
-│   │   ├── kitchen_stations_schema_05022026_141300.sql
-│   │   ├── bir_receipt_config_schema_05022026_141400.sql
-│   │   ├── settings_schema_05022026_141500.sql
-│   │   ├── audit_log_schema_05022026_141600.sql
-│   │   ├── menu_images_buckets_05022026_141700.sql
-│   │   ├── all_tables_indexes_05022026_141800.sql
-│   │   ├── orders_realtime_05022026_141900.sql
-│   │   ├── all_tables_rls_05022026_142000.sql
-│   │   └── system_seed_05022026_142100.sql
+│   ├── migrations/                 # 25 timestamped SQL migration files
+│   │   ├── 20260205140000_enums_schema.sql
+│   │   ├── 20260205140100_profiles_schema.sql
+│   │   ├── ...                     # (see supabase/migrations/ for full list)
+│   │   └── 20260207000002_menu_categories_seed_data.sql
 │   ├── seed.sql
 │   └── config.toml
 │
@@ -528,8 +494,10 @@ hotel-restaurant-ordering/
 ├── package.json
 └── README.md
 
-**Note**: Tailwind v4 uses CSS-first configuration in `src/app/globals.css` via `@theme` blocks.
-No `tailwind.config.ts` or `tailwind.config.js` file should exist.
+**Notes**:
+- Admin uses a regular `admin/` folder (not route group) — needs `/admin` URL prefix
+- Tailwind v4 uses CSS-first config in `globals.css` via `@theme`. No `tailwind.config.js/ts`.
+- Migration naming: `YYYYMMDDHHMMSS_description.sql` (Supabase default timestamp format)
 ```
 
 ---
@@ -681,21 +649,28 @@ SELECT * FROM menu_items WHERE deleted_at IS NULL;
 
 ## 11. Migration Naming Convention
 
-**Format**: `{table_name}_{type}_{DDMMYYYY}_{HHMMSS}.sql`
+**Format**: `YYYYMMDDHHMMSS_description.sql` (Supabase default timestamp format)
 
-**Types**:
-- `schema` — CREATE TABLE, ALTER TABLE
-- `rls` — Row Level Security policies
-- `functions` — Functions, triggers, sequences
-- `buckets` — Supabase Storage buckets + policies
-- `indexes` — CREATE INDEX statements
-- `seed` — INSERT initial/test data
+**Examples**:
+- `20260205140000_enums_schema.sql` — Enum type definitions
+- `20260205140800_orders_schema.sql` — Orders table creation
+- `20260207000001_add_increment_promo_usage_function.sql` — New function
+- `20260207000002_menu_categories_seed_data.sql` — Seed data
+
+**Description suffixes used**:
+- `_schema` — CREATE TABLE, ALTER TABLE
+- `_rls` — Row Level Security policies
+- `_functions` — Functions, triggers, sequences
+- `_buckets` — Supabase Storage buckets + policies
+- `_indexes` — CREATE INDEX statements
+- `_seed_data` — INSERT initial/test data
+- `_realtime` — Realtime subscription configuration
 
 **Benefits**:
-- Descriptive: Instant clarity on what's affected
-- Team-friendly: No merge conflicts on sequential numbers
+- Chronological: Sorts naturally by timestamp
+- Descriptive: Suffix clarifies what's affected
 - Searchable: `ls *orders*` shows all order-related migrations
-- Chronological: Sorts naturally by timestamp (HHMMSS precision)
+- No conflicts: Timestamp precision prevents merge conflicts
 
 ---
 
@@ -731,14 +706,21 @@ import { createServerClient } from '@/lib/supabase/server';
 const supabase = await createServerClient();
 
 // In Client Components
-import { createClient } from '@/lib/supabase/client';
-const supabase = createClient();
+import { createBrowserClient } from '@/lib/supabase/client';
+const supabase = createBrowserClient();
+
+// In Webhooks and Admin Scripts ONLY
+import { createAdminClient } from '@/lib/supabase/admin';
+const supabase = createAdminClient();
 
 // ❌ NEVER do this in client components
 import { createAdminClient } from '@/lib/supabase/admin'; // Bypasses RLS!
 ```
 
-**Note**: The server.ts file exports a function named `createServerClient()` (not `createClient()`) to avoid naming collisions with the Supabase SSR package.
+**Naming convention**: Each file exports a distinctly named function to avoid confusion:
+- `client.ts` → `createBrowserClient()`
+- `server.ts` → `createServerClient()`
+- `admin.ts` → `createAdminClient()`
 
 ### Tailwind CSS v4 Configuration
 
@@ -786,8 +768,8 @@ export default function Page({ params }: { params: { id: string } }) {
 **ALWAYS**:
 - Create new migration files for schema changes
 - Use `supabase db push` to apply new migrations
-- Regenerate types after schema changes: `npm run supabase:types` (or `npx supabase gen types typescript --linked > src/lib/supabase/types.ts`)
-- Follow naming convention: `{table}_{type}_{DDMMYYYY}_{HHMMSS}.sql`
+- Regenerate types after schema changes: `npm run supabase:types` (or `npx supabase gen types typescript --local > src/lib/supabase/types.ts`)
+- Follow naming convention: `YYYYMMDDHHMMSS_description.sql`
 
 ---
 
@@ -962,27 +944,26 @@ See PRD.md Section 17 for complete error code reference. Summary:
 
 | Range | Category | Example |
 |-------|----------|---------|
-| E1xxx | Validation | E1001: Missing required field |
-| E2xxx | Authentication | E2001: Invalid credentials |
-| E3xxx | Authorization | E3001: Insufficient permissions |
-| E4xxx | Resource | E4001: Menu item not found |
-| E5xxx | Business Logic | E5001: Insufficient stock |
-| E6xxx | Payment | E6001: Payment declined |
-| E7xxx | External Service | E7001: PayMongo timeout |
-| E8xxx | System | E8001: Database connection failed |
-| E9xxx | Rate Limiting | E9001: Too many requests |
+| E1xxx | Authentication | E1001: Invalid credentials, E1002: Session expired |
+| E2xxx | Orders | E2001: Order not found, E2003: Order expired, E2006: Cart empty |
+| E3xxx | Payments | E3001: Payment declined, E3002: Gateway unavailable |
+| E4xxx | Menu | E4001: Item not found, E4005: Image upload failed |
+| E5xxx | Promo Codes | E5001: Invalid code, E5002: Expired, E5005: Min order not met |
+| E9xxx | System | E9001: Internal error, E9002: DB connection failed, E9003: Rate limited |
 
 ### Error Response Format
 
 ```typescript
-// Standardized error response
-interface ErrorResponse {
-  success: false;
-  error: {
-    code: string;       // E1001
-    message: string;    // Human-readable
-    field?: string;     // For validation errors
-    details?: unknown;  // Additional context
+// Standardized response for all Server Actions
+interface ActionResult<T = unknown> {
+  success: boolean;
+  data?: T;
+  error?: {
+    code: string;       // E.g., "E2001" — see PRD Section 17
+    message: string;    // User-friendly message
+    details?: unknown;  // Validation errors, additional context
+    timestamp?: string; // ISO 8601
+    traceId?: string;   // For support reference
   };
 }
 
@@ -997,7 +978,7 @@ export async function createOrder(input: OrderInput): Promise<ActionResult> {
       return {
         success: false,
         error: {
-          code: 'E1001',
+          code: 'E2006',
           message: 'Validation failed',
           details: error.flatten(),
         },
@@ -1007,7 +988,7 @@ export async function createOrder(input: OrderInput): Promise<ActionResult> {
     return {
       success: false,
       error: {
-        code: 'E8001',
+        code: 'E9001',
         message: 'Failed to create order',
       },
     };
@@ -1088,6 +1069,18 @@ CREATE TABLE audit_log (
 ---
 
 ## 21. Version History
+
+### Version 2.3 (February 7, 2026)
+**Status**: Aligned with PRD and actual codebase
+
+**Changes**:
+- Fixed error code taxonomy to match PRD Section 17 (domain-based: E1xxx Auth, E2xxx Orders, E3xxx Payments, E4xxx Menu, E5xxx Promo, E9xxx System)
+- Fixed Supabase client export names to match actual code (`createBrowserClient`, `createServerClient`, `createAdminClient`)
+- Fixed admin module: regular `admin/` folder, NOT route group `(admin)/` — needs `/admin` URL prefix
+- Updated folder structure (Section 8) to match actual codebase: 25 migrations, actual services/hooks/stores/types files
+- Fixed migration naming convention to `YYYYMMDDHHMMSS_description.sql` (Supabase default)
+- Added signup page, auth components, order-history page
+- Removed files that don't exist yet (payment-service, kiosk-ui-store, kitchen-ui-store, etc.)
 
 ### Version 2.1 (February 2026)
 **Status**: Enhanced documentation

@@ -1,31 +1,104 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { X, Minus, Plus, Clock, Info, AlertTriangle } from 'lucide-react';
+import { X, Minus, Plus, Clock, Info, AlertTriangle, Check, Loader2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/currency';
 import { AllergenList } from './allergen-badge';
 import { cn } from '@/lib/utils';
+import { useCartStore, type CartAddon } from '@/stores/cart-store';
+import { getMenuItemAddons } from '@/services/order-service';
 import type { Database } from '@/lib/supabase/types';
 
 type MenuItem = Database['public']['Tables']['menu_items']['Row'];
+
+interface AddonOption {
+  id: string;
+  name: string;
+  additional_price: number;
+  is_available: boolean | null;
+  display_order: number | null;
+}
+
+interface AddonGroup {
+  id: string;
+  name: string;
+  is_required: boolean | null;
+  min_selections: number | null;
+  max_selections: number | null;
+  display_order: number | null;
+  addon_options: AddonOption[];
+}
 
 interface ItemDetailSheetProps {
   item: MenuItem | null;
   isOpen: boolean;
   onClose: () => void;
-  onAddToCart?: (item: MenuItem, quantity: number, specialInstructions: string) => void;
 }
 
-export function ItemDetailSheet({
-  item,
-  isOpen,
-  onClose,
-  onAddToCart,
-}: ItemDetailSheetProps) {
+export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps) {
   const [quantity, setQuantity] = useState(1);
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [addonGroups, setAddonGroups] = useState<AddonGroup[]>([]);
+  const [selectedAddons, setSelectedAddons] = useState<Map<string, Set<string>>>(new Map());
+  const [loadingAddons, setLoadingAddons] = useState(false);
+
+  const addItem = useCartStore((state) => state.addItem);
+
+  // Reset state when a new item is opened
+  const [prevItemId, setPrevItemId] = useState<string | null>(null);
+  if (item && isOpen && item.id !== prevItemId) {
+    setPrevItemId(item.id);
+    setLoadingAddons(true);
+    setSelectedAddons(new Map());
+    setQuantity(1);
+    setSpecialInstructions('');
+    setImageLoaded(false);
+    setAddonGroups([]);
+  }
+
+  // Fetch addon groups when item changes
+  useEffect(() => {
+    if (!item || !isOpen || !loadingAddons) return;
+
+    let cancelled = false;
+    getMenuItemAddons(item.id).then((result) => {
+      if (cancelled) return;
+      if (result.success) {
+        setAddonGroups(result.data);
+      } else {
+        setAddonGroups([]);
+      }
+      setLoadingAddons(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [item, isOpen, loadingAddons]);
+
+  const toggleAddon = useCallback((groupId: string, optionId: string, maxSelections: number | null) => {
+    setSelectedAddons((prev) => {
+      const next = new Map(prev);
+      const groupSet = new Set(prev.get(groupId) || []);
+
+      if (groupSet.has(optionId)) {
+        groupSet.delete(optionId);
+      } else {
+        // Single-select (max_selections = 1): replace selection
+        if (maxSelections === 1) {
+          groupSet.clear();
+        }
+        // Multi-select with limit: check if at max
+        if (maxSelections !== null && maxSelections > 1 && groupSet.size >= maxSelections) {
+          return prev; // Don't add if at max
+        }
+        groupSet.add(optionId);
+      }
+
+      next.set(groupId, groupSet);
+      return next;
+    });
+  }, []);
 
   if (!item) return null;
 
@@ -37,13 +110,52 @@ export function ItemDetailSheet({
     fat?: number;
   } | null;
   const prepTime = item.preparation_time_minutes;
-  const totalPrice = Number(item.base_price) * quantity;
+
+  // Calculate total with addons
+  const selectedAddonItems: CartAddon[] = [];
+  for (const group of addonGroups) {
+    const groupSelections = selectedAddons.get(group.id);
+    if (groupSelections) {
+      for (const optionId of groupSelections) {
+        const option = group.addon_options.find((o) => o.id === optionId);
+        if (option) {
+          selectedAddonItems.push({
+            id: option.id,
+            name: option.name,
+            price: option.additional_price,
+          });
+        }
+      }
+    }
+  }
+
+  const addonsTotal = selectedAddonItems.reduce((sum, a) => sum + a.price, 0);
+  const totalPrice = (Number(item.base_price) + addonsTotal) * quantity;
+
+  // Check if all required addon groups have selections
+  const allRequiredSelected = addonGroups.every((group) => {
+    if (!group.is_required) return true;
+    const minSelections = group.min_selections ?? 1;
+    const groupSelections = selectedAddons.get(group.id);
+    return groupSelections && groupSelections.size >= minSelections;
+  });
 
   const handleAddToCart = () => {
-    onAddToCart?.(item, quantity, specialInstructions);
+    addItem({
+      menuItemId: item.id,
+      name: item.name,
+      basePrice: Number(item.base_price),
+      quantity,
+      addons: selectedAddonItems,
+      specialInstructions: specialInstructions || undefined,
+      allergens: allergens,
+      imageUrl: item.image_url || undefined,
+    });
+
     // Reset state
     setQuantity(1);
     setSpecialInstructions('');
+    setSelectedAddons(new Map());
     onClose();
   };
 
@@ -146,6 +258,93 @@ export function ItemDetailSheet({
               </div>
             )}
 
+            {/* Addon Groups */}
+            {loadingAddons ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+                <span className="ml-2 text-sm text-gray-500">Loading options...</span>
+              </div>
+            ) : (
+              addonGroups.map((group) => {
+                const isSingleSelect = group.max_selections === 1;
+                const groupSelections = selectedAddons.get(group.id) || new Set();
+
+                return (
+                  <div key={group.id} className="space-y-3">
+                    <div className="flex items-baseline justify-between">
+                      <h3 className="text-base font-bold text-gray-900">
+                        {group.name}
+                        {group.is_required && (
+                          <span className="text-red-500 ml-1">*</span>
+                        )}
+                      </h3>
+                      <span className="text-xs text-gray-500">
+                        {group.is_required ? 'Required' : 'Optional'}
+                        {group.max_selections && group.max_selections > 1 && ` (max ${group.max_selections})`}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {group.addon_options
+                        .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+                        .map((option) => {
+                          const isSelected = groupSelections.has(option.id);
+                          const isDisabled = option.is_available === false;
+
+                          return (
+                            <button
+                              key={option.id}
+                              onClick={() => !isDisabled && toggleAddon(group.id, option.id, group.max_selections ?? null)}
+                              disabled={isDisabled}
+                              className={cn(
+                                'w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left min-h-[56px]',
+                                isDisabled
+                                  ? 'opacity-50 cursor-not-allowed border-gray-100 bg-gray-50'
+                                  : isSelected
+                                    ? 'border-amber-500 bg-amber-50'
+                                    : 'border-gray-200 hover:border-gray-300 active:scale-[0.99]'
+                              )}
+                            >
+                              {/* Radio / Checkbox indicator */}
+                              <div
+                                className={cn(
+                                  'w-6 h-6 flex-shrink-0 flex items-center justify-center border-2 transition-all',
+                                  isSingleSelect ? 'rounded-full' : 'rounded-md',
+                                  isSelected
+                                    ? 'border-amber-500 bg-amber-500'
+                                    : 'border-gray-300'
+                                )}
+                              >
+                                {isSelected && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
+                              </div>
+
+                              <span className={cn(
+                                'flex-1 font-medium',
+                                isDisabled ? 'text-gray-400' : 'text-gray-900'
+                              )}>
+                                {option.name}
+                                {isDisabled && (
+                                  <span className="ml-2 text-xs text-gray-400">Unavailable</span>
+                                )}
+                              </span>
+
+                              {option.additional_price > 0 && (
+                                <span className={cn(
+                                  'text-sm font-semibold',
+                                  isSelected ? 'text-amber-700' : 'text-gray-500'
+                                )}>
+                                  +{formatCurrency(option.additional_price)}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+
             {/* Nutritional Info */}
             {nutritionalInfo && (
               <details className="group">
@@ -198,11 +397,13 @@ export function ItemDetailSheet({
               </label>
               <textarea
                 value={specialInstructions}
-                onChange={(e) => setSpecialInstructions(e.target.value)}
+                onChange={(e) => setSpecialInstructions(e.target.value.slice(0, 200))}
                 placeholder="Any allergies, preferences, or special requests..."
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all resize-none"
                 rows={3}
+                maxLength={200}
               />
+              <p className="text-xs text-gray-400 mt-1 text-right">{specialInstructions.length}/200</p>
             </div>
           </div>
         </div>
@@ -235,10 +436,19 @@ export function ItemDetailSheet({
           {/* Add to cart button */}
           <button
             onClick={handleAddToCart}
-            className="flex-1 flex items-center justify-center gap-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white py-4 rounded-2xl font-semibold text-lg shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 active:scale-[0.98] transition-all min-h-[56px]"
+            disabled={!allRequiredSelected}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-3 py-4 rounded-2xl font-semibold text-lg shadow-lg active:scale-[0.98] transition-all min-h-[56px]',
+              allRequiredSelected
+                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40'
+                : 'bg-gray-200 text-gray-500 cursor-not-allowed shadow-none'
+            )}
           >
             <span>Add to Cart</span>
-            <span className="bg-white/20 px-3 py-1 rounded-full">
+            <span className={cn(
+              'px-3 py-1 rounded-full',
+              allRequiredSelected ? 'bg-white/20' : 'bg-gray-300/50'
+            )}>
               {formatCurrency(totalPrice)}
             </span>
           </button>

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-> **Version**: 2.1 | **Last Updated**: February 2026 | **Status**: Phase 1 + Kiosk UI Complete
+> **Version**: 2.2 | **Last Updated**: February 7, 2026 | **Status**: Phase 1 + Kiosk UI Complete, Phase 2 In Progress
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -62,12 +62,12 @@ npm run supabase:types  # Regenerate database types after schema changes
 OrderFlow is a hotel restaurant ordering system with 4 isolated interfaces in
 a single Next.js 16 (App Router) app. The backend will be Supabase (Postgres + Auth + Realtime).
 
-| Module | Route Group | Auth | Purpose |
-|--------|-------------|------|---------|
-| Kiosk | `/(kiosk)` | Public | Guest self-service ordering (touch screens) |
-| Kitchen | `/(kitchen)` | Staff (kitchen role) | Real-time Kitchen Display System |
-| Cashier | `/(cashier)` | Staff (cashier role) | Payment processing & POS |
-| Admin | `/(admin)` | Admin only | Menu management, analytics, settings |
+| Module | Route | Auth | Purpose |
+|--------|-------|------|---------|
+| Kiosk | `/(kiosk)` (route group) | Public | Guest self-service ordering (touch screens) |
+| Kitchen | `/(kitchen)` (route group) | Staff (kitchen role) | Real-time Kitchen Display System |
+| Cashier | `/(cashier)` (route group) | Staff (cashier role) | Payment processing & POS |
+| Admin | `/admin` (regular folder) | Admin only | Menu management, analytics, settings |
 
 ---
 
@@ -135,18 +135,16 @@ always use `npm run supabase:push`. Regenerate types after any schema change.
 
 ## Essential Commands
 
-### Current (Available Now)
 ```bash
 npm run dev                 # Start dev server (port 3000, Turbopack by default)
 npm run build               # Production build — run this to check for errors
 npm run lint                # ESLint check
-npm run type-check          # TypeScript check (add this script: "type-check": "tsc --noEmit")
-```
-
-### Future (When Supabase is set up)
-```bash
+npm run type-check          # TypeScript check (tsc --noEmit)
+npm run supabase:start      # Start local Supabase
+npm run supabase:stop       # Stop local Supabase
+npm run supabase:status     # Check local Supabase status
 npm run supabase:push       # Push migrations to Supabase
-npm run supabase:types      # Regenerate DB types
+npm run supabase:types      # Regenerate DB types after schema changes
 npm run supabase:reset      # Reset local DB (dev only - WIPES DATA)
 ```
 
@@ -187,30 +185,54 @@ npm run supabase:reset      # Reset local DB (dev only - WIPES DATA)
 - **Add to cart functionality**: MenuItemCard integrated with cart store
 - **Idle timer**: 2-minute warning, auto-reset with cart clearing
 
-### ⏳ Phase 2 - Backend Integration & Other Modules
-- Order submission Server Actions (connect checkout to database)
-- Promo code validation Server Action
-- PayMongo payment integration (GCash, card, webhook)
-- Item detail sheet with addons and customization
-- Kitchen Display System with Realtime
-- Cashier payment processing and receipt generation
-- Real-time order status updates
+### ⏳ Phase 2 — Backend Integration (In Progress)
+- Server Action for order submission (connect checkout to database)
+- Server Action for promo code validation
+- Item detail sheet with addon selection
+- Kitchen Display System (KDS) with Realtime
+- Realtime order updates (kitchen ↔ kiosk)
+- Order age color coding
+
+### Phase 3 — Payments (Pending)
+- PayMongo GCash integration
+- PayMongo card payments (3DS)
+- Webhook handler with idempotency (`/api/webhooks/paymongo`)
+- Cashier POS interface (pending orders, payment processing)
+- Cash payment + change calculation
+- Unpaid order timeout (15 min auto-cancellation)
+- BIR-compliant receipt generation
+
+### Phase 4 — Admin & Polish (Pending)
+- Real-time dashboard (revenue, orders, charts)
+- Sales reports (date range, category, item)
+- Promo code management UI
+- Multi-language support (EN, TL)
+- Allergen/nutrition info display
+- Audit log viewer
+
+### Phase 5 — Testing & Deploy (Pending)
+- Playwright E2E tests (kiosk → kitchen flow)
+- Load testing (200 concurrent users)
+- Security audit (OWASP top 10)
+- Vercel production deployment
+- Monitoring + alerts setup
 
 ### Implementation Roadmap
-~~1. **Foundation**: Set up Supabase, environment variables, database schema~~ ✅ **DONE**
-~~2. **Core utilities**: Create Supabase clients, utility functions, constants~~ ✅ **DONE**
-~~3. **Admin module**: Build menu management (needed for other modules)~~ ✅ **DONE**
-~~4. **Kiosk module**: Complete customer-facing UI with cart, checkout, confirmation~~ ✅ **DONE**
-5. **Backend integration**: Server Actions for order submission, promo codes, payments (Phase 2)
-6. **Kitchen module**: Real-time order display (Phase 2)
-7. **Cashier module**: Payment processing with PayMongo (Phase 2)
+~~1. **Phase 1 — Foundation**: Supabase, environment variables, database schema, auth middleware~~ ✅ **DONE**
+~~2. **Phase 1 — Core utilities**: Supabase clients, utility functions, constants~~ ✅ **DONE**
+~~3. **Phase 1 — Admin module**: Menu management with CRUD operations~~ ✅ **DONE**
+~~4. **Phase 1.5 — Kiosk Frontend**: Complete customer-facing UI with cart, checkout, confirmation~~ ✅ **DONE**
+5. **Phase 2 — Backend Integration**: Server Actions for order submission, promo codes, KDS realtime
+6. **Phase 3 — Payments**: PayMongo integration, cashier POS, receipts
+7. **Phase 4 — Admin & Polish**: Analytics, reports, promo codes, multi-language
+8. **Phase 5 — Testing & Deploy**: E2E tests, load tests, security audit, production deployment
 
 **Documentation**:
 - `IMPLEMENTATION-NOTES.md` — Phase 1 foundation changes
 - `KIOSK-UI-IMPLEMENTATION.md` — Complete kiosk UI breakdown
 - `KIOSK-VISUAL-GUIDE.md` — Design system reference
 - `MENU-UI-IMPROVEMENTS.md` — Recent menu enhancements (flat borders, spacing)
-- `docs/prd/PRD.md` — Product requirements for Phase 2
+- `docs/prd/PRD.md` — Product requirements (all phases)
 
 ---
 
@@ -218,37 +240,75 @@ npm run supabase:reset      # Reset local DB (dev only - WIPES DATA)
 
 ### File Organization — Where Things Go
 
-**Current structure** (as of now):
 ```
-src/app/                    → Next.js 16 App Router (currently just starter page)
-  ├── layout.tsx           → Root layout
-  ├── page.tsx             → Home page (starter template)
-  └── globals.css          → Tailwind v4 CSS (already configured)
+src/app/
+  ├── layout.tsx              → Root layout (providers, fonts, metadata)
+  ├── page.tsx                → Home page
+  ├── globals.css             → Tailwind v4 CSS (design tokens in @theme)
+  ├── (kiosk)/                → Guest ordering (route group, public)
+  │   ├── layout.tsx          → Fullscreen, idle timer, no nav
+  │   ├── page.tsx            → Welcome/splash screen
+  │   ├── menu/page.tsx       → Category grid + item list
+  │   ├── cart/page.tsx       → Cart review + special instructions
+  │   ├── checkout/page.tsx   → 4-step checkout flow
+  │   └── confirmation/page.tsx → Order number + auto-redirect
+  ├── (kitchen)/              → Kitchen Display (route group, staff)
+  │   ├── layout.tsx          → Dark theme, fullscreen
+  │   └── orders/page.tsx     → Real-time order queue (KDS)
+  ├── (cashier)/              → POS (route group, staff)
+  │   └── layout.tsx          → POS layout (pages pending Phase 3)
+  ├── admin/                  → Admin dashboard (regular folder, NOT route group)
+  │   ├── layout.tsx          → Sidebar navigation
+  │   ├── page.tsx            → Dashboard (stats, charts)
+  │   ├── menu-management/page.tsx → Menu item CRUD
+  │   ├── users/page.tsx      → Staff account management
+  │   └── order-history/page.tsx → Order history + reports
+  ├── login/page.tsx          → Staff login
+  ├── signup/page.tsx         → Staff signup
+  └── unauthorized/page.tsx   → 403 page
+
+src/components/
+  ├── ui/                     → shadcn/ui primitives (20 components). Do NOT edit directly.
+  ├── kiosk/                  → Kiosk-specific (menu-grid, menu-item-card, cart-drawer, etc.)
+  ├── kitchen/                → KDS-specific (order-card, order-queue)
+  ├── admin/                  → Admin-specific (stats-cards, menu-item-form, sales-chart, etc.)
+  ├── auth/                   → Auth components (login-form, signup-form)
+  └── shared/                 → Cross-module (date-range-picker, pagination)
+
+src/services/                 → Server Actions (all DB mutations)
+  ├── order-service.ts        → Order CRUD
+  ├── menu-service.ts         → Menu CRUD
+  ├── analytics-service.ts    → Reporting queries
+  ├── auth-service.ts         → Authentication operations
+  └── user-service.ts         → User management
+
+src/stores/                   → Zustand stores (client state only)
+  └── cart-store.ts           → Cart state + localStorage persistence
+
+src/hooks/                    → Custom React hooks (client-side)
+  └── use-realtime-orders.ts  → Supabase realtime subscription
+
+src/lib/
+  ├── supabase/               → Supabase client factories. Do NOT duplicate these.
+  │   ├── client.ts           → createBrowserClient() — browser/client components
+  │   ├── server.ts           → createServerClient() — Server Components + Server Actions
+  │   ├── admin.ts            → createAdminClient() — webhooks/admin scripts ONLY
+  │   └── types.ts            → Auto-generated DB types
+  ├── validators/             → Zod schemas (auth, category, menu-item, order, user)
+  ├── utils/                  → Pure utility functions
+  │   ├── cn.ts               → className merger (Tailwind)
+  │   ├── currency.ts         → formatCurrency() — Philippine Peso formatting
+  │   └── rate-limiter.ts     → Rate limiting utility
+  └── constants/
+      └── order-status.ts     → Order status enums and maps
+
+src/types/                    → TypeScript types (auth, dashboard, order)
+supabase/migrations/          → Timestamped SQL migration files (25 migrations applied)
 ```
 
-**Target structure** (to be created during implementation):
-```
-src/app/(module)/           → Pages and layouts ONLY. No business logic here.
-  ├── (kiosk)/             → Guest ordering interface
-  ├── (kitchen)/           → Kitchen display system
-  ├── (cashier)/           → Payment processing
-  └── (admin)/             → Management dashboard
-src/components/(module)/    → UI components scoped to one module.
-src/components/shared/      → Components used across 2+ modules.
-src/components/ui/          → shadcn/ui primitives. Do NOT edit these directly.
-src/services/               → Server Actions (all DB mutations live here).
-src/hooks/                  → Custom React hooks (client-side).
-src/stores/                 → Zustand stores (client state only).
-src/lib/supabase/           → Supabase client factories. Do NOT duplicate these.
-src/lib/validators/         → Zod schemas for all data shapes.
-src/lib/utils/              → Pure utility functions (no React, no Supabase).
-src/lib/constants/          → Enums, status maps, config values.
-src/types/                  → TypeScript types and interfaces.
-supabase/migrations/        → Numbered SQL migration files.
-```
-
-**When creating directories**: Create them as needed during feature implementation,
-following the structure above.
+**Important**: Admin uses a regular `admin/` folder (not a route group) because it needs
+the `/admin` URL prefix. Kiosk, kitchen, and cashier use route groups `(...)` for layout
+isolation without affecting URLs.
 
 ### The Golden Rules
 
@@ -260,9 +320,9 @@ following the structure above.
    unless it needs interactivity. Add `'use client'` only at the leaf level.
 
 3. **Supabase client discipline:**
-   - `src/lib/supabase/client.ts` → Browser (client components)
-   - `src/lib/supabase/server.ts` → Server Components and Server Actions
-   - `src/lib/supabase/admin.ts` → Webhooks and admin scripts ONLY (service role)
+   - `src/lib/supabase/client.ts` → `createBrowserClient()` — Browser/client components
+   - `src/lib/supabase/server.ts` → `createServerClient()` — Server Components and Server Actions
+   - `src/lib/supabase/admin.ts` → `createAdminClient()` — Webhooks and admin scripts ONLY (service role)
    - **NEVER import the admin/service-role client in a client component.**
 
 4. **Validate on both sides.** Zod schemas in `src/lib/validators/` are used
@@ -333,7 +393,7 @@ following the structure above.
 - Hooks: `use-kebab-case.ts` → `useKebabCase()`.
 - Stores: `kebab-case-store.ts` → `useKebabCaseStore()`.
 - Server Actions: `kebab-case-service.ts` → `camelCase()` function names.
-- DB migrations: `NNN_description.sql` — sequential, never rename existing ones.
+- DB migrations: `YYYYMMDDHHMMSS_description.sql` — timestamp-based (Supabase default), never rename existing ones.
 
 ### Tailwind CSS (v4.1 — CSS-First Configuration)
 
@@ -376,7 +436,7 @@ export default {
 - Design tokens live in `src/app/globals.css` inside `@theme {}` blocks.
 - Use shadcn/ui components as the base. Customize via the `cn()` utility.
 - For kiosk: minimum touch targets of 48px (use `min-h-12 min-w-12`).
-- For kitchen: dark theme only, high contrast, text-lg minimum.
+- For kitchen: dark theme only, high contrast, `text-xl` minimum (20px) for details, `text-3xl` (28px+) for order numbers.
 - **Do NOT create a `tailwind.config.js` or `tailwind.config.ts` file.**
   If you see one, delete it — v4 doesn't use it.
 
@@ -387,7 +447,7 @@ export default {
 
 ### Currency
 - Always format as Philippine Peso: `₱1,234.56`
-- Use the `formatCurrency()` util from `src/lib/utils/currency.ts` (to be created).
+- Use the `formatCurrency()` util from `src/lib/utils/currency.ts`.
 - Store prices as `DECIMAL(10,2)` in the database, never as floats.
 - PayMongo uses centavos (multiply by 100 before sending).
 
@@ -477,8 +537,8 @@ Each agent doc defines:
 
 ## Database Migration Rules
 
-1. **Never edit existing migration files.** Create a new numbered file instead.
-2. **Naming**: `NNN_short_description.sql` (e.g., `014_add_promo_codes.sql`).
+1. **Never edit existing migration files.** Create a new migration file instead.
+2. **Naming**: `YYYYMMDDHHMMSS_description.sql` (e.g., `20260207150000_add_promo_codes.sql`).
 3. **Always include rollback comments** at the bottom of migration files.
 4. **After adding/changing tables**: regenerate types with `npm run supabase:types`.
 5. **RLS policies**: Every new table MUST have RLS enabled and at least one policy.
@@ -537,6 +597,123 @@ When writing code, verify these:
 - [ ] Admin routes are protected by middleware role check
 - [ ] File uploads go through Supabase Storage with size/type validation
 - [ ] No raw SQL — use Supabase query builder or typed RPC calls
+
+---
+
+## Order Lifecycle & Status Flow
+
+All modules must respect this order lifecycle. Invalid transitions should be rejected.
+
+```
+Guest at Kiosk                    Kitchen Display           Cashier
+───────────────                   ───────────────           ───────
+1. Browse Menu
+2. Add Items to Cart
+3. Customize (add-ons)
+4. Review Order
+5. Select Order Type
+   (dine-in / room service / takeout)
+6. Apply Promo Code (optional)
+7. Choose Payment Method
+   ├── "Pay at Counter" ─────────────────────────→ Pending Payment Queue
+   │   status: pending_payment                      Process Cash Payment
+   │   expires_at: now + 15 min                     Mark as Paid → Kitchen
+   │
+   ├── GCash/Card ──→ PayMongo ──→ Webhook ──→ Auto-confirmed
+   │   status: paid                                 → Kitchen
+   │
+   └── [All paid orders] ────────────────────────→ NEW ORDER ALERT
+                                                    status: paid
+                                                    Timer starts (paid_at)
+                                                    → Mark "Preparing"
+                                                    → Mark "Ready" → Guest Notification
+                                                    → Mark "Served" → Auto-hide 5 min
+```
+
+**Valid Status Transitions**:
+- `pending_payment` → `paid` (payment confirmed) or `cancelled` (timeout/cancellation)
+- `paid` → `preparing` (kitchen starts)
+- `preparing` → `ready` (food done)
+- `ready` → `served` (delivered to guest)
+
+**Timeout Rule**: Unpaid orders auto-cancel after 15 minutes (`expires_at`).
+Implemented via scheduled job that sets `status = 'cancelled'`, `payment_status = 'expired'`.
+
+---
+
+## Tax & Service Charge Calculation
+
+All order totals MUST follow this formula. Tax rate and service charge are configurable
+via the `settings` table but default to:
+
+```typescript
+const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+const discountAmount = applyPromoDiscount(subtotal, promoCode); // Applied BEFORE tax
+const taxableAmount = subtotal - discountAmount;
+const taxAmount = taxableAmount * settings.tax_rate;         // Default: 0.12 (12% VAT)
+const serviceCharge = taxableAmount * settings.service_charge; // Default: 0.10 (10%)
+const totalAmount = taxableAmount + taxAmount + serviceCharge;
+```
+
+**Key rules**:
+- Discount is applied BEFORE tax calculation
+- Service charge is calculated on subtotal (not on tax)
+- Tax rate and service charge are stored in `settings` table, not hardcoded
+- PayMongo amounts must be in centavos: `Math.round(totalAmount * 100)`
+- All calculations MUST happen server-side — never trust client totals
+
+---
+
+## Promo Code Validation Rules
+
+When implementing promo code validation (Server Action in `src/services/`), enforce ALL of these:
+
+1. **Code exists** and `is_active = true`
+2. **Date range**: Current date between `valid_from` and `valid_until`
+3. **Usage limit**: `current_usage_count < max_usage_count` (if limit is set)
+4. **Minimum order**: Order subtotal ≥ `min_order_amount` (if set)
+5. **Case-insensitive**: Compare codes with `.toUpperCase()`
+
+**Discount application**:
+- `percentage` type: `discount_amount = subtotal * (discount_value / 100)`
+- `fixed_amount` type: `discount_amount = discount_value`
+- Discount cannot exceed subtotal (cap at subtotal)
+
+**Error codes** (see PRD Section 17):
+- `E5001`: Invalid promo code (doesn't exist)
+- `E5002`: Promo code expired (past `valid_until`)
+- `E5003`: Promo code not yet active (before `valid_from`)
+- `E5004`: Usage limit reached (`max_usage_count` exceeded)
+- `E5005`: Minimum order not met (subtotal < `min_order_amount`)
+
+---
+
+## Error Code System
+
+All Server Actions should use standardized error codes from the PRD (Section 17).
+Use specific codes so the client can display appropriate messages.
+
+| Range | Category | Examples |
+|-------|----------|----------|
+| E1xxx | Authentication | E1001: Invalid credentials, E1002: Session expired |
+| E2xxx | Orders | E2001: Order not found, E2003: Order expired, E2006: Cart empty |
+| E3xxx | Payments | E3001: Payment declined, E3002: Gateway unavailable |
+| E4xxx | Menu | E4001: Item not found, E4005: Image upload failed |
+| E5xxx | Promo Codes | E5001: Invalid code, E5002: Expired, E5005: Min order not met |
+| E9xxx | System | E9001: Internal error, E9002: DB connection failed, E9003: Rate limited |
+
+**Error response format** (use consistently across all Server Actions):
+```typescript
+interface ActionResult<T = unknown> {
+  success: boolean;
+  data?: T;
+  error?: {
+    code: string;       // E.g., "E2001"
+    message: string;    // User-friendly message
+    details?: unknown;  // Validation errors, additional context
+  };
+}
+```
 
 ---
 
@@ -648,6 +825,18 @@ const { data } = await supabase
 - **Test behavior, not implementation**: Focus on what the code does, not how
 - **Test the happy path first**: Then add edge cases
 - **Keep tests fast**: Mock external services (Supabase, PayMongo)
+- **Testing pyramid**: 60% unit tests, 30% integration tests, 10% E2E tests
+
+### Coverage Targets (Phase 5)
+
+| Area | Target | Priority |
+|------|--------|----------|
+| Server Actions (`src/services/`) | ≥ 90% | Critical |
+| Zod Validators (`src/lib/validators/`) | 100% | Critical |
+| Utility Functions (`src/lib/utils/`) | ≥ 95% | High |
+| React Hooks (`src/hooks/`) | ≥ 80% | High |
+| UI Components (`src/components/`) | ≥ 70% | Medium |
+| **Overall** | **≥ 80%** | — |
 
 ### What to Test by Module
 
@@ -741,7 +930,7 @@ After setup, verify these work:
 | `src/app/(kiosk)/` | Kiosk | No |
 | `src/app/(kitchen)/` | Kitchen | No |
 | `src/app/(cashier)/` | Cashier | No |
-| `src/app/(admin)/` | Admin | No |
+| `src/app/admin/` | Admin | No |
 | `src/components/kiosk/` | Kiosk | No |
 | `src/components/kitchen/` | Kitchen | No |
 | `src/components/cashier/` | Cashier | No |
@@ -848,10 +1037,46 @@ useEffect(() => {
 
 | Module | Key Accessibility Features |
 |--------|---------------------------|
-| **Kiosk** | Large touch targets, high contrast, optional audio feedback |
-| **Kitchen** | Dark theme only, extra-large text (18px min), high contrast |
-| **Cashier** | Standard accessibility, keyboard shortcuts |
+| **Kiosk** | Touch targets ≥ 48px (56px for primary actions), body text ≥ 18px, headings ≥ 24px, high contrast, optional audio feedback |
+| **Kitchen** | Dark theme only, order details ≥ 20px, order numbers ≥ 28px, color-blind friendly (icons + patterns supplement color coding), audio alerts configurable |
+| **Cashier** | Standard accessibility, keyboard shortcuts for common actions |
 | **Admin** | Standard WCAG compliance |
+
+### Kitchen Display Specifics (KDS)
+
+When implementing the Kitchen Display System, these rules apply:
+
+- **Order age color coding**: Green (0-5 min), Yellow (5-10 min), Red (>10 min) — based on `paid_at` timestamp
+- **Timer refresh**: Client-side `setInterval` every 30 seconds
+- **Audio alert**: Play sound on new order (configurable volume/tone)
+- **Auto-hide**: Served orders disappear after 5 minutes
+- **Recall**: Served orders can be recalled within 30 minutes
+- **Bump interaction**: Single tap advances status (paid → preparing → ready → served)
+- **Filters**: Filter by order type (dine-in, room service, takeout) and status
+
+### Cashier Module Specifics (POS)
+
+When implementing the Cashier module (Phase 3):
+
+- **Pending queue**: Orders with `payment_status = 'unpaid'`, sorted oldest first
+- **Cash payment**: Numeric keypad + quick-select buttons (₱20, ₱50, ₱100, ₱500, ₱1000)
+- **Change calculation**: Real-time as cashier enters amount tendered
+- **Refunds**: Require manager PIN approval (4-digit code), log reason in audit trail
+- **BIR receipts**: Must include TIN, business name, sequential receipt number, VAT breakdown
+- **Order expiry**: Highlight orders within 2 min of 15-minute timeout in red
+
+---
+
+## Disaster Recovery & Rollback
+
+For detailed procedures, see PRD Section 20. Key points:
+
+- **Application rollback**: Use `vercel rollback <deployment-url>` or Vercel dashboard
+- **Database rollback**: Each migration file should include rollback SQL comments at the bottom.
+  Run rollback SQL manually if needed, then deploy previous app version.
+- **PayMongo outage**: Disable GCash/Card in UI via `settings` table feature flag, fallback to cash
+- **Supabase outage**: System enters read-only mode (cached menu data), display "temporarily unavailable" for new orders
+- **Never run `supabase db reset` in production** — use Point-in-Time Recovery from Supabase dashboard
 
 ---
 
@@ -882,5 +1107,6 @@ useEffect(() => {
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.2 | Feb 7, 2026 | Aligned with PRD: fixed migration naming (timestamp-based), updated project structure to match actual code, fixed admin route (regular folder not route group), added order lifecycle/status flow, tax & service charge formula, promo code validation rules, error code system (PRD Section 17), kitchen/cashier specifics, enhanced accessibility with correct font sizes, added coverage targets, disaster recovery reference, fixed phase roadmap to match PRD phases |
 | 2.0 | Feb 2026 | Added Quick Reference, Troubleshooting Guide, Testing Guidelines, Environment Setup Checklist, Module Ownership Matrix, Decision Log, Performance Guidelines, Accessibility Requirements, Glossary |
 | 1.0 | Feb 2026 | Initial CLAUDE.md with project setup, critical rules, architecture patterns |

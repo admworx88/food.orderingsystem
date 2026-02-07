@@ -1,7 +1,7 @@
 # Agent: Cashier Module
 # Scope: /(cashier) route group — Payment processing & POS
 
-> **Version:** 2.1 | **Last Updated:** February 2026 | **Status:** Aligned with PRD v1.2
+> **Version:** 2.2 | **Last Updated:** February 7, 2026 | **Status:** Aligned with PRD v1.3
 
 ---
 
@@ -91,9 +91,9 @@ src/services/bir-service.ts      # NEW: BIR receipt generation
 │   └──────────────────┘     │   Subtotal          ₱803.00 │
 │   ┌──────────────────┐     │   Promo: SAVE20 -₱160.60   │
 │   │ #A024 • Takeout  │     │   VAT (12%)          ₱77.09 │
-│   │ ₱450             │     │   Service (5%)       ₱32.12 │
+│   │ ₱450             │     │   Service (10%)      ₱64.24 │
 │   │ ⏱ 12min left     │     │   ─────────────────         │
-│   └──────────────────┘     │   TOTAL             ₱751.61 │
+│   └──────────────────┘     │   TOTAL             ₱783.73 │
 │   ┌──────────────────┐     │                             │
 │   │ #A025 • Room 302 │     │   Guest: +63 917 XXX XXXX  │
 │   │ ₱1,250           │     │                             │
@@ -109,7 +109,7 @@ src/services/bir-service.ts      # NEW: BIR receipt generation
 1. Select order from pending list
 2. Verify promo code (if applied)
 3. Click "Cash" tab
-4. Quick amount buttons: ₱500, ₱1000, ₱1500, ₱2000 + custom numpad
+4. Quick amount buttons: ₱20, ₱50, ₱100, ₱500, ₱1000 + custom numpad
 5. System shows change due
 6. Click "Confirm Payment"
 7. BIR-compliant receipt auto-generates
@@ -566,6 +566,12 @@ webhook results by polling order status or receiving realtime updates.
 
 ## Version History
 
+### Version 2.2 (February 7, 2026)
+**Changes**:
+- Fixed service charge in wireframe: 10% (aligned with PRD/CLAUDE.md) — was showing 5%
+- Fixed cash quick-select buttons: ₱20, ₱50, ₱100, ₱500, ₱1000 (aligned with PRD) — was ₱500, ₱1000, ₱1500, ₱2000
+- Updated all version references to PRD v1.3 and Architecture v2.3
+
 ### Version 2.1 (February 2026)
 **Changes**:
 - Added Quick Reference with payment flow
@@ -589,7 +595,7 @@ webhook results by polling order status or receiving realtime updates.
 
 ## Related Documents
 
-- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.1
-- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.0
-- **[AGENT-DATABASE.md](./AGENT-DATABASE.md)** — Database schema v2.0
-- **[AGENT-PAYMENTS.md](./AGENT-PAYMENTS.md)** — PayMongo webhook handling
+- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.3
+- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.3
+- **[AGENT-DATABASE.md](./AGENT-DATABASE.md)** — Database schema v2.2
+- **[AGENT-PAYMENTS.md](./AGENT-PAYMENTS.md)** — PayMongo webhook handling v2.2
