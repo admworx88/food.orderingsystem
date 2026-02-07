@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Clock, ChevronRight, AlertTriangle, MapPin, Phone } from 'lucide-react';
+import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils/currency';
 import { cn } from '@/lib/utils';
 import { updateOrderStatus } from '@/services/order-service';
+import { useElapsedTimer } from '@/hooks/use-elapsed-timer';
 import type { KitchenOrder } from '@/hooks/use-realtime-orders';
 
 interface OrderCardProps {
@@ -57,23 +59,8 @@ function getTimerState(elapsedMinutes: number): { class: string; isCritical: boo
   return { class: 'kds-timer-critical', isCritical: true };
 }
 
-function OrderTimer({ paidAt }: { paidAt: string | null }) {
-  const [elapsed, setElapsed] = useState(0);
-
-  useEffect(() => {
-    if (!paidAt) return;
-
-    const calculate = () => {
-      const diff = Math.floor((Date.now() - new Date(paidAt).getTime()) / 1000);
-      setElapsed(Math.max(0, diff));
-    };
-
-    calculate();
-    const interval = setInterval(calculate, 1000);
-    return () => clearInterval(interval);
-  }, [paidAt]);
-
-  if (!paidAt) return null;
+function OrderTimer({ elapsed }: { elapsed: number }) {
+  if (elapsed === 0) return null;
 
   const minutes = Math.floor(elapsed / 60);
   const seconds = elapsed % 60;
@@ -91,7 +78,11 @@ function OrderTimer({ paidAt }: { paidAt: string | null }) {
 
 export function OrderCard({ order }: OrderCardProps) {
   const [isUpdating, setIsUpdating] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
+
+  // Single shared timer — eliminates duplicate intervals per card
+  const elapsed = useElapsedTimer(order.paid_at);
+  const minutes = Math.floor(elapsed / 60);
+  const isCritical = minutes >= 15;
 
   const statusConfig = STATUS_CONFIG[order.status] || STATUS_CONFIG.paid;
   const nextStatus = NEXT_STATUS[order.status];
@@ -103,23 +94,6 @@ export function OrderCard({ order }: OrderCardProps) {
       : order.order_type === 'room_service'
         ? `Room ${order.room_number}`
         : 'Pickup Counter';
-
-  // Calculate if order is critical (>15 min)
-  useEffect(() => {
-    if (!order.paid_at) return;
-
-    const calculate = () => {
-      const diff = Math.floor((Date.now() - new Date(order.paid_at!).getTime()) / 1000);
-      setElapsed(Math.max(0, diff));
-    };
-
-    calculate();
-    const interval = setInterval(calculate, 1000);
-    return () => clearInterval(interval);
-  }, [order.paid_at]);
-
-  const minutes = Math.floor(elapsed / 60);
-  const isCritical = minutes >= 15;
 
   const handleBump = async () => {
     if (!nextStatus || isUpdating) return;
@@ -133,6 +107,13 @@ export function OrderCard({ order }: OrderCardProps) {
 
     if (!result.success) {
       console.error('Failed to update status:', result.error);
+
+      // Show toast feedback so kitchen staff see the failure
+      if (result.error.includes('another user')) {
+        toast.error('Order updated by another user. Refreshing...');
+      } else {
+        toast.error('Failed to update order status. Please try again.');
+      }
     }
 
     setIsUpdating(false);
@@ -158,7 +139,7 @@ export function OrderCard({ order }: OrderCardProps) {
           </div>
         </div>
 
-        <OrderTimer paidAt={order.paid_at} />
+        <OrderTimer elapsed={elapsed} />
       </div>
 
       {/* Divider */}

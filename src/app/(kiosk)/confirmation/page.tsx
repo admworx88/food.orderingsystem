@@ -12,8 +12,9 @@ function ConfirmationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const clearCart = useCartStore((state) => state.clearCart);
-  const paymentMethod = useCartStore((state) => state.paymentMethod);
 
+  // Read paymentMethod from URL params (reliable) — survives clearCart()
+  const paymentMethod = searchParams.get('paymentMethod') || 'cash';
   const orderNumber = searchParams.get('orderNumber') || '0000';
   const totalAmount = searchParams.get('total') ? parseFloat(searchParams.get('total')!) : 0;
   const expiresAt = searchParams.get('expiresAt');

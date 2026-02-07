@@ -142,6 +142,7 @@ export default function CheckoutPage() {
         orderNumber: result.data.orderNumber,
         total: result.data.totalAmount.toString(),
         orderId: result.data.orderId,
+        paymentMethod: paymentMethod,
       });
       if (result.data.expiresAt) {
         params.set('expiresAt', result.data.expiresAt);

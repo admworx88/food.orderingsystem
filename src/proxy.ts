@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
 
 /**
  * Next.js 16 Proxy (formerly middleware.ts)
@@ -14,10 +15,46 @@ import { NextResponse, type NextRequest } from 'next/server';
  * - src/app/admin/layout.tsx (admin role only)
  * - src/app/(cashier)/layout.tsx (cashier + admin roles)
  *
- * This proxy now only handles static file serving.
+ * This proxy handles:
+ * 1. Supabase session cookie refresh (keeps sessions alive)
+ * 2. Setting x-pathname header (used by AuthGuard for redirect-after-login)
  */
-export function proxy(_request: NextRequest) {
-  return NextResponse.next();
+export async function proxy(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({
+    request,
+  });
+
+  // Inject x-pathname header so AuthGuard can build redirect URLs
+  supabaseResponse.headers.set('x-pathname', request.nextUrl.pathname);
+
+  // Refresh Supabase auth session cookies to prevent expiry
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+          supabaseResponse = NextResponse.next({
+            request,
+          });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  // Call getUser() to trigger session refresh. Do not cache this result.
+  await supabase.auth.getUser();
+
+  return supabaseResponse;
 }
 
 export const config = {

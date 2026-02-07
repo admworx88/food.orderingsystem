@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { RefreshCw, Loader2, ChevronDown } from 'lucide-react';
+import { RefreshCw, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRealtimeOrders } from '@/hooks/use-realtime-orders';
 import { OrderCard } from './order-card';

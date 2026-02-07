@@ -45,6 +45,13 @@ export interface PaginatedOrders {
   totalPages: number;
 }
 
+// Standardized error structure (PRD Section 17)
+interface ServiceErrorDetail {
+  code: string;       // E.g., "E2001", "E5002"
+  message: string;    // User-friendly message
+  details?: unknown;  // Validation errors, additional context
+}
+
 // Service result types
 type ServiceSuccess<T> = {
   success: true;
@@ -53,13 +60,30 @@ type ServiceSuccess<T> = {
 
 type ServiceError = {
   success: false;
-  error: string;
+  error: string;             // User-friendly message (backwards-compatible)
+  errorDetail?: ServiceErrorDetail; // Structured error code for programmatic handling
 };
 
 type ServiceResult<T> = ServiceSuccess<T> | ServiceError;
 
+// Error code helpers
+function serviceError(code: string, message: string, details?: unknown): ServiceError {
+  return { success: false, error: message, errorDetail: { code, message, details } };
+}
+
 // UUID validation helper
 const uuidSchema = z.string().uuid('Invalid ID format');
+
+/**
+ * Sanitize user input for use in PostgREST LIKE/ILIKE patterns.
+ * Escapes SQL wildcards (%, _) and PostgREST filter special characters (,, ., (, )).
+ */
+function sanitizeForLike(str: string): string {
+  return str
+    .replace(/[%_]/g, '\\$&')       // Escape SQL LIKE wildcards
+    .replace(/[,.()"']/g, '')        // Strip PostgREST filter special chars
+    .replace(/[\s\-\(\)]/g, '');     // Strip whitespace and common separators
+}
 
 function validateId(id: string): { valid: true } | { valid: false; error: string } {
   const result = uuidSchema.safeParse(id);
@@ -79,8 +103,8 @@ export async function getOrdersByPhone(phone: string): Promise<ServiceResult<Ord
 
   const supabase = await createServerClient();
 
-  // Clean phone number - remove spaces, dashes, etc.
-  const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+  // Clean and sanitize phone number for safe LIKE pattern
+  const cleanPhone = sanitizeForLike(phone);
 
   const { data, error } = await supabase
     .from('orders')
@@ -135,9 +159,9 @@ export async function getOrders(filters: OrderFilters = {}): Promise<ServiceResu
 
   // Apply filters
   if (search) {
-    // Search by order number or phone
-    const cleanSearch = search.replace(/[\s\-\(\)]/g, '');
-    query = query.or(`order_number.ilike.%${search}%,guest_phone.ilike.%${cleanSearch}%`);
+    // Sanitize search input to prevent PostgREST filter injection
+    const cleanSearch = sanitizeForLike(search);
+    query = query.or(`order_number.ilike.%${cleanSearch}%,guest_phone.ilike.%${cleanSearch}%`);
   }
 
   if (status && status !== 'all') {
@@ -220,10 +244,10 @@ export async function getOrderDetails(id: string): Promise<ServiceResult<OrderWi
 
   if (error) {
     if (error.code === 'PGRST116') {
-      return { success: false, error: 'Order not found' };
+      return serviceError('E2001', 'Order not found');
     }
     console.error('getOrderDetails failed:', error);
-    return { success: false, error: error.message };
+    return serviceError('E9001', error.message);
   }
 
   return { success: true, data: data as OrderWithDetails };
@@ -264,8 +288,8 @@ export async function exportOrdersCSV(filters: OrderFilters = {}): Promise<Servi
 
   // Apply filters
   if (search) {
-    const cleanSearch = search.replace(/[\s\-\(\)]/g, '');
-    query = query.or(`order_number.ilike.%${search}%,guest_phone.ilike.%${cleanSearch}%`);
+    const cleanSearch = sanitizeForLike(search);
+    query = query.or(`order_number.ilike.%${cleanSearch}%,guest_phone.ilike.%${cleanSearch}%`);
   }
 
   if (status && status !== 'all') {
@@ -392,29 +416,39 @@ export async function exportOrdersCSV(filters: OrderFilters = {}): Promise<Servi
 }
 
 /**
- * Get order count by status (for dashboard stats)
+ * Get order count by status (for dashboard stats).
+ * Uses DB-level head-only count queries instead of fetching all rows.
  */
 export async function getOrderCountByStatus(): Promise<
   ServiceResult<Record<string, number>>
 > {
   const supabase = await createServerClient();
+  const statuses = ['pending_payment', 'paid', 'preparing', 'ready', 'served', 'cancelled'] as const;
 
-  const { data, error } = await supabase
-    .from('orders')
-    .select('status')
-    .is('deleted_at', null);
+  try {
+    const results = await Promise.all(
+      statuses.map(async (status) => {
+        const { count, error } = await supabase
+          .from('orders')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', status)
+          .is('deleted_at', null);
 
-  if (error) {
+        if (error) throw error;
+        return [status, count ?? 0] as const;
+      })
+    );
+
+    const counts: Record<string, number> = {};
+    for (const [status, count] of results) {
+      counts[status] = count;
+    }
+
+    return { success: true, data: counts };
+  } catch (error) {
     console.error('getOrderCountByStatus failed:', error);
-    return { success: false, error: error.message };
+    return serviceError('E9001', 'Failed to fetch order counts');
   }
-
-  const counts: Record<string, number> = {};
-  for (const order of data || []) {
-    counts[order.status] = (counts[order.status] || 0) + 1;
-  }
-
-  return { success: true, data: counts };
 }
 
 // ==========================================
@@ -444,35 +478,32 @@ export async function validatePromoCode(
     .single();
 
   if (error || !promo) {
-    return { success: false, error: 'Invalid promo code' };
+    return serviceError('E5001', 'Invalid promo code');
   }
 
   // Check date range
   const now = new Date();
   if (new Date(promo.valid_from) > now) {
-    return { success: false, error: 'This promo code is not yet active' };
+    return serviceError('E5003', 'This promo code is not yet active');
   }
   if (new Date(promo.valid_until) < now) {
-    return { success: false, error: 'This promo code has expired' };
+    return serviceError('E5002', 'This promo code has expired');
   }
 
   // Check usage limit
   if (promo.max_usage_count !== null && (promo.current_usage_count ?? 0) >= promo.max_usage_count) {
-    return { success: false, error: 'This promo code has reached its usage limit' };
+    return serviceError('E5004', 'This promo code has reached its usage limit');
   }
 
   // Check minimum order amount
   if (promo.min_order_amount !== null && validSubtotal < promo.min_order_amount) {
-    return {
-      success: false,
-      error: `Minimum order of ₱${promo.min_order_amount.toFixed(2)} required for this promo`,
-    };
+    return serviceError('E5005', `Minimum order of ₱${promo.min_order_amount.toFixed(2)} required for this promo`);
   }
 
-  // Calculate discount
+  // Calculate discount (capped at subtotal — discount cannot exceed order value)
   let discountAmount: number;
   if (promo.discount_type === 'percentage') {
-    discountAmount = validSubtotal * (promo.discount_value / 100);
+    discountAmount = Math.min(validSubtotal * (promo.discount_value / 100), validSubtotal);
   } else {
     discountAmount = Math.min(promo.discount_value, validSubtotal);
   }
@@ -519,7 +550,7 @@ export async function createOrder(
     }
 
     if (!dbMenuItems || dbMenuItems.length === 0) {
-      return { success: false, error: 'No valid menu items found' };
+      return serviceError('E4001', 'No valid menu items found');
     }
 
     // Build a map for quick lookup
@@ -529,10 +560,10 @@ export async function createOrder(
     for (const cartItem of validated.items) {
       const dbItem = menuItemMap.get(cartItem.menuItemId);
       if (!dbItem) {
-        return { success: false, error: `Menu item "${cartItem.name}" not found` };
+        return serviceError('E4001', `Menu item "${cartItem.name}" not found`);
       }
       if (!dbItem.is_available || dbItem.deleted_at) {
-        return { success: false, error: `"${dbItem.name}" is no longer available` };
+        return serviceError('E4002', `"${dbItem.name}" is no longer available`);
       }
     }
 
@@ -624,10 +655,11 @@ export async function createOrder(
     const serviceCharge = Math.round(discountedSubtotal * 0.10 * 100) / 100; // 10%
     const totalAmount = Math.round((discountedSubtotal + taxAmount + serviceCharge) * 100) / 100;
 
-    // 8. Set expiration for cash orders (15 minutes)
-    const isCash = validated.paymentMethod === 'cash';
-    const expiresAt = isCash ? new Date(Date.now() + 15 * 60 * 1000).toISOString() : null;
-    const paidAt = !isCash ? new Date().toISOString() : null; // Digital payments marked as paid immediately (placeholder)
+    // 8. All orders start as pending_payment until payment is confirmed.
+    // Cash: 15-minute expiry window for counter payment.
+    // Digital (GCash/Card): pending until PayMongo webhook confirms payment (Phase 3).
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    const paidAt = null; // Set by webhook (digital) or cashier action (cash)
 
     // 9. Insert the order (order_number auto-generated by DB sequence)
     const { data: order, error: orderError } = await supabase
@@ -636,8 +668,8 @@ export async function createOrder(
         order_type: validated.orderType,
         table_number: validated.tableNumber || null,
         room_number: validated.roomNumber || null,
-        status: isCash ? 'pending_payment' : 'paid',
-        payment_status: isCash ? 'unpaid' : 'paid',
+        status: 'pending_payment',
+        payment_status: 'unpaid',
         payment_method: validated.paymentMethod,
         subtotal: calculatedSubtotal,
         discount_amount: discountAmount,
@@ -656,7 +688,7 @@ export async function createOrder(
 
     if (orderError || !order) {
       console.error('createOrder: Failed to insert order:', orderError);
-      return { success: false, error: 'Failed to create order. Please try again.' };
+      return serviceError('E2002', 'Failed to create order. Please try again.');
     }
 
     // 10. Insert order items (batch insert for atomicity)
@@ -717,8 +749,8 @@ export async function createOrder(
       }
     }
 
-    // 12. Log order event for analytics
-    await supabase.from('order_events').insert({
+    // 12. Log order event for analytics (non-critical but logged on failure)
+    const { error: eventError } = await supabase.from('order_events').insert({
       order_id: order.id,
       event_type: 'order_submitted',
       metadata: {
@@ -728,6 +760,10 @@ export async function createOrder(
         order_type: validated.orderType,
       },
     });
+    if (eventError) {
+      console.error('createOrder: Failed to log order event:', eventError);
+      // Non-critical — order is created, event logging failure is acceptable
+    }
 
     // 13. Increment promo code usage count (atomic operation via RPC)
     // Uses database function to prevent race conditions with concurrent orders
@@ -822,20 +858,17 @@ export async function updateOrderStatus(
     .single();
 
   if (fetchError || !currentOrder) {
-    return { success: false, error: 'Order not found' };
+    return serviceError('E2001', 'Order not found');
   }
 
   const allowedNext = validTransitions[currentOrder.status];
   if (!allowedNext || !allowedNext.includes(newStatus)) {
-    return {
-      success: false,
-      error: `Cannot transition from "${currentOrder.status}" to "${newStatus}"`,
-    };
+    return serviceError('E2004', `Cannot transition from "${currentOrder.status}" to "${newStatus}"`);
   }
 
   // Optimistic locking: check version matches
   if (currentVersion !== undefined && currentOrder.version !== currentVersion) {
-    return { success: false, error: 'Order was modified by another user. Please refresh.' };
+    return serviceError('E2005', 'Order was modified by another user. Please refresh.');
   }
 
   // Build update payload

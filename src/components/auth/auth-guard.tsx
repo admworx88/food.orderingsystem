@@ -30,16 +30,18 @@ interface AuthGuardProps {
  */
 export async function AuthGuard({ allowedRoles, children }: AuthGuardProps) {
   const headersList = await headers();
-  const pathname = headersList.get('x-pathname') || headersList.get('referer') || '/';
 
-  // Extract pathname from full URL if referer is a full URL
-  let cleanPathname = pathname;
+  // x-pathname is set by proxy.ts on every request (reliable source).
+  // Falls back to referer (parsing out full URL) or '/' as last resort.
+  const rawPathname = headersList.get('x-pathname') || headersList.get('referer') || '/';
+
+  let cleanPathname = rawPathname;
   try {
-    if (pathname.startsWith('http')) {
-      cleanPathname = new URL(pathname).pathname;
+    if (rawPathname.startsWith('http')) {
+      cleanPathname = new URL(rawPathname).pathname;
     }
   } catch {
-    // If URL parsing fails, use the original pathname
+    // If URL parsing fails, use the raw value
   }
 
   // Get current authenticated user with profile

@@ -121,7 +121,12 @@ export function useRealtimeOrders(): UseRealtimeOrdersReturn {
 
     const supabase = getSupabase();
 
-    // Subscribe to realtime changes on orders table
+    // Subscribe to realtime changes on orders table.
+    // NOTE: Supabase Realtime postgres_changes does not support `in` filters
+    // (e.g., status=in.(paid,preparing,ready)). Only single `eq` filters are
+    // supported. We listen to all changes and filter client-side in
+    // handleRealtimeChange. This is a known limitation — when Supabase adds
+    // multi-value filter support, add: filter: 'status=in.(paid,preparing,ready)'
     const channel = supabase
       .channel('kitchen-orders')
       .on(
