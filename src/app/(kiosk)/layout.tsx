@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { ShoppingBag } from 'lucide-react';
 import { CartDrawer } from '@/components/kiosk/cart-drawer';
 import { useCartStore } from '@/stores/cart-store';
@@ -37,6 +37,10 @@ export default function KioskLayout({ children }: KioskLayoutProps) {
   const [lastInteraction, setLastInteraction] = useState(Date.now());
   const [showIdleWarning, setShowIdleWarning] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
+
+  // Only show floating cart button on menu page
+  const showCartButton = pathname === '/menu';
 
   // Get cart state from Zustand store
   const {
@@ -139,29 +143,31 @@ export default function KioskLayout({ children }: KioskLayoutProps) {
         {children}
       </main>
 
-      {/* Premium Floating Cart Button */}
-      <button
-        onClick={() => setIsCartOpen(true)}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white pl-4 pr-5 h-14 rounded-full shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 active:scale-[0.98] transition-all"
-      >
-        <div className="relative flex items-center justify-center w-9 h-9 bg-white/20 rounded-full">
-          <ShoppingBag className="w-5 h-5" strokeWidth={2} />
-          {cartItemCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-white text-amber-600 text-xs font-bold rounded-full flex items-center justify-center shadow">
-              {cartItemCount > 9 ? '9+' : cartItemCount}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="font-semibold">View Cart</span>
-          {cartItemCount > 0 && (
-            <>
-              <div className="w-px h-5 bg-white/30" />
-              <span className="font-bold">{formatCurrency(cartTotal)}</span>
-            </>
-          )}
-        </div>
-      </button>
+      {/* Premium Floating Cart Button — only on menu page */}
+      {showCartButton && (
+        <button
+          onClick={() => setIsCartOpen(true)}
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white pl-4 pr-5 h-14 rounded-full shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 active:scale-[0.98] transition-all"
+        >
+          <div className="relative flex items-center justify-center w-9 h-9 bg-white/20 rounded-full">
+            <ShoppingBag className="w-5 h-5" strokeWidth={2} />
+            {cartItemCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-white text-amber-600 text-xs font-bold rounded-full flex items-center justify-center shadow">
+                {cartItemCount > 9 ? '9+' : cartItemCount}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="font-semibold">View Cart</span>
+            {cartItemCount > 0 && (
+              <>
+                <div className="w-px h-5 bg-white/30" />
+                <span className="font-bold">{formatCurrency(cartTotal)}</span>
+              </>
+            )}
+          </div>
+        </button>
+      )}
 
       {/* Cart Drawer */}
       <CartDrawer
