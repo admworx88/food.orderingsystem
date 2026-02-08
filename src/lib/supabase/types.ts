@@ -761,8 +761,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cancel_expired_orders: { Args: never; Returns: number }
       generate_order_number: { Args: never; Returns: string }
+      get_next_bir_receipt_number: { Args: never; Returns: string }
       increment_promo_usage: { Args: { promo_id: string }; Returns: undefined }
+      process_cash_payment: {
+        Args: {
+          p_amount: number
+          p_cash_received: number
+          p_cashier_id: string
+          p_change_given: number
+          p_order_id: string
+        }
+        Returns: string
+      }
       user_role: {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]

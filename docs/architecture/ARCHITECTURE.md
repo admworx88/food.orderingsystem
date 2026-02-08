@@ -1,9 +1,9 @@
 # System Architecture Document
 # OrderFlow — Hotel Restaurant Web Ordering System
 
-**Version:** 2.3 (Aligned with PRD and actual codebase)
-**Date:** February 7, 2026
-**Status:** Phase 1 + Kiosk Frontend Complete ✅ — Phase 2 Backend Integration in Progress
+**Version:** 2.4 (Phase 3 Payments Implementation)
+**Date:** February 8, 2026
+**Status:** Phase 1 + Phase 2 Complete ✅ — Phase 3 Payments Implemented
 
 ---
 
@@ -49,11 +49,11 @@ Kiosk → Cart (Zustand) → Server Action → Supabase → Realtime → Kitchen
 ┌──────────────────────────────────────────────────────────────────┐
 │                        CLIENTS (Next.js)                         │
 │                                                                  │
-│  ┌─────────────┐ ┌─────────────┐ ┌──────────┐ ┌──────────────┐ │
-│  │  /(kiosk)   │ │ /(kitchen)  │ │/(cashier)│ │  /(admin)    │ │
-│  │  Touch UI   │ │  KDS View   │ │ Payments │ │  Dashboard   │ │
-│  │  Menu+Cart  │ │  Real-time  │ │ Register │ │  Reports     │ │
-│  └──────┬──────┘ └──────┬──────┘ └────┬─────┘ └──────┬───────┘ │
+│  ┌─────────────┐ ┌─────────────┐ ┌──────────┐ ┌──────────────┐   │
+│  │  /(kiosk)   │ │ /(kitchen)  │ │/(cashier)│ │  /(admin)    │   │
+│  │  Touch UI   │ │  KDS View   │ │ Payments │ │  Dashboard   │   │
+│  │  Menu+Cart  │ │  Real-time  │ │ Register │ │  Reports     │   │
+│  └──────┬──────┘ └──────┬──────┘ └────┬─────┘ └──────┬───────┘   │
 │         │               │              │              │          │
 │         └───────────────┴──────────────┴──────────────┘          │
 │                              │                                   │
@@ -67,11 +67,11 @@ Kiosk → Cart (Zustand) → Server Action → Supabase → Realtime → Kitchen
                   │  Next.js Server Layer   │
                   │  • Server Actions       │
                   │  • API Routes           │
-                  │  • Middleware (Auth)     │
+                  │  • Middleware (Auth)    │
                   └────────────┬────────────┘
                                │
-          ┌────────────────────┼────────────────────┐
-          │                    │                     │
+          ┌────────────────────┼───────────────────┐
+          │                    │                   │
    ┌──────┴──────┐   ┌────────┴────────┐   ┌───────┴───────┐
    │  Supabase   │   │   Supabase      │   │  PayMongo     │
    │  Database   │   │   Realtime      │   │  (Payments)   │
@@ -107,7 +107,10 @@ app/
 │       └── page.tsx    # Real-time order queue (KDS)
 │
 ├── (cashier)/          # Staff-only, point-of-sale layout (route group)
-│   └── layout.tsx      # POS layout (pages pending Phase 3)
+│   ├── layout.tsx          # Server: AuthGuard + cashier name fetch
+│   ├── layout-client.tsx   # Client: POS header, nav, live clock
+│   ├── payments/page.tsx   # Main POS page (F-C01 through F-C08)
+│   └── reports/page.tsx    # Shift summary / reconciliation (F-C09)
 │
 ├── admin/              # Admin-only, dashboard layout (regular folder, NOT route group)
 │   ├── layout.tsx      # Sidebar navigation
@@ -174,13 +177,19 @@ components/
 │   ├── filter-bar.tsx      # Filter by type, status
 │   └── audio-alert.tsx     # New order sound notification
 │
-├── cashier/                # Cashier-specific components
-│   ├── pending-orders-list.tsx
-│   ├── payment-form.tsx    # Cash / GCash / Card processing
-│   ├── cash-calculator.tsx # Tendered amount + change
-│   ├── receipt-preview.tsx
-│   ├── discount-selector.tsx
-│   └── shift-summary.tsx
+├── cashier/                # Cashier-specific components (Phase 3)
+│   ├── cashier-pos-client.tsx   # Main POS orchestrator (split-panel)
+│   ├── pending-orders-list.tsx  # Left panel: order queue with countdown
+│   ├── order-detail-panel.tsx   # Right panel: items, addons, price breakdown
+│   ├── payment-form.tsx         # Tabs: Cash / GCash / Card
+│   ├── cash-calculator.tsx      # Numpad + quick amounts + change calc
+│   ├── gcash-payment.tsx        # GCash checkout flow (PayMongo)
+│   ├── card-payment.tsx         # Card payment flow (PayMongo)
+│   ├── discount-selector.tsx    # Senior/PWD discount (20% pre-tax)
+│   ├── receipt-preview.tsx      # BIR-compliant receipt + print
+│   ├── refund-dialog.tsx        # Refund with manager PIN + reason
+│   ├── expiration-countdown.tsx # "X min left" badge (color-coded)
+│   └── shift-summary-view.tsx   # Shift report display
 │
 ├── admin/                  # Admin-specific components
 │   ├── sidebar-nav.tsx
@@ -412,7 +421,14 @@ food.orderingsystem/
 │   │   │   └── orders/page.tsx     # Real-time KDS
 │   │   │
 │   │   ├── (cashier)/             # Route group — staff, POS layout
-│   │   │   └── layout.tsx          # POS layout (pages pending Phase 3)
+│   │   │   ├── layout.tsx          # Server: AuthGuard + cashier name
+│   │   │   ├── layout-client.tsx   # Client: POS header, nav, live clock
+│   │   │   ├── payments/page.tsx   # Main POS page
+│   │   │   └── reports/page.tsx    # Shift summary / reconciliation
+│   │   │
+│   │   ├── api/
+│   │   │   └── webhooks/
+│   │   │       └── paymongo/route.ts  # PayMongo webhook handler
 │   │   │
 │   │   ├── admin/                 # Regular folder (NOT route group) — URL: /admin/*
 │   │   │   ├── layout.tsx          # Sidebar nav
@@ -448,12 +464,15 @@ food.orderingsystem/
 │   │   │   ├── category.ts         # Category validation
 │   │   │   ├── menu-item.ts        # Menu item validation
 │   │   │   ├── order.ts            # Order validation
+│   │   │   ├── payment.ts          # Payment validation schemas (Phase 3)
 │   │   │   └── user.ts             # User validation
 │   │   └── constants/
-│   │       └── order-status.ts     # Status enums and labels
+│   │       ├── order-status.ts     # Status enums and labels
+│   │       └── payment-methods.ts  # Payment constants, quick amounts (Phase 3)
 │   │
 │   ├── hooks/
-│   │   └── use-realtime-orders.ts  # Supabase realtime subscription
+│   │   ├── use-realtime-orders.ts          # Kitchen realtime subscription
+│   │   └── use-realtime-pending-orders.ts  # Cashier pending orders subscription
 │   │
 │   ├── stores/
 │   │   └── cart-store.ts           # Zustand: cart state + localStorage persistence
@@ -461,18 +480,21 @@ food.orderingsystem/
 │   ├── types/
 │   │   ├── auth.ts                 # Auth-related types
 │   │   ├── dashboard.ts            # Dashboard/analytics types
-│   │   └── order.ts                # Order-related types
+│   │   ├── order.ts                # Order-related types
+│   │   └── payment.ts             # Payment, BIR receipt, shift types
 │   │   # Note: Database types are in lib/supabase/types.ts (auto-generated)
 │   │
 │   └── services/
 │       ├── order-service.ts        # Order CRUD server actions
+│       ├── payment-service.ts      # Payment processing server actions (Phase 3)
+│       ├── bir-service.ts          # BIR receipt generation (Phase 3)
 │       ├── menu-service.ts         # Menu CRUD server actions
 │       ├── analytics-service.ts    # Reporting queries
 │       ├── auth-service.ts         # Authentication operations
 │       └── user-service.ts         # User management
 │
 ├── supabase/
-│   ├── migrations/                 # 25 timestamped SQL migration files
+│   ├── migrations/                 # 28 timestamped SQL migration files
 │   │   ├── 20260205140000_enums_schema.sql
 │   │   ├── 20260205140100_profiles_schema.sql
 │   │   ├── ...                     # (see supabase/migrations/ for full list)
@@ -1069,6 +1091,20 @@ CREATE TABLE audit_log (
 ---
 
 ## 21. Version History
+
+### Version 2.4 (February 8, 2026)
+**Status**: Phase 3 Payments Implementation
+
+**Changes**:
+- Added cashier module: layout-client, payments page, reports page
+- Added 12 cashier components (POS orchestrator, payment forms, receipt, refund dialog, etc.)
+- Added payment-service.ts and bir-service.ts to services
+- Added use-realtime-pending-orders.ts hook
+- Added payment types, validators, and constants
+- Added PayMongo webhook handler (api/webhooks/paymongo/route.ts)
+- Added payment RPC functions migration (process_cash_payment, cancel_expired_orders, get_next_bir_receipt_number)
+- Updated folder structure to reflect all Phase 3 files
+- Updated migration count from 25 to 28
 
 ### Version 2.3 (February 7, 2026)
 **Status**: Aligned with PRD and actual codebase

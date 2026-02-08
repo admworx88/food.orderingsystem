@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-> **Version**: 2.2 | **Last Updated**: February 7, 2026 | **Status**: Phase 1 + Kiosk UI Complete, Phase 2 In Progress
+> **Version**: 2.3 | **Last Updated**: February 8, 2026 | **Status**: Phase 1 + Phase 2 Complete, Phase 3 Payments Implemented
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -185,7 +185,7 @@ npm run supabase:reset      # Reset local DB (dev only - WIPES DATA)
 - **Add to cart functionality**: MenuItemCard integrated with cart store
 - **Idle timer**: 2-minute warning, auto-reset with cart clearing
 
-### ⏳ Phase 2 — Backend Integration (In Progress)
+### ✅ Phase 2 — Backend Integration (Complete)
 - Server Action for order submission (connect checkout to database)
 - Server Action for promo code validation
 - Item detail sheet with addon selection
@@ -193,14 +193,17 @@ npm run supabase:reset      # Reset local DB (dev only - WIPES DATA)
 - Realtime order updates (kitchen ↔ kiosk)
 - Order age color coding
 
-### Phase 3 — Payments (Pending)
-- PayMongo GCash integration
-- PayMongo card payments (3DS)
-- Webhook handler with idempotency (`/api/webhooks/paymongo`)
-- Cashier POS interface (pending orders, payment processing)
-- Cash payment + change calculation
-- Unpaid order timeout (15 min auto-cancellation)
-- BIR-compliant receipt generation
+### ✅ Phase 3 — Payments (Implemented)
+- PayMongo GCash integration (stubbed with feature flag)
+- PayMongo card payments (stubbed with feature flag)
+- Webhook handler with idempotency + HMAC verification (`/api/webhooks/paymongo`)
+- Cashier POS interface (pending orders queue, payment processing, order detail)
+- Cash payment + numpad + quick amounts + change calculation
+- Unpaid order timeout (15 min auto-cancellation via client-side polling)
+- BIR-compliant receipt generation with sequential numbering
+- Senior/PWD discount (20% pre-tax, RA 9994/10754)
+- Refund processing with manager PIN verification and audit log
+- Shift summary / reconciliation report
 
 ### Phase 4 — Admin & Polish (Pending)
 - Real-time dashboard (revenue, orders, charts)
@@ -256,7 +259,10 @@ src/app/
   │   ├── layout.tsx          → Dark theme, fullscreen
   │   └── orders/page.tsx     → Real-time order queue (KDS)
   ├── (cashier)/              → POS (route group, staff)
-  │   └── layout.tsx          → POS layout (pages pending Phase 3)
+  │   ├── layout.tsx          → Server: AuthGuard + cashier name fetch
+  │   ├── layout-client.tsx   → Client: POS header, nav, live clock
+  │   ├── payments/page.tsx   → Main POS page (pending queue + payment)
+  │   └── reports/page.tsx    → Shift summary / reconciliation
   ├── admin/                  → Admin dashboard (regular folder, NOT route group)
   │   ├── layout.tsx          → Sidebar navigation
   │   ├── page.tsx            → Dashboard (stats, charts)
@@ -277,6 +283,8 @@ src/components/
 
 src/services/                 → Server Actions (all DB mutations)
   ├── order-service.ts        → Order CRUD
+  ├── payment-service.ts      → Payment processing (cash, digital, refund, shift summary)
+  ├── bir-service.ts          → BIR receipt generation
   ├── menu-service.ts         → Menu CRUD
   ├── analytics-service.ts    → Reporting queries
   ├── auth-service.ts         → Authentication operations
@@ -286,7 +294,8 @@ src/stores/                   → Zustand stores (client state only)
   └── cart-store.ts           → Cart state + localStorage persistence
 
 src/hooks/                    → Custom React hooks (client-side)
-  └── use-realtime-orders.ts  → Supabase realtime subscription
+  ├── use-realtime-orders.ts          → Kitchen realtime subscription
+  └── use-realtime-pending-orders.ts  → Cashier pending orders subscription
 
 src/lib/
   ├── supabase/               → Supabase client factories. Do NOT duplicate these.
@@ -303,7 +312,7 @@ src/lib/
       └── order-status.ts     → Order status enums and maps
 
 src/types/                    → TypeScript types (auth, dashboard, order)
-supabase/migrations/          → Timestamped SQL migration files (25 migrations applied)
+supabase/migrations/          → Timestamped SQL migration files (28 migrations applied)
 ```
 
 **Important**: Admin uses a regular `admin/` folder (not a route group) because it needs
@@ -1107,6 +1116,7 @@ For detailed procedures, see PRD Section 20. Key points:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.3 | Feb 8, 2026 | Phase 3 Payments: added payment-service.ts, bir-service.ts, 12 cashier components, cashier pages (payments + reports), PayMongo webhook handler, payment RPC functions migration, realtime pending orders hook, payment types/validators/constants. Updated Phase 2 and Phase 3 status. |
 | 2.2 | Feb 7, 2026 | Aligned with PRD: fixed migration naming (timestamp-based), updated project structure to match actual code, fixed admin route (regular folder not route group), added order lifecycle/status flow, tax & service charge formula, promo code validation rules, error code system (PRD Section 17), kitchen/cashier specifics, enhanced accessibility with correct font sizes, added coverage targets, disaster recovery reference, fixed phase roadmap to match PRD phases |
 | 2.0 | Feb 2026 | Added Quick Reference, Troubleshooting Guide, Testing Guidelines, Environment Setup Checklist, Module Ownership Matrix, Decision Log, Performance Guidelines, Accessibility Requirements, Glossary |
 | 1.0 | Feb 2026 | Initial CLAUDE.md with project setup, critical rules, architecture patterns |

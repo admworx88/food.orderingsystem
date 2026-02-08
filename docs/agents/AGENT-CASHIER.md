@@ -1,7 +1,7 @@
 # Agent: Cashier Module
 # Scope: /(cashier) route group — Payment processing & POS
 
-> **Version:** 2.2 | **Last Updated:** February 7, 2026 | **Status:** Aligned with PRD v1.3
+> **Version:** 2.3 | **Last Updated:** February 8, 2026 | **Status:** Phase 3 Implementation Complete
 
 ---
 
@@ -596,6 +596,6 @@ webhook results by polling order status or receiving realtime updates.
 ## Related Documents
 
 - **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.3
-- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.3
-- **[AGENT-DATABASE.md](./AGENT-DATABASE.md)** — Database schema v2.2
-- **[AGENT-PAYMENTS.md](./AGENT-PAYMENTS.md)** — PayMongo webhook handling v2.2
+- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.4
+- **[AGENT-DATABASE.md](./AGENT-DATABASE.md)** — Database schema v2.3
+- **[AGENT-PAYMENTS.md](./AGENT-PAYMENTS.md)** — PayMongo webhook handling v2.3

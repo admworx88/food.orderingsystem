@@ -1,20 +1,32 @@
 import { AuthGuard } from '@/components/auth/auth-guard';
+import { createServerClient } from '@/lib/supabase/server';
+import { CashierLayoutClient } from './layout-client';
 
-export default function CashierLayout({
+export default async function CashierLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // Fetch cashier name for the header
+  let cashierName = 'Cashier';
+  try {
+    const supabase = await createServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single();
+      cashierName = profile?.full_name || 'Cashier';
+    }
+  } catch {
+    // Fallback to default name
+  }
+
   return (
     <AuthGuard allowedRoles={['cashier', 'admin']}>
-      <div className="min-h-screen bg-gray-100">
-        <header className="bg-blue-600 text-white">
-          <div className="container mx-auto px-4 py-4">
-            <h1 className="text-2xl font-bold">Point of Sale</h1>
-          </div>
-        </header>
-        <main className="container mx-auto px-4 py-8">
-          {children}
-        </main>
-      </div>
+      <CashierLayoutClient cashierName={cashierName}>
+        {children}
+      </CashierLayoutClient>
     </AuthGuard>
   );
 }
