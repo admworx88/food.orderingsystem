@@ -245,7 +245,14 @@ async function handlePaymentPaid(
     })
     .eq('id', payment.id);
 
-  // Update order: paid
+  // Fetch current order version for optimistic locking consistency
+  const { data: currentOrder } = await supabase
+    .from('orders')
+    .select('version')
+    .eq('id', payment.order_id)
+    .single();
+
+  // Update order: paid (increment version to match cash RPC behavior)
   await supabase
     .from('orders')
     .update({
@@ -253,7 +260,7 @@ async function handlePaymentPaid(
       payment_status: 'paid',
       paid_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      // Note: version increment should be done via RPC if optimistic locking is needed
+      version: (currentOrder?.version ?? 0) + 1,
     })
     .eq('id', payment.order_id);
 

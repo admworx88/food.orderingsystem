@@ -114,5 +114,5 @@ END;
 $$;
 
 -- Rollback:
--- This is a CREATE OR REPLACE, so rolling back means re-applying the original
--- (buggy) function from 20260209000001_payment_rpc_functions.sql
+-- DROP FUNCTION IF EXISTS process_cash_payment(UUID, NUMERIC, NUMERIC, NUMERIC, UUID);
+-- Then re-apply the original function from 20260209000001_payment_rpc_functions.sql

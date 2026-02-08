@@ -625,17 +625,20 @@ export async function processRefund(
       refundAmount = Math.round(refundAmount * 100) / 100;
     }
 
-    // Update payment status
-    const { error: updateError } = await supabase
+    // Update payment status (atomic: only if still 'success' to prevent concurrent refund race)
+    const { data: updatedPayment, error: updateError } = await supabase
       .from('payments')
       .update({
         status: 'refunded',
       })
-      .eq('id', paymentId);
+      .eq('id', paymentId)
+      .eq('status', 'success')
+      .select('id')
+      .single();
 
-    if (updateError) {
+    if (updateError || !updatedPayment) {
       console.error('processRefund update failed:', updateError);
-      return serviceError('E9001', 'Failed to process refund');
+      return serviceError('E3004', 'Refund already processed or payment status changed');
     }
 
     // Update order payment_status
