@@ -88,9 +88,9 @@ export function MenuItemForm({
       return;
     }
 
-    // Validate file size (2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('File too large. Maximum size is 2MB.');
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File too large. Maximum size is 5MB.');
       return;
     }
 
@@ -203,7 +203,7 @@ export function MenuItemForm({
                     </div>
                     <span className="text-sm font-medium">Upload Image</span>
                     <span className="text-xs text-slate-500">
-                      JPG, PNG or WebP (Max 2MB)
+                      JPG, PNG or WebP (Max 5MB)
                     </span>
                   </>
                 )}

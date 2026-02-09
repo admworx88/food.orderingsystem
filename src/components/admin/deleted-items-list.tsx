@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import { normalizeImageUrl } from '@/lib/utils/image';
 import {
   Table,
   TableBody,
@@ -93,11 +94,14 @@ export function DeletedItemsList({ items }: DeletedItemsListProps) {
                   <div className="w-12 h-12 rounded-lg bg-slate-100 overflow-hidden opacity-60">
                     {item.image_url ? (
                       <Image
-                        src={item.image_url}
+                        src={normalizeImageUrl(item.image_url) || ''}
                         alt={item.name}
                         width={48}
                         height={48}
                         className="w-full h-full object-cover grayscale"
+                        onError={(e) => {
+                          console.error('Image load error (deleted items):', item.name, item.image_url);
+                        }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">

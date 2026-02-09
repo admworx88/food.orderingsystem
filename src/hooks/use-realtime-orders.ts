@@ -19,6 +19,7 @@ interface UseRealtimeOrdersReturn {
   isLoading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
+  optimisticStatusUpdate: (orderId: string, newStatus: string, newVersion: number) => void;
 }
 
 export function useRealtimeOrders(): UseRealtimeOrdersReturn {
@@ -61,12 +62,34 @@ export function useRealtimeOrders(): UseRealtimeOrdersReturn {
     setIsLoading(false);
   }, []);
 
+  // Optimistic UI update — called immediately after a successful server action
+  const optimisticStatusUpdate = useCallback((
+    orderId: string,
+    newStatus: string,
+    newVersion: number
+  ) => {
+    if (newStatus === 'served' || newStatus === 'cancelled') {
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    } else {
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? { ...o, status: newStatus as Order['status'], version: newVersion }
+            : o
+        )
+      );
+    }
+    // Background refetch for full data consistency (timestamps, etc.)
+    fetchOrders();
+  }, [fetchOrders]);
+
   // Refetch full order details when a change comes in
   const handleRealtimeChange = useCallback(async (payload: {
     eventType: string;
     new: Record<string, unknown>;
     old: Record<string, unknown>;
   }) => {
+    console.log('[KDS Realtime] Event received:', payload.eventType, (payload.new as Record<string, unknown>)?.id);
     const supabase = getSupabase();
 
     if (payload.eventType === 'DELETE') {
@@ -138,12 +161,26 @@ export function useRealtimeOrders(): UseRealtimeOrdersReturn {
         },
         handleRealtimeChange
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[KDS Realtime] Connected successfully');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[KDS Realtime] Channel error:', err);
+        } else if (status === 'TIMED_OUT') {
+          console.warn('[KDS Realtime] Connection timed out');
+        } else {
+          console.log('[KDS Realtime] Status:', status);
+        }
+      });
+
+    // Polling fallback: refetch every 10s to catch new orders if Realtime fails
+    const pollInterval = setInterval(fetchOrders, 10_000);
 
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(pollInterval);
     };
   }, [fetchOrders, handleRealtimeChange]);
 
-  return { orders, isLoading, error, refetch: fetchOrders };
+  return { orders, isLoading, error, refetch: fetchOrders, optimisticStatusUpdate };
 }
