@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { formatCurrency } from '@/lib/utils/currency';
+import { normalizeImageUrl } from '@/lib/utils/image';
 import { Plus, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCartStore } from '@/stores/cart-store';
@@ -78,13 +79,16 @@ export function MenuItemCard({ item, onAddToCart, onItemClick, compact = false }
             <>
               {!imageLoaded && <div className="absolute inset-0 bg-stone-100 animate-pulse" />}
               <Image
-                src={item.image_url}
+                src={normalizeImageUrl(item.image_url) || ''}
                 alt={item.name}
                 fill
                 className={cn('object-cover', imageLoaded ? 'opacity-100' : 'opacity-0')}
                 sizes="96px"
                 onLoad={() => setImageLoaded(true)}
-                onError={() => setImageError(true)}
+                onError={(e) => {
+                  console.error('Image load error:', item.name, item.image_url);
+                  setImageError(true);
+                }}
               />
             </>
           ) : (
@@ -126,7 +130,7 @@ export function MenuItemCard({ item, onAddToCart, onItemClick, compact = false }
           <>
             {!imageLoaded && <div className="absolute inset-0 bg-stone-100 animate-pulse" />}
             <Image
-              src={item.image_url}
+              src={normalizeImageUrl(item.image_url) || ''}
               alt={item.name}
               fill
               className={cn(
@@ -135,7 +139,10 @@ export function MenuItemCard({ item, onAddToCart, onItemClick, compact = false }
               )}
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               onLoad={() => setImageLoaded(true)}
-              onError={() => setImageError(true)}
+              onError={(e) => {
+                console.error('Image load error (grid):', item.name, item.image_url);
+                setImageError(true);
+              }}
             />
           </>
         ) : (

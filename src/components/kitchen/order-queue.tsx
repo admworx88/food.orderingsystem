@@ -24,7 +24,7 @@ const ORDER_TYPE_FILTERS: { value: FilterOrderType; label: string }[] = [
 ];
 
 export function OrderQueue() {
-  const { orders, isLoading, error, refetch } = useRealtimeOrders();
+  const { orders, isLoading, error, refetch, optimisticStatusUpdate } = useRealtimeOrders();
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
   const [typeFilter, setTypeFilter] = useState<FilterOrderType>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -197,7 +197,7 @@ export function OrderQueue() {
               key={order.id}
               style={{ animationDelay: `${index * 50}ms` }}
             >
-              <OrderCard order={order} />
+              <OrderCard order={order} onStatusUpdated={optimisticStatusUpdate} />
             </div>
           ))}
         </div>

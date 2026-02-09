@@ -11,6 +11,7 @@ import type { KitchenOrder } from '@/hooks/use-realtime-orders';
 
 interface OrderCardProps {
   order: KitchenOrder;
+  onStatusUpdated: (orderId: string, newStatus: string, newVersion: number) => void;
 }
 
 const ORDER_TYPE_LABELS: Record<string, { label: string; icon: string }> = {
@@ -76,7 +77,7 @@ function OrderTimer({ elapsed }: { elapsed: number }) {
   );
 }
 
-export function OrderCard({ order }: OrderCardProps) {
+export function OrderCard({ order, onStatusUpdated }: OrderCardProps) {
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Single shared timer — eliminates duplicate intervals per card
@@ -105,7 +106,9 @@ export function OrderCard({ order }: OrderCardProps) {
       order.version ?? undefined
     );
 
-    if (!result.success) {
+    if (result.success && result.data) {
+      onStatusUpdated(order.id, result.data.status, result.data.version);
+    } else if (!result.success) {
       console.error('Failed to update status:', result.error);
 
       // Show toast feedback so kitchen staff see the failure

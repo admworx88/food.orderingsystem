@@ -535,9 +535,9 @@ export async function uploadMenuImage(formData: FormData): Promise<ServiceResult
       return { success: false, error: 'Invalid file type. Use JPG, PNG, or WebP.' };
     }
 
-    // Validate file size (max 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      return { success: false, error: 'File too large. Max size is 2MB.' };
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      return { success: false, error: 'File too large. Max size is 5MB.' };
     }
 
     const supabase = await createServerClient();

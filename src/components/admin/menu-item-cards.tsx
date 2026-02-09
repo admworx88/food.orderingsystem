@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import { normalizeImageUrl } from '@/lib/utils/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -81,10 +82,13 @@ export function MenuItemCards({ items, categories }: MenuItemCardsProps) {
           <div className="relative aspect-[4/3] bg-slate-100">
             {item.image_url ? (
               <Image
-                src={item.image_url}
+                src={normalizeImageUrl(item.image_url) || ''}
                 alt={item.name}
                 fill
                 className="object-cover"
+                onError={(e) => {
+                  console.error('Image load error (admin cards):', item.name, item.image_url);
+                }}
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">

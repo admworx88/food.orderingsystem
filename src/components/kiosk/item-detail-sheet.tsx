@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { X, Minus, Plus, Clock, Info, AlertTriangle, Check, Loader2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/currency';
+import { normalizeImageUrl } from '@/lib/utils/image';
 import { AllergenList } from './allergen-badge';
 import { cn } from '@/lib/utils';
 import { useCartStore, type CartAddon } from '@/stores/cart-store';
@@ -204,7 +205,7 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
                   <div className="absolute inset-0 bg-gradient-to-r from-amber-100 via-orange-50 to-amber-100 animate-shimmer" />
                 )}
                 <Image
-                  src={item.image_url}
+                  src={normalizeImageUrl(item.image_url) || ''}
                   alt={item.name}
                   fill
                   className={cn(
@@ -213,6 +214,9 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
                   )}
                   sizes="(max-width: 768px) 100vw, 50vw"
                   onLoad={() => setImageLoaded(true)}
+                  onError={(e) => {
+                    console.error('Image load error (detail sheet):', item.name, item.image_url);
+                  }}
                 />
               </>
             ) : (
