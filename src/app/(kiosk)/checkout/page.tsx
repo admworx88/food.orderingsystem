@@ -76,7 +76,7 @@ export default function CheckoutPage() {
   // Reset payment method if bill_later is selected but order type changes from dine_in
   useEffect(() => {
     if (paymentMethod === 'bill_later' && orderType !== 'dine_in') {
-      setPaymentMethod(null as unknown as PaymentMethod);
+      setPaymentMethod(null);
     }
   }, [orderType, paymentMethod, setPaymentMethod]);
 

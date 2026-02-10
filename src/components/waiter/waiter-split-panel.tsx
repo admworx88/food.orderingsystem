@@ -84,13 +84,7 @@ export function WaiterSplitPanel({
   return (
     <LayoutGroup>
       <div
-        className={`waiter-split-container ${isOpen ? 'waiter-split-open' : ''}`}
-        style={{
-          display: 'flex',
-          gap: '1.5rem',
-          minHeight: 0,
-          width: '100%',
-        }}
+        className={`waiter-split-container w-full ${isOpen ? 'waiter-split-open' : ''}`}
       >
         {/* Left Panel: Grid or List */}
         <motion.div
@@ -117,14 +111,6 @@ export function WaiterSplitPanel({
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
                 className="waiter-list-panel"
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.75rem',
-                  maxHeight: 'calc(100vh - 220px)',
-                  overflowY: 'auto',
-                  paddingRight: '0.5rem',
-                }}
               >
                 {orders.map((order, index) => (
                   <WaiterListCard
@@ -182,14 +168,10 @@ export function WaiterSplitPanel({
           {isOpen && selectedOrder && (
             <motion.div
               key="detail-panel"
-              className="waiter-split-right"
+              className="waiter-split-right min-h-0 overflow-hidden"
               initial={{ flexGrow: 0, flexShrink: 0, flexBasis: '0%', opacity: 0 }}
               animate={{ flexGrow: 0, flexShrink: 0, flexBasis: '60%', opacity: 1 }}
               exit={{ flexGrow: 0, flexShrink: 0, flexBasis: '0%', opacity: 0 }}
-              style={{
-                minHeight: 0,
-                overflow: 'hidden',
-              }}
               transition={{
                 duration: 0.35,
                 ease: [0.4, 0, 0.2, 1],

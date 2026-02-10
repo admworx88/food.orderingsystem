@@ -48,7 +48,7 @@ interface CartStore {
   applyPromoCode: (code: string, discount: number, promoId: string) => void;
   removePromoCode: () => void;
   setGuestPhone: (phone: string) => void;
-  setPaymentMethod: (method: PaymentMethod) => void;
+  setPaymentMethod: (method: PaymentMethod | null) => void;
   setExpiresAt: (date: Date | null) => void;
   clearCart: () => void;
 

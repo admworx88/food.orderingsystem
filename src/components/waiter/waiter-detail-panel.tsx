@@ -191,15 +191,6 @@ export function WaiterDetailPanel({
         ease: [0.4, 0, 0.2, 1],
       }}
       className="waiter-detail-panel"
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: 'calc(100vh - 220px)',
-        background: 'var(--waiter-surface, #ffffff)',
-        border: '1px solid var(--waiter-border, #e8e4de)',
-        borderRadius: '16px',
-        overflow: 'hidden',
-      }}
     >
       {/* Back button */}
       <button
@@ -207,22 +198,6 @@ export function WaiterDetailPanel({
         onClick={onClose}
         className="waiter-detail-back-btn"
         aria-label="Close detail panel"
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '6px',
-          padding: '0.75rem 1rem',
-          margin: '1rem',
-          marginBottom: 0,
-          fontSize: '0.875rem',
-          fontWeight: 500,
-          color: 'var(--waiter-text-secondary, #5c574f)',
-          background: 'transparent',
-          border: 'none',
-          borderRadius: '8px',
-          cursor: 'pointer',
-          width: 'fit-content',
-        }}
       >
         <ArrowLeft className="w-4 h-4" />
         <span>Back</span>
@@ -231,11 +206,6 @@ export function WaiterDetailPanel({
       {/* Panel content */}
       <div
         className="waiter-detail-content"
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '0 1.5rem 1.5rem',
-        }}
       >
         {/* Header */}
         <AnimatePresence mode="wait">
