@@ -1282,523 +1282,523 @@
 /* Waiter component styles - outside @layer to ensure inclusion */
 /* Background with subtle pattern */
 .waiter-bg {
-    background-color: var(--waiter-bg);
-    background-image:
-      radial-gradient(circle at 1px 1px, var(--waiter-bg-pattern) 1px, transparent 0);
-    background-size: 24px 24px;
-  }
-
-  /* Header styling */
-  .waiter-header {
-    background: var(--waiter-surface);
-    border-bottom: 1px solid var(--waiter-border);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
-  }
-
-  .waiter-header-border {
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      var(--waiter-border-gold) 20%,
-      var(--waiter-border-gold) 80%,
-      transparent 100%
-    );
-  }
-
-  /* Diamond icon mark */
-  .waiter-diamond {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    color: var(--waiter-gold);
-  }
-
-  /* Tab styling */
-  .waiter-tabs {
-    display: flex;
-    gap: 8px;
-    padding: 4px;
-    background: var(--waiter-surface);
-    border: 1px solid var(--waiter-border);
-    border-radius: 12px;
-  }
-
-  .waiter-tab {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--waiter-text-muted);
-    background: transparent;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .waiter-tab:hover {
-    color: var(--waiter-text-secondary);
-    background: rgba(0, 0, 0, 0.02);
-  }
-
-  .waiter-tab-active {
-    color: var(--waiter-text);
-    background: var(--waiter-card);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  }
-
-  .waiter-tab-active::after {
-    content: '';
-    position: absolute;
-    bottom: 6px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 24px;
-    height: 2px;
-    background: var(--waiter-gold);
-    border-radius: 1px;
-    animation: waiter-tab-underline 0.2s ease-out;
-  }
-
-  .waiter-tab-active.waiter-tab-ready {
-    color: var(--waiter-ready);
-  }
-
-  .waiter-tab-active.waiter-tab-ready::after {
-    background: var(--waiter-ready);
-  }
-
-  .waiter-tab-active.waiter-tab-preparing {
-    color: var(--waiter-preparing);
-  }
-
-  .waiter-tab-active.waiter-tab-preparing::after {
-    background: var(--waiter-preparing);
-  }
-
-  .waiter-tab-active.waiter-tab-recent {
-    color: var(--waiter-served);
-  }
-
-  .waiter-tab-active.waiter-tab-recent::after {
-    background: var(--waiter-served);
-  }
-
-  /* Tab dot indicator */
-  .waiter-tab-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-    opacity: 0.5;
-  }
-
-  .waiter-tab-active .waiter-tab-dot {
-    opacity: 1;
-    animation: waiter-dot-pulse 2s ease-in-out infinite;
-  }
-
-  /* Tab count badge */
-  .waiter-tab-count {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 20px;
-    height: 20px;
-    padding: 0 6px;
-    font-size: 11px;
-    font-weight: 700;
-    border-radius: 10px;
-    background: rgba(0, 0, 0, 0.06);
-    color: var(--waiter-text-muted);
-  }
-
-  .waiter-tab-active .waiter-tab-count {
-    background: currentColor;
-    color: white;
-  }
-
-  .waiter-tab-active.waiter-tab-ready .waiter-tab-count {
-    background: var(--waiter-ready);
-  }
-
-  .waiter-tab-active.waiter-tab-preparing .waiter-tab-count {
-    background: var(--waiter-preparing);
-  }
-
-  .waiter-tab-active.waiter-tab-recent .waiter-tab-count {
-    background: var(--waiter-served);
-  }
-
-  /* Card styling */
-  .waiter-card {
-    background: var(--waiter-card);
-    border: 1px solid var(--waiter-border);
-    border-radius: 16px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    overflow: hidden;
-    transition: all 0.2s ease;
-    animation: waiter-card-enter 0.4s ease-out forwards;
-    opacity: 0;
-  }
-
-  .waiter-card:hover {
-    border-color: var(--waiter-border-strong);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-  }
-
-  .waiter-card-ready {
-    border-color: var(--waiter-ready-ring);
-    animation: waiter-card-enter 0.4s ease-out forwards,
-               waiter-ready-glow 2.5s ease-in-out infinite;
-  }
-
-  /* Stagger delays for cards */
-  .waiter-card-delay-1 { animation-delay: 0ms; }
-  .waiter-card-delay-2 { animation-delay: 50ms; }
-  .waiter-card-delay-3 { animation-delay: 100ms; }
-  .waiter-card-delay-4 { animation-delay: 150ms; }
-  .waiter-card-delay-5 { animation-delay: 200ms; }
-  .waiter-card-delay-6 { animation-delay: 250ms; }
-
-  /* Order number - serif typography */
-  .waiter-order-number {
-    font-family: 'Playfair Display', Georgia, serif;
-    font-weight: 700;
-    font-size: 1.75rem;
-    letter-spacing: -0.02em;
-    color: var(--waiter-text);
-  }
-
-  .waiter-order-number-ready {
-    color: var(--waiter-ready);
-  }
-
-  /* Ready badge */
-  .waiter-ready-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    font-size: 12px;
-    font-weight: 600;
-    border-radius: 20px;
-    background: var(--waiter-ready-light);
-    color: var(--waiter-ready);
-  }
-
-  .waiter-ready-badge-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--waiter-ready);
-    animation: waiter-badge-pulse 1.5s ease-in-out infinite;
-  }
-
-  /* Divider */
-  .waiter-divider {
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      var(--waiter-border) 10%,
-      var(--waiter-border) 90%,
-      transparent 100%
-    );
-  }
-
-  /* Item row styling */
-  .waiter-item-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 12px 14px;
-    border-radius: 12px;
-    transition: all 0.15s ease;
-  }
-
-  .waiter-item-row-pending {
-    background: var(--waiter-pending-light);
-  }
-
-  .waiter-item-row-preparing {
-    background: rgba(217, 119, 6, 0.06);
-  }
-
-  .waiter-item-row-ready {
-    background: rgba(5, 150, 105, 0.08);
-    border: 1px solid rgba(5, 150, 105, 0.15);
-  }
-
-  .waiter-item-row-served {
-    background: rgba(79, 70, 229, 0.04);
-    opacity: 0.7;
-  }
-
-  /* Status icons for item rows */
-  .waiter-item-status-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
-    flex-shrink: 0;
-  }
-
-  .waiter-item-status-pending {
-    background: var(--waiter-pending-light);
-    color: var(--waiter-pending);
-  }
-
-  .waiter-item-status-preparing {
-    background: var(--waiter-preparing-light);
-    color: var(--waiter-preparing);
-  }
-
-  .waiter-item-status-ready {
-    background: var(--waiter-ready-light);
-    color: var(--waiter-ready);
-  }
-
-  .waiter-item-status-served {
-    background: var(--waiter-served-light);
-    color: var(--waiter-served);
-  }
-
-  /* SERVE button - premium action target */
-  .waiter-item-serve-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 10px 18px;
-    min-height: 44px;
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    border-radius: 10px;
-    border: 2px solid var(--waiter-ready);
-    background: var(--waiter-ready-light);
-    color: var(--waiter-ready);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    flex-shrink: 0;
-  }
-
-  .waiter-item-serve-btn:hover {
-    background: var(--waiter-ready);
-    color: white;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px var(--waiter-ready-glow);
-  }
-
-  .waiter-item-serve-btn:active {
-    transform: translateY(0) scale(0.98);
-    box-shadow: none;
-  }
-
-  .waiter-item-serve-btn:disabled {
-    opacity: 0.6;
-    cursor: wait;
-    transform: none;
-  }
-
-  /* SERVED badge (completed item) */
-  .waiter-item-served-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 8px 14px;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    border-radius: 8px;
-    background: var(--waiter-served-light);
-    color: var(--waiter-served);
-    flex-shrink: 0;
-  }
-
-  /* Footer styling */
-  .waiter-card-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 16px;
-    background: linear-gradient(
-      to bottom,
-      var(--waiter-bg),
-      rgba(250, 249, 247, 0.8)
-    );
-    border-top: 1px solid var(--waiter-border);
-  }
-
-  /* Waiter badge (header) */
-  .waiter-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 14px;
-    font-size: 13px;
-    font-weight: 600;
-    border-radius: 10px;
-    background: var(--waiter-ready-light);
-    color: var(--waiter-ready);
-    border: 1px solid rgba(5, 150, 105, 0.15);
-  }
-
-  /* Sound toggle */
-  .waiter-sound-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 12px;
-    font-size: 13px;
-    font-weight: 500;
-    border-radius: 8px;
-    background: transparent;
-    border: 1px solid var(--waiter-border);
-    color: var(--waiter-text-secondary);
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-
-  .waiter-sound-toggle:hover {
-    background: var(--waiter-bg);
-    border-color: var(--waiter-border-strong);
-  }
-
-  .waiter-sound-toggle-on {
-    background: var(--waiter-ready-light);
-    border-color: rgba(5, 150, 105, 0.2);
-    color: var(--waiter-ready);
-  }
-
-  .waiter-sound-toggle-on:hover {
-    background: rgba(5, 150, 105, 0.15);
-  }
-
-  /* Clock styling */
-  .waiter-clock {
-    font-family: 'DM Sans', system-ui, sans-serif;
-    font-size: 15px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color: var(--waiter-text);
-  }
-
-  .waiter-clock-ampm {
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--waiter-text-muted);
-    margin-left: 2px;
-  }
-
-  /* Empty state styling */
-  .waiter-empty-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 80px;
-    height: 80px;
-    border-radius: 20px;
-    background: linear-gradient(
-      135deg,
-      var(--waiter-bg) 0%,
-      var(--waiter-surface) 100%
-    );
-    border: 1px solid var(--waiter-border);
-    color: var(--waiter-text-muted);
-  }
-
-  .waiter-empty-title {
-    font-family: 'Playfair Display', Georgia, serif;
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--waiter-text);
-  }
-
-  .waiter-empty-description {
-    font-size: 14px;
-    color: var(--waiter-text-secondary);
-    line-height: 1.6;
-  }
-
-  /* Timer styling */
-  .waiter-timer {
-    font-family: 'JetBrains Mono', 'SF Mono', monospace;
-    font-size: 14px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .waiter-timer-ok {
-    color: var(--waiter-ready);
-  }
-
-  .waiter-timer-warning {
-    color: var(--waiter-preparing);
-  }
-
-  .waiter-timer-danger {
-    color: #ef4444;
-  }
-
-  /* Order type badge */
-  .waiter-order-type {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--waiter-text-muted);
-  }
-
-  /* Location badge */
-  .waiter-location {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--waiter-text-secondary);
-  }
-
-  /* Refresh button */
-  .waiter-refresh-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 10px 16px;
-    font-size: 13px;
-    font-weight: 600;
-    border-radius: 10px;
-    background: var(--waiter-surface);
-    border: 1px solid var(--waiter-border);
-    color: var(--waiter-text-secondary);
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-
-  .waiter-refresh-btn:hover {
-    background: var(--waiter-bg);
-    border-color: var(--waiter-border-strong);
-    color: var(--waiter-text);
-  }
-
-  .waiter-refresh-btn:disabled {
-    opacity: 0.6;
-    cursor: wait;
-  }
+  background-color: var(--waiter-bg);
+  background-image:
+    radial-gradient(circle at 1px 1px, var(--waiter-bg-pattern) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+/* Header styling */
+.waiter-header {
+  background: var(--waiter-surface);
+  border-bottom: 1px solid var(--waiter-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.waiter-header-border {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--waiter-border-gold) 20%,
+    var(--waiter-border-gold) 80%,
+    transparent 100%
+  );
+}
+
+/* Diamond icon mark */
+.waiter-diamond {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: var(--waiter-gold);
+}
+
+/* Tab styling */
+.waiter-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+  background: var(--waiter-surface);
+  border: 1px solid var(--waiter-border);
+  border-radius: 12px;
+}
+
+.waiter-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--waiter-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.waiter-tab:hover {
+  color: var(--waiter-text-secondary);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.waiter-tab-active {
+  color: var(--waiter-text);
+  background: var(--waiter-card);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.waiter-tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 2px;
+  background: var(--waiter-gold);
+  border-radius: 1px;
+  animation: waiter-tab-underline 0.2s ease-out;
+}
+
+.waiter-tab-active.waiter-tab-ready {
+  color: var(--waiter-ready);
+}
+
+.waiter-tab-active.waiter-tab-ready::after {
+  background: var(--waiter-ready);
+}
+
+.waiter-tab-active.waiter-tab-preparing {
+  color: var(--waiter-preparing);
+}
+
+.waiter-tab-active.waiter-tab-preparing::after {
+  background: var(--waiter-preparing);
+}
+
+.waiter-tab-active.waiter-tab-recent {
+  color: var(--waiter-served);
+}
+
+.waiter-tab-active.waiter-tab-recent::after {
+  background: var(--waiter-served);
+}
+
+/* Tab dot indicator */
+.waiter-tab-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.5;
+}
+
+.waiter-tab-active .waiter-tab-dot {
+  opacity: 1;
+  animation: waiter-dot-pulse 2s ease-in-out infinite;
+}
+
+/* Tab count badge */
+.waiter-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--waiter-text-muted);
+}
+
+.waiter-tab-active .waiter-tab-count {
+  background: currentColor;
+  color: white;
+}
+
+.waiter-tab-active.waiter-tab-ready .waiter-tab-count {
+  background: var(--waiter-ready);
+}
+
+.waiter-tab-active.waiter-tab-preparing .waiter-tab-count {
+  background: var(--waiter-preparing);
+}
+
+.waiter-tab-active.waiter-tab-recent .waiter-tab-count {
+  background: var(--waiter-served);
+}
+
+/* Card styling */
+.waiter-card {
+  background: var(--waiter-card);
+  border: 1px solid var(--waiter-border);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  transition: all 0.2s ease;
+  animation: waiter-card-enter 0.4s ease-out forwards;
+  opacity: 0;
+}
+
+.waiter-card:hover {
+  border-color: var(--waiter-border-strong);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.waiter-card-ready {
+  border-color: var(--waiter-ready-ring);
+  animation: waiter-card-enter 0.4s ease-out forwards,
+             waiter-ready-glow 2.5s ease-in-out infinite;
+}
+
+/* Stagger delays for cards */
+.waiter-card-delay-1 { animation-delay: 0ms; }
+.waiter-card-delay-2 { animation-delay: 50ms; }
+.waiter-card-delay-3 { animation-delay: 100ms; }
+.waiter-card-delay-4 { animation-delay: 150ms; }
+.waiter-card-delay-5 { animation-delay: 200ms; }
+.waiter-card-delay-6 { animation-delay: 250ms; }
+
+/* Order number - serif typography */
+.waiter-order-number {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 700;
+  font-size: 1.75rem;
+  letter-spacing: -0.02em;
+  color: var(--waiter-text);
+}
+
+.waiter-order-number-ready {
+  color: var(--waiter-ready);
+}
+
+/* Ready badge */
+.waiter-ready-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 20px;
+  background: var(--waiter-ready-light);
+  color: var(--waiter-ready);
+}
+
+.waiter-ready-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--waiter-ready);
+  animation: waiter-badge-pulse 1.5s ease-in-out infinite;
+}
+
+/* Divider */
+.waiter-divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--waiter-border) 10%,
+    var(--waiter-border) 90%,
+    transparent 100%
+  );
+}
+
+/* Item row styling */
+.waiter-item-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  transition: all 0.15s ease;
+}
+
+.waiter-item-row-pending {
+  background: var(--waiter-pending-light);
+}
+
+.waiter-item-row-preparing {
+  background: rgba(217, 119, 6, 0.06);
+}
+
+.waiter-item-row-ready {
+  background: rgba(5, 150, 105, 0.08);
+  border: 1px solid rgba(5, 150, 105, 0.15);
+}
+
+.waiter-item-row-served {
+  background: rgba(79, 70, 229, 0.04);
+  opacity: 0.7;
+}
+
+/* Status icons for item rows */
+.waiter-item-status-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.waiter-item-status-pending {
+  background: var(--waiter-pending-light);
+  color: var(--waiter-pending);
+}
+
+.waiter-item-status-preparing {
+  background: var(--waiter-preparing-light);
+  color: var(--waiter-preparing);
+}
+
+.waiter-item-status-ready {
+  background: var(--waiter-ready-light);
+  color: var(--waiter-ready);
+}
+
+.waiter-item-status-served {
+  background: var(--waiter-served-light);
+  color: var(--waiter-served);
+}
+
+/* SERVE button - premium action target */
+.waiter-item-serve-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  min-height: 44px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-radius: 10px;
+  border: 2px solid var(--waiter-ready);
+  background: var(--waiter-ready-light);
+  color: var(--waiter-ready);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.waiter-item-serve-btn:hover {
+  background: var(--waiter-ready);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--waiter-ready-glow);
+}
+
+.waiter-item-serve-btn:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: none;
+}
+
+.waiter-item-serve-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  transform: none;
+}
+
+/* SERVED badge (completed item) */
+.waiter-item-served-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 8px;
+  background: var(--waiter-served-light);
+  color: var(--waiter-served);
+  flex-shrink: 0;
+}
+
+/* Footer styling */
+.waiter-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: linear-gradient(
+    to bottom,
+    var(--waiter-bg),
+    rgba(250, 249, 247, 0.8)
+  );
+  border-top: 1px solid var(--waiter-border);
+}
+
+/* Waiter badge (header) */
+.waiter-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 10px;
+  background: var(--waiter-ready-light);
+  color: var(--waiter-ready);
+  border: 1px solid rgba(5, 150, 105, 0.15);
+}
+
+/* Sound toggle */
+.waiter-sound-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--waiter-border);
+  color: var(--waiter-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.waiter-sound-toggle:hover {
+  background: var(--waiter-bg);
+  border-color: var(--waiter-border-strong);
+}
+
+.waiter-sound-toggle-on {
+  background: var(--waiter-ready-light);
+  border-color: rgba(5, 150, 105, 0.2);
+  color: var(--waiter-ready);
+}
+
+.waiter-sound-toggle-on:hover {
+  background: rgba(5, 150, 105, 0.15);
+}
+
+/* Clock styling */
+.waiter-clock {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--waiter-text);
+}
+
+.waiter-clock-ampm {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--waiter-text-muted);
+  margin-left: 2px;
+}
+
+/* Empty state styling */
+.waiter-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 20px;
+  background: linear-gradient(
+    135deg,
+    var(--waiter-bg) 0%,
+    var(--waiter-surface) 100%
+  );
+  border: 1px solid var(--waiter-border);
+  color: var(--waiter-text-muted);
+}
+
+.waiter-empty-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--waiter-text);
+}
+
+.waiter-empty-description {
+  font-size: 14px;
+  color: var(--waiter-text-secondary);
+  line-height: 1.6;
+}
+
+/* Timer styling */
+.waiter-timer {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.waiter-timer-ok {
+  color: var(--waiter-ready);
+}
+
+.waiter-timer-warning {
+  color: var(--waiter-preparing);
+}
+
+.waiter-timer-danger {
+  color: #ef4444;
+}
+
+/* Order type badge */
+.waiter-order-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--waiter-text-muted);
+}
+
+/* Location badge */
+.waiter-location {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--waiter-text-secondary);
+}
+
+/* Refresh button */
+.waiter-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 10px;
+  background: var(--waiter-surface);
+  border: 1px solid var(--waiter-border);
+  color: var(--waiter-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.waiter-refresh-btn:hover {
+  background: var(--waiter-bg);
+  border-color: var(--waiter-border-strong);
+  color: var(--waiter-text);
+}
+
+.waiter-refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
 
 /* Order count */
 .waiter-order-count {
