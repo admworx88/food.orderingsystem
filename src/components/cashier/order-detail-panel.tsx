@@ -1,8 +1,6 @@
 'use client';
 
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
+import { Phone, MapPin, Clock, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/currency';
 import { ExpirationCountdown } from './expiration-countdown';
 import type { CashierOrder } from '@/types/payment';
@@ -18,75 +16,93 @@ const ORDER_TYPE_LABELS: Record<string, string> = {
 };
 
 /**
- * Right panel top section: full order breakdown with items, addons,
- * promo, subtotal/discount/VAT/service/total, guest phone, order type.
+ * Order detail view - Terminal Command Center theme
  */
 export function OrderDetailPanel({ order }: OrderDetailPanelProps) {
   const promo = order.promo_codes;
 
   return (
-    <Card className="p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-xl font-bold">Order #{order.order_number}</h3>
-          <div className="mt-1 flex items-center gap-2">
-            <Badge variant="outline">
-              {ORDER_TYPE_LABELS[order.order_type] || order.order_type}
-            </Badge>
-            {order.table_number && (
-              <span className="text-sm text-muted-foreground">Table {order.table_number}</span>
-            )}
-            {order.room_number && (
-              <span className="text-sm text-muted-foreground">Room {order.room_number}</span>
-            )}
+    <div className="pos-detail-card">
+      {/* Header */}
+      <div className="pos-detail-header">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="pos-detail-order-number">
+              Order #{order.order_number}
+            </div>
+            <div className="pos-detail-meta">
+              <span className="pos-order-badge">
+                {ORDER_TYPE_LABELS[order.order_type] || order.order_type}
+              </span>
+              {order.table_number && (
+                <span className="flex items-center gap-1 text-sm text-[var(--pos-text-secondary)]">
+                  <MapPin className="w-3.5 h-3.5" />
+                  Table {order.table_number}
+                </span>
+              )}
+              {order.room_number && (
+                <span className="flex items-center gap-1 text-sm text-[var(--pos-text-secondary)]">
+                  <MapPin className="w-3.5 h-3.5" />
+                  Room {order.room_number}
+                </span>
+              )}
+            </div>
           </div>
+          <ExpirationCountdown expiresAt={order.expires_at} />
         </div>
-        <ExpirationCountdown expiresAt={order.expires_at} />
+
+        {order.guest_phone && (
+          <div className="flex items-center gap-2 mt-3 text-sm text-[var(--pos-text-muted)]">
+            <Phone className="w-4 h-4" />
+            <span>{order.guest_phone}</span>
+          </div>
+        )}
       </div>
 
-      {order.guest_phone && (
-        <div className="mt-2 text-sm text-muted-foreground">
-          Phone: {order.guest_phone}
-        </div>
-      )}
-
-      <Separator className="my-3" />
-
       {/* Items list */}
-      <div className="space-y-2">
+      <div className="pos-items-list">
         {(order.order_items || []).map((item) => (
-          <div key={item.id} className="flex justify-between text-sm">
+          <div key={item.id} className="pos-item-row">
             <div className="flex-1">
-              <div className="font-medium">
-                {item.quantity}x {item.item_name}
+              <div className="flex items-baseline gap-2">
+                <span className="pos-item-qty">{item.quantity}×</span>
+                <span className="pos-item-name">{item.item_name}</span>
               </div>
+
+              {/* Addons */}
               {(item.order_item_addons || []).map((addon) => (
-                <div key={addon.id} className="ml-4 text-xs text-muted-foreground">
+                <div key={addon.id} className="pos-item-addon">
                   + {addon.addon_name}
-                  {addon.additional_price > 0 && ` (${formatCurrency(addon.additional_price)})`}
+                  {addon.additional_price > 0 && (
+                    <span className="ml-1 text-[var(--pos-text-muted)]">
+                      ({formatCurrency(addon.additional_price)})
+                    </span>
+                  )}
                 </div>
               ))}
+
+              {/* Special instructions */}
               {item.special_instructions && (
-                <div className="ml-4 text-xs italic text-amber-600">
-                  Note: {item.special_instructions}
+                <div className="pos-item-note">
+                  <AlertTriangle className="w-3 h-3 inline mr-1" />
+                  {item.special_instructions}
                 </div>
               )}
             </div>
-            <span className="font-medium">{formatCurrency(item.total_price)}</span>
+            <span className="pos-item-price">{formatCurrency(item.total_price)}</span>
           </div>
         ))}
       </div>
 
-      <Separator className="my-3" />
-
-      {/* Price breakdown */}
-      <div className="space-y-1 text-sm">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Subtotal</span>
+      {/* Totals */}
+      <div className="pos-totals">
+        <div className="pos-total-row">
+          <span>Subtotal</span>
           <span>{formatCurrency(order.subtotal)}</span>
         </div>
+
         {order.discount_amount && order.discount_amount > 0 && (
-          <div className="flex justify-between text-green-600">
+          <div className="pos-total-row pos-total-discount">
             <span>
               Discount
               {promo && ` (${(promo as { code: string }).code})`}
@@ -94,30 +110,34 @@ export function OrderDetailPanel({ order }: OrderDetailPanelProps) {
             <span>-{formatCurrency(order.discount_amount)}</span>
           </div>
         )}
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">VAT (12%)</span>
+
+        <div className="pos-total-row">
+          <span>VAT (12%)</span>
           <span>{formatCurrency(order.tax_amount)}</span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Service Charge (10%)</span>
+
+        <div className="pos-total-row">
+          <span>Service Charge (10%)</span>
           <span>{formatCurrency(order.service_charge || 0)}</span>
         </div>
-        <Separator className="my-1" />
-        <div className="flex justify-between text-base font-bold">
+
+        <div className="pos-total-row pos-total-row-final">
           <span>Total</span>
-          <span>{formatCurrency(order.total_amount)}</span>
+          <span className="pos-total-value">{formatCurrency(order.total_amount)}</span>
         </div>
       </div>
 
+      {/* Special instructions */}
       {order.special_instructions && (
-        <>
-          <Separator className="my-3" />
-          <div className="text-sm">
-            <span className="font-medium">Special Instructions: </span>
-            <span className="text-muted-foreground">{order.special_instructions}</span>
+        <div className="px-5 py-4 border-t border-[var(--pos-border)]">
+          <div className="text-xs font-semibold text-[var(--pos-text-muted)] uppercase tracking-wider mb-2">
+            Special Instructions
           </div>
-        </>
+          <p className="text-sm text-[var(--pos-text-secondary)]">
+            {order.special_instructions}
+          </p>
+        </div>
       )}
-    </Card>
+    </div>
   );
 }

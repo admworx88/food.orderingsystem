@@ -6,12 +6,12 @@ export default async function ReportsPage() {
   const summary = result.success ? result.data : null;
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
-      <h2 className="mb-6 text-2xl font-bold">Shift Report</h2>
+    <div className="pos-reports-container">
+      <h2 className="pos-reports-title">Shift Report</h2>
       {summary ? (
         <ShiftSummaryView summary={summary} />
       ) : (
-        <div className="text-center text-muted-foreground">
+        <div className="pos-reports-error">
           Failed to load shift summary
         </div>
       )}

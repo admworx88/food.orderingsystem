@@ -1,7 +1,6 @@
 'use client';
 
-import { Card } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
+import { Banknote, Smartphone, CreditCard, XCircle, Clock, RotateCcw } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/currency';
 import type { ShiftSummary } from '@/types/payment';
 
@@ -10,109 +9,126 @@ interface ShiftSummaryViewProps {
 }
 
 /**
- * F-C09: Shift summary / reconciliation display.
- * Shows total orders, revenue by payment method, refunds, cancellations.
+ * F-C09: Shift summary - Terminal Command Center theme
  */
 export function ShiftSummaryView({ summary }: ShiftSummaryViewProps) {
   return (
-    <div className="space-y-6">
+    <div className="pos-report-grid">
       {/* Header info */}
-      <Card className="p-4">
-        <div className="flex items-center justify-between">
+      <div className="pos-report-card pos-report-header-card">
+        <div className="pos-report-header-row">
           <div>
-            <div className="text-sm text-muted-foreground">Date</div>
-            <div className="text-lg font-semibold">{summary.date}</div>
+            <div className="pos-report-label">Date</div>
+            <div className="pos-report-value">{summary.date}</div>
           </div>
           <div className="text-right">
-            <div className="text-sm text-muted-foreground">Cashier</div>
-            <div className="text-lg font-semibold">{summary.cashierName}</div>
+            <div className="pos-report-label">Cashier</div>
+            <div className="pos-report-value">{summary.cashierName}</div>
           </div>
         </div>
-      </Card>
+      </div>
 
       {/* Revenue summary */}
-      <div className="grid grid-cols-2 gap-4">
-        <Card className="p-4">
-          <div className="text-sm text-muted-foreground">Total Orders</div>
-          <div className="text-3xl font-bold">{summary.totalOrders}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-sm text-muted-foreground">Total Revenue</div>
-          <div className="text-3xl font-bold text-green-600">
+      <div className="pos-report-stats">
+        <div className="pos-report-stat-card">
+          <div className="pos-report-label">Total Orders</div>
+          <div className="pos-report-stat-value">{summary.totalOrders}</div>
+        </div>
+        <div className="pos-report-stat-card pos-report-stat-highlight">
+          <div className="pos-report-label">Total Revenue</div>
+          <div className="pos-report-stat-value pos-report-revenue">
             {formatCurrency(summary.totalRevenue)}
           </div>
-        </Card>
+        </div>
       </div>
 
       {/* Payment method breakdown */}
-      <Card className="p-4">
-        <h3 className="mb-3 text-lg font-semibold">Payment Breakdown</h3>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium">Cash</div>
-              <div className="text-sm text-muted-foreground">
-                {summary.cashPayments.count} transaction{summary.cashPayments.count !== 1 ? 's' : ''}
+      <div className="pos-report-card">
+        <h3 className="pos-report-section-title">Payment Breakdown</h3>
+        <div className="pos-report-breakdown">
+          <div className="pos-report-breakdown-row">
+            <div className="pos-report-breakdown-info">
+              <div className="pos-report-breakdown-icon">
+                <Banknote className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="pos-report-breakdown-name">Cash</div>
+                <div className="pos-report-breakdown-count">
+                  {summary.cashPayments.count} transaction{summary.cashPayments.count !== 1 ? 's' : ''}
+                </div>
               </div>
             </div>
-            <div className="text-lg font-semibold">
+            <div className="pos-report-breakdown-amount">
               {formatCurrency(summary.cashPayments.total)}
             </div>
           </div>
 
-          <Separator />
+          <div className="pos-report-divider" />
 
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium">GCash</div>
-              <div className="text-sm text-muted-foreground">
-                {summary.gcashPayments.count} transaction{summary.gcashPayments.count !== 1 ? 's' : ''}
+          <div className="pos-report-breakdown-row">
+            <div className="pos-report-breakdown-info">
+              <div className="pos-report-breakdown-icon pos-report-icon-gcash">
+                <Smartphone className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="pos-report-breakdown-name">GCash</div>
+                <div className="pos-report-breakdown-count">
+                  {summary.gcashPayments.count} transaction{summary.gcashPayments.count !== 1 ? 's' : ''}
+                </div>
               </div>
             </div>
-            <div className="text-lg font-semibold">
+            <div className="pos-report-breakdown-amount">
               {formatCurrency(summary.gcashPayments.total)}
             </div>
           </div>
 
-          <Separator />
+          <div className="pos-report-divider" />
 
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium">Card</div>
-              <div className="text-sm text-muted-foreground">
-                {summary.cardPayments.count} transaction{summary.cardPayments.count !== 1 ? 's' : ''}
+          <div className="pos-report-breakdown-row">
+            <div className="pos-report-breakdown-info">
+              <div className="pos-report-breakdown-icon pos-report-icon-card">
+                <CreditCard className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="pos-report-breakdown-name">Card</div>
+                <div className="pos-report-breakdown-count">
+                  {summary.cardPayments.count} transaction{summary.cardPayments.count !== 1 ? 's' : ''}
+                </div>
               </div>
             </div>
-            <div className="text-lg font-semibold">
+            <div className="pos-report-breakdown-amount">
               {formatCurrency(summary.cardPayments.total)}
             </div>
           </div>
         </div>
-      </Card>
+      </div>
 
       {/* Refunds & Cancellations */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card className="p-4">
-          <div className="text-sm text-muted-foreground">Refunds</div>
-          <div className="text-xl font-bold text-red-600">
+      <div className="pos-report-footer-stats">
+        <div className="pos-report-footer-card pos-report-refund">
+          <RotateCcw className="pos-report-footer-icon" />
+          <div className="pos-report-label">Refunds</div>
+          <div className="pos-report-footer-value">
             {summary.refunds.count > 0
               ? `-${formatCurrency(summary.refunds.total)}`
               : formatCurrency(0)}
           </div>
-          <div className="text-xs text-muted-foreground">
+          <div className="pos-report-footer-count">
             {summary.refunds.count} refund{summary.refunds.count !== 1 ? 's' : ''}
           </div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-sm text-muted-foreground">Cancelled</div>
-          <div className="text-xl font-bold">{summary.cancelledOrders}</div>
-          <div className="text-xs text-muted-foreground">orders</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-sm text-muted-foreground">Expired</div>
-          <div className="text-xl font-bold">{summary.expiredOrders}</div>
-          <div className="text-xs text-muted-foreground">orders</div>
-        </Card>
+        </div>
+        <div className="pos-report-footer-card">
+          <XCircle className="pos-report-footer-icon" />
+          <div className="pos-report-label">Cancelled</div>
+          <div className="pos-report-footer-value">{summary.cancelledOrders}</div>
+          <div className="pos-report-footer-count">orders</div>
+        </div>
+        <div className="pos-report-footer-card">
+          <Clock className="pos-report-footer-icon" />
+          <div className="pos-report-label">Expired</div>
+          <div className="pos-report-footer-value">{summary.expiredOrders}</div>
+          <div className="pos-report-footer-count">orders</div>
+        </div>
       </div>
     </div>
   );

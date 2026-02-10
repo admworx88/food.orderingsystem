@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-> **Version**: 2.3 | **Last Updated**: February 8, 2026 | **Status**: Phase 1 + Phase 2 Complete, Phase 3 Payments Implemented
+> **Version**: 2.5 | **Last Updated**: February 10, 2026 | **Status**: Phase 1-3 Complete, Phase 2.5 Waiter Module with Split Panel UI
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -38,7 +38,7 @@ npm run supabase:types  # Regenerate database types after schema changes
 ## Project Status: Phase 1 Complete + Kiosk UI Complete + Admin UI Refined ✅
 
 **Phase 1 Foundation is COMPLETE.** The system now has:
-- ✅ Full database schema with 22 migrations applied
+- ✅ Full database schema with 34 migrations applied
 - ✅ Authentication middleware with role-based routing
 - ✅ All route group layouts (kiosk, kitchen, cashier, admin)
 - ✅ Admin menu management with CRUD operations
@@ -59,13 +59,14 @@ npm run supabase:types  # Regenerate database types after schema changes
 
 ## Project Overview
 
-OrderFlow is a hotel restaurant ordering system with 4 isolated interfaces in
+OrderFlow is a hotel restaurant ordering system with 5 isolated interfaces in
 a single Next.js 16 (App Router) app. The backend will be Supabase (Postgres + Auth + Realtime).
 
 | Module | Route | Auth | Purpose |
 |--------|-------|------|---------|
 | Kiosk | `/(kiosk)` (route group) | Public | Guest self-service ordering (touch screens) |
 | Kitchen | `/(kitchen)` (route group) | Staff (kitchen role) | Real-time Kitchen Display System |
+| Waiter | `/(waiter)` (route group) | Staff (waiter role) | Item-level service tracking |
 | Cashier | `/(cashier)` (route group) | Staff (cashier role) | Payment processing & POS |
 | Admin | `/admin` (regular folder) | Admin only | Menu management, analytics, settings |
 
@@ -127,6 +128,7 @@ always use `npm run supabase:push`. Regenerate types after any schema change.
 | `@supabase/supabase-js` | `2.x` | ✅ Installed | With `@supabase/ssr` for server/client helpers. |
 | `zustand` | `5.x` | ✅ Installed | Client state management. |
 | `zod` | `3.x` | ✅ Installed | Schema validation. |
+| `framer-motion` | `12.x` | ✅ Installed | Animation library for split-panel UI. |
 | Node.js | `20.9+` | ✅ Required | Minimum required by Next.js 16. |
 
 **When installing new packages**: Use `npm install <package>` to maintain consistency with package-lock.json
@@ -165,9 +167,9 @@ npm run supabase:reset      # Reset local DB (dev only - WIPES DATA)
 - ESLint with Next.js config
 - shadcn/ui component library with 8 components
 - Zod validation schemas
-- Local Supabase running with all 22 migrations applied
+- Local Supabase running with all 34 migrations applied
 - Environment variables configured in `.env.local`
-- Route groups: `(kiosk)`, `(kitchen)`, `(cashier)`, `(admin)` with layouts
+- Route groups: `(kiosk)`, `(kitchen)`, `(waiter)`, `(cashier)`, `(admin)` with layouts
 - Three Supabase client helpers (client, server, admin)
 - Database migrations in `supabase/migrations/`
 - Auth middleware with role-based routing
@@ -192,6 +194,23 @@ npm run supabase:reset      # Reset local DB (dev only - WIPES DATA)
 - Kitchen Display System (KDS) with Realtime
 - Realtime order updates (kitchen ↔ kiosk)
 - Order age color coding
+
+### ✅ Phase 2.5 — Waiter Module (Implemented)
+- Item-level status tracking (`order_item_status` enum: pending, preparing, ready, served)
+- Waiter route group with auth guard (`(waiter)/service`)
+- **Tab-based filtering**: Ready / Preparing / Recent tabs with count badges
+- Per-item "Mark Served" buttons with optimistic UI
+- Audio + visual alerts for new ready items
+- Kitchen order cards updated with partial ready badges ("2/4 Ready")
+- Per-item "Mark Ready" buttons in kitchen view
+- Database triggers for auto-calculating order status from item statuses
+- "Bill Later" payment option for dine-in orders (skips payment queue)
+- **Split Panel UI (Framer Motion)**:
+  - Click any order card → grid collapses to left sidebar (38%) + detail panel slides in (60%)
+  - Selected card highlighted with indigo border
+  - Crossfade animation when switching between orders
+  - Back button and Escape key to close and return to grid
+  - Full order details with items, SERVE buttons, totals breakdown
 
 ### ✅ Phase 3 — Payments (Implemented)
 - PayMongo GCash integration (stubbed with feature flag)
@@ -258,6 +277,10 @@ src/app/
   ├── (kitchen)/              → Kitchen Display (route group, staff)
   │   ├── layout.tsx          → Dark theme, fullscreen
   │   └── orders/page.tsx     → Real-time order queue (KDS)
+  ├── (waiter)/               → Waiter Service (route group, staff)
+  │   ├── layout.tsx          → Server: AuthGuard + waiter role check
+  │   ├── layout-client.tsx   → Client: Service header, sound toggle, clock
+  │   └── service/page.tsx    → Split-panel order queue with item tracking
   ├── (cashier)/              → POS (route group, staff)
   │   ├── layout.tsx          → Server: AuthGuard + cashier name fetch
   │   ├── layout-client.tsx   → Client: POS header, nav, live clock
@@ -277,6 +300,8 @@ src/components/
   ├── ui/                     → shadcn/ui primitives (20 components). Do NOT edit directly.
   ├── kiosk/                  → Kiosk-specific (menu-grid, menu-item-card, cart-drawer, etc.)
   ├── kitchen/                → KDS-specific (order-card, order-queue)
+  ├── waiter/                 → Waiter-specific (split-panel, list-card, detail-panel, etc.)
+  ├── cashier/                → Cashier-specific (payment-form, order-detail-panel, etc.)
   ├── admin/                  → Admin-specific (stats-cards, menu-item-form, sales-chart, etc.)
   ├── auth/                   → Auth components (login-form, signup-form)
   └── shared/                 → Cross-module (date-range-picker, pagination)
@@ -295,6 +320,8 @@ src/stores/                   → Zustand stores (client state only)
 
 src/hooks/                    → Custom React hooks (client-side)
   ├── use-realtime-orders.ts          → Kitchen realtime subscription
+  ├── use-realtime-waiter-orders.ts   → Waiter realtime subscription (with item status)
+  ├── use-realtime-unpaid-bills.ts    → Cashier unpaid bills subscription (bill_later orders)
   └── use-realtime-pending-orders.ts  → Cashier pending orders subscription
 
 src/lib/
@@ -307,12 +334,15 @@ src/lib/
   ├── utils/                  → Pure utility functions
   │   ├── cn.ts               → className merger (Tailwind)
   │   ├── currency.ts         → formatCurrency() — Philippine Peso formatting
+  │   ├── item-status.ts      → Item status helpers (counts, progress labels)
   │   └── rate-limiter.ts     → Rate limiting utility
   └── constants/
-      └── order-status.ts     → Order status enums and maps
+      ├── order-status.ts     → Order status enums and maps
+      ├── item-status.ts      → Item status enum, labels, color maps
+      └── payment-methods.ts  → Payment method configs and quick amounts
 
 src/types/                    → TypeScript types (auth, dashboard, order)
-supabase/migrations/          → Timestamped SQL migration files (28 migrations applied)
+supabase/migrations/          → Timestamped SQL migration files (34 migrations applied)
 ```
 
 **Important**: Admin uses a regular `admin/` folder (not a route group) because it needs
@@ -342,9 +372,9 @@ isolation without affecting URLs.
    must NOT import from `src/components/admin/` or vice versa. If something
    is shared, move it to `src/components/shared/`.
 
-6. **Realtime only on `orders` table.** Supabase Realtime is enabled for the
-   `orders` table only. The kitchen and cashier subscribe to it. Do not add
-   realtime to other tables without discussing performance implications.
+6. **Realtime on `orders` and `order_items` tables.** Supabase Realtime is enabled
+   for both tables. Kitchen and waiter subscribe to changes. Do not add realtime
+   to other tables without discussing performance implications.
 
 ### Component Design Principles
 
@@ -531,6 +561,7 @@ Before working on a specific module, READ the agent doc first:
 |---|---|
 | Kiosk UI, menu, cart | `docs/agents/AGENT-KIOSK.md` |
 | Kitchen display, order queue | `docs/agents/AGENT-KITCHEN.md` |
+| Waiter service, item tracking | `docs/agents/AGENT-WAITER.md` |
 | Cashier, payment processing | `docs/agents/AGENT-CASHIER.md` |
 | Admin dashboard, menu CRUD | `docs/agents/AGENT-ADMIN.md` |
 | Database schema, migrations, RLS | `docs/agents/AGENT-DATABASE.md` |
@@ -938,10 +969,12 @@ After setup, verify these work:
 |----------------|--------------|-------------------------|
 | `src/app/(kiosk)/` | Kiosk | No |
 | `src/app/(kitchen)/` | Kitchen | No |
+| `src/app/(waiter)/` | Waiter | No |
 | `src/app/(cashier)/` | Cashier | No |
 | `src/app/admin/` | Admin | No |
 | `src/components/kiosk/` | Kiosk | No |
 | `src/components/kitchen/` | Kitchen | No |
+| `src/components/waiter/` | Waiter | No |
 | `src/components/cashier/` | Cashier | No |
 | `src/components/admin/` | Admin | No |
 | `src/components/shared/` | Shared | Yes (by design) |
@@ -969,6 +1002,7 @@ Track major architectural decisions here for context.
 | Feb 2026 | PayMongo for payments | Philippine market, GCash support | Stripe (limited PH support) |
 | Feb 2026 | Server Actions over API routes | Type-safe, simpler, less boilerplate | REST API routes |
 | Feb 2026 | Zod for validation | TypeScript-first, works both sides | Yup, Joi |
+| Feb 2026 | Framer Motion for animations | Layout animations, AnimatePresence, React-native support | CSS animations, React Spring |
 
 ---
 
@@ -1116,6 +1150,8 @@ For detailed procedures, see PRD Section 20. Key points:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.5 | Feb 10, 2026 | Waiter Split Panel UI: added Framer Motion split-panel layout with waiter-split-panel.tsx, waiter-list-card.tsx, waiter-detail-panel.tsx, waiter-compact-card.tsx components. Grid collapses to sidebar on card click, detail panel slides in from right. Tab-based filtering (Ready/Preparing/Recent), Escape key support, crossfade animations. Fixed flex shorthand console warning, fixed stray "0" discount display bug. Updated AGENT-WAITER.md with new UI specs and component architecture. |
+| 2.4 | Feb 9, 2026 | Phase 2.5 Waiter Module: added 5 migrations for item status tracking, waiter route group, waiter components (order-queue, order-card), realtime waiter hook, item-status constants/utils, kitchen updates for per-item tracking, bill_later payment option, auth service waiter redirect. Updated Project Overview to include Waiter module. |
 | 2.3 | Feb 8, 2026 | Phase 3 Payments: added payment-service.ts, bir-service.ts, 12 cashier components, cashier pages (payments + reports), PayMongo webhook handler, payment RPC functions migration, realtime pending orders hook, payment types/validators/constants. Updated Phase 2 and Phase 3 status. |
 | 2.2 | Feb 7, 2026 | Aligned with PRD: fixed migration naming (timestamp-based), updated project structure to match actual code, fixed admin route (regular folder not route group), added order lifecycle/status flow, tax & service charge formula, promo code validation rules, error code system (PRD Section 17), kitchen/cashier specifics, enhanced accessibility with correct font sizes, added coverage targets, disaster recovery reference, fixed phase roadmap to match PRD phases |
 | 2.0 | Feb 2026 | Added Quick Reference, Troubleshooting Guide, Testing Guidelines, Environment Setup Checklist, Module Ownership Matrix, Decision Log, Performance Guidelines, Accessibility Requirements, Glossary |

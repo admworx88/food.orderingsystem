@@ -1,11 +1,16 @@
 import { createServerClient } from '@/lib/supabase/server';
-import { getPendingOrders } from '@/services/payment-service';
+import { getPendingOrders, getUnpaidBills } from '@/services/payment-service';
 import { CashierPosClient } from '@/components/cashier/cashier-pos-client';
 
 export default async function PaymentsPage() {
-  // Fetch initial data server-side
-  const pendingResult = await getPendingOrders();
+  // Fetch initial data server-side (both pending orders and unpaid bills)
+  const [pendingResult, unpaidResult] = await Promise.all([
+    getPendingOrders(),
+    getUnpaidBills(),
+  ]);
+
   const initialOrders = pendingResult.success ? pendingResult.data : [];
+  const initialUnpaidBills = unpaidResult.success ? unpaidResult.data : [];
 
   // Get cashier ID for payment processing
   let cashierId = '';
@@ -23,6 +28,7 @@ export default async function PaymentsPage() {
   return (
     <CashierPosClient
       initialOrders={initialOrders}
+      initialUnpaidBills={initialUnpaidBills}
       cashierId={cashierId}
       isPayMongoEnabled={isPayMongoEnabled}
     />

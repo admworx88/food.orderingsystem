@@ -1,9 +1,9 @@
 # System Architecture Document
 # OrderFlow — Hotel Restaurant Web Ordering System
 
-**Version:** 2.4 (Phase 3 Payments Implementation)
-**Date:** February 8, 2026
-**Status:** Phase 1 + Phase 2 Complete ✅ — Phase 3 Payments Implemented
+**Version:** 2.5 (Phase 2.5 Waiter Module + Phase 3 Payments)
+**Date:** February 10, 2026
+**Status:** Phase 1-3 Complete ✅ — Phase 2.5 Waiter Module Implemented
 
 ---
 
@@ -49,13 +49,13 @@ Kiosk → Cart (Zustand) → Server Action → Supabase → Realtime → Kitchen
 ┌──────────────────────────────────────────────────────────────────┐
 │                        CLIENTS (Next.js)                         │
 │                                                                  │
-│  ┌─────────────┐ ┌─────────────┐ ┌──────────┐ ┌──────────────┐   │
-│  │  /(kiosk)   │ │ /(kitchen)  │ │/(cashier)│ │  /(admin)    │   │
-│  │  Touch UI   │ │  KDS View   │ │ Payments │ │  Dashboard   │   │
-│  │  Menu+Cart  │ │  Real-time  │ │ Register │ │  Reports     │   │
-│  └──────┬──────┘ └──────┬──────┘ └────┬─────┘ └──────┬───────┘   │
-│         │               │              │              │          │
-│         └───────────────┴──────────────┴──────────────┘          │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ │
+│  │/(kiosk)  │ │/(kitchen)│ │/(waiter) │ │/(cashier)│ │ /admin   │ │
+│  │Touch UI  │ │KDS View  │ │Service   │ │Payments  │ │Dashboard │ │
+│  │Menu+Cart │ │Real-time │ │Tracking  │ │Register  │ │Reports   │ │
+│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ │
+│       │            │            │            │            │        │
+│       └────────────┴────────────┴────────────┴────────────┘        │
 │                              │                                   │
 │                   ┌──────────┴──────────┐                        │
 │                   │  Zustand (Client)   │                        │
@@ -105,6 +105,12 @@ app/
 │   ├── layout.tsx      # Dark theme, full-screen, status bar
 │   └── orders/
 │       └── page.tsx    # Real-time order queue (KDS)
+│
+├── (waiter)/           # Staff-only, item-level service tracking (route group)
+│   ├── layout.tsx          # Server: AuthGuard + waiter role check
+│   ├── layout-client.tsx   # Client: Service header, sound toggle, live clock
+│   └── service/
+│       └── page.tsx    # Split-panel order queue with item tracking
 │
 ├── (cashier)/          # Staff-only, point-of-sale layout (route group)
 │   ├── layout.tsx          # Server: AuthGuard + cashier name fetch
@@ -177,6 +183,15 @@ components/
 │   ├── filter-bar.tsx      # Filter by type, status
 │   └── audio-alert.tsx     # New order sound notification
 │
+├── waiter/                 # Waiter service components (Phase 2.5)
+│   ├── waiter-split-panel.tsx    # Framer Motion split-panel container
+│   ├── waiter-order-queue.tsx    # Top-level queue with tab filtering
+│   ├── waiter-order-card.tsx     # Full order card (Ready/Preparing tabs)
+│   ├── waiter-list-card.tsx      # Compact sidebar card (split-panel mode)
+│   ├── waiter-detail-panel.tsx   # Right panel with items + SERVE buttons
+│   ├── waiter-compact-card.tsx   # Recent tab compact card
+│   └── waiter-order-detail.tsx   # Legacy detail component
+│
 ├── cashier/                # Cashier-specific components (Phase 3)
 │   ├── cashier-pos-client.tsx   # Main POS orchestrator (split-panel)
 │   ├── pending-orders-list.tsx  # Left panel: order queue with countdown
@@ -189,7 +204,8 @@ components/
 │   ├── receipt-preview.tsx      # BIR-compliant receipt + print
 │   ├── refund-dialog.tsx        # Refund with manager PIN + reason
 │   ├── expiration-countdown.tsx # "X min left" badge (color-coded)
-│   └── shift-summary-view.tsx   # Shift report display
+│   ├── shift-summary-view.tsx   # Shift report display
+│   └── unpaid-bills-list.tsx      # Bill later unpaid orders queue
 │
 ├── admin/                  # Admin-specific components
 │   ├── sidebar-nav.tsx
@@ -263,18 +279,19 @@ components/
               │   (WebSocket Server)   │
               └────┬──────┬──────┬─────┘
                    │      │      │
-          ┌────────┘      │      └────────┐
-          ▼               ▼               ▼
-    ┌───────────┐  ┌───────────┐  ┌───────────┐
-    │  Kitchen  │  │  Cashier  │  │   Kiosk   │
-    │  Channel  │  │  Channel  │  │  Channel  │
-    │           │  │           │  │           │
-    │ Filters:  │  │ Filters:  │  │ Filters:  │
-    │ status IN │  │ payment   │  │ id = own  │
-    │ (paid,    │  │ _status = │  │ order_id  │
-    │ preparing,│  │ 'unpaid'  │  │           │
-    │ ready)    │  │           │  │           │
-    └───────────┘  └───────────┘  └───────────┘
+          ┌────────┘   └────────┐   └────────┐   └────────┐
+          ▼                     ▼             ▼            ▼
+    ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐
+    │  Kitchen  │  │  Waiter   │  │  Cashier  │  │   Kiosk   │
+    │  Channel  │  │  Channel  │  │  Channel  │  │  Channel  │
+    │           │  │           │  │           │  │           │
+    │ Filters:  │  │ Filters:  │  │ Filters:  │  │ Filters:  │
+    │ status IN │  │ status IN │  │ payment   │  │ id = own  │
+    │ (paid,    │  │ (prepar-  │  │ _status = │  │ order_id  │
+    │ preparing,│  │ ing,ready,│  │ 'unpaid'  │  │           │
+    │ ready)    │  │ served)   │  │           │  │           │
+    │           │  │ + items   │  │           │  │           │
+    └───────────┘  └───────────┘  └───────────┘  └───────────┘
 ```
 
 ---
@@ -322,6 +339,12 @@ components/
                     └──────────────────────────────────────┘
 
 ┌─────────────┐     ┌──────────────────────────────────────┐
+│   Waiter    │────▶│ Email/password + PIN login            │
+│   Staff     │     │ Role: 'waiter'                        │
+└─────────────┘     │ Middleware validates role on route     │
+                    └──────────────────────────────────────┘
+
+┌─────────────┐     ┌──────────────────────────────────────┐
 │   Admin     │────▶│ Email/password login (no PIN)         │
 │             │     │ Role: 'admin'                         │
 └─────────────┘     │ Middleware validates role on route     │
@@ -334,6 +357,7 @@ components/
 Request → Check path
   ├── /(kiosk)/*   → Allow (public)
   ├── /(kitchen)/* → Require auth + role in [kitchen, admin]
+  ├── /(waiter)/*  → Require auth + role in [waiter, admin]
   ├── /(cashier)/* → Require auth + role in [cashier, admin]
   ├── /admin/*     → Require auth + role = admin
   └── /api/*       → Validate webhook signatures or auth
@@ -396,6 +420,7 @@ food.orderingsystem/
 │   └── agents/
 │       ├── AGENT-KIOSK.md
 │       ├── AGENT-KITCHEN.md
+│       ├── AGENT-WAITER.md
 │       ├── AGENT-CASHIER.md
 │       ├── AGENT-ADMIN.md
 │       ├── AGENT-DATABASE.md
@@ -419,6 +444,11 @@ food.orderingsystem/
 │   │   ├── (kitchen)/             # Route group — staff, dark theme
 │   │   │   ├── layout.tsx          # Dark theme, fullscreen
 │   │   │   └── orders/page.tsx     # Real-time KDS
+│   │   │
+│   │   ├── (waiter)/             # Route group — staff, service tracking
+│   │   │   ├── layout.tsx          # Server: AuthGuard + waiter role
+│   │   │   ├── layout-client.tsx   # Client: Service header, sound toggle, clock
+│   │   │   └── service/page.tsx    # Split-panel order queue
 │   │   │
 │   │   ├── (cashier)/             # Route group — staff, POS layout
 │   │   │   ├── layout.tsx          # Server: AuthGuard + cashier name
@@ -445,6 +475,8 @@ food.orderingsystem/
 │   │   ├── ui/                     # shadcn/ui primitives (20 components)
 │   │   ├── kiosk/                  # Kiosk-specific (menu-grid, item-card, cart-drawer, etc.)
 │   │   ├── kitchen/                # KDS-specific (order-card, order-queue)
+│   │   ├── waiter/                # Waiter-specific (split-panel, order cards, detail)
+│   │   ├── cashier/               # Cashier-specific (payment forms, receipt, refund, unpaid-bills)
 │   │   ├── admin/                  # Admin-specific (stats-cards, menu-item-form, charts, etc.)
 │   │   ├── auth/                   # Auth components (login-form, signup-form)
 │   │   └── shared/                 # Cross-module (date-range-picker, pagination)
@@ -458,6 +490,7 @@ food.orderingsystem/
 │   │   ├── utils/
 │   │   │   ├── cn.ts               # className merger (Tailwind)
 │   │   │   ├── currency.ts         # formatCurrency() — Philippine Peso
+│   │   │   ├── item-status.ts      # Item status helpers (counts, progress labels)
 │   │   │   └── rate-limiter.ts     # Rate limiting utility
 │   │   ├── validators/
 │   │   │   ├── auth.ts             # Login/signup validation
@@ -468,10 +501,13 @@ food.orderingsystem/
 │   │   │   └── user.ts             # User validation
 │   │   └── constants/
 │   │       ├── order-status.ts     # Status enums and labels
+│   │       ├── item-status.ts      # Item status enum, labels, color maps
 │   │       └── payment-methods.ts  # Payment constants, quick amounts (Phase 3)
 │   │
 │   ├── hooks/
 │   │   ├── use-realtime-orders.ts          # Kitchen realtime subscription
+│   │   ├── use-realtime-waiter-orders.ts   # Waiter realtime subscription (item-level)
+│   │   ├── use-realtime-unpaid-bills.ts    # Cashier unpaid bills subscription
 │   │   └── use-realtime-pending-orders.ts  # Cashier pending orders subscription
 │   │
 │   ├── stores/
@@ -494,11 +530,19 @@ food.orderingsystem/
 │       └── user-service.ts         # User management
 │
 ├── supabase/
-│   ├── migrations/                 # 28 timestamped SQL migration files
+│   ├── migrations/                 # 34 timestamped SQL migration files
 │   │   ├── 20260205140000_enums_schema.sql
 │   │   ├── 20260205140100_profiles_schema.sql
 │   │   ├── ...                     # (see supabase/migrations/ for full list)
-│   │   └── 20260207000002_menu_categories_seed_data.sql
+│   │   ├── 20260207000002_menu_categories_seed_data.sql
+│   │   ├── 20260209000001_payment_rpc_functions.sql
+│   │   ├── ...                     # (Phase 3 payment migrations)
+│   │   ├── 20260209140000_add_item_status_tracking.sql
+│   │   ├── 20260209140100_add_waiter_role_bill_later.sql
+│   │   ├── 20260209140200_kitchen_items_sync_trigger.sql
+│   │   ├── 20260209140300_order_status_auto_calculate.sql
+│   │   ├── 20260209140400_waiter_rls_policies.sql
+│   │   └── 20260209150000_update_cash_payment_for_bill_later.sql
 │   ├── seed.sql
 │   └── config.toml
 │
@@ -570,6 +614,34 @@ Critical indexes for scalability (200+ concurrent kiosks, 500+ orders/day):
 - `idx_menu_items_is_available` — Kiosk menu filtering
 - `idx_order_events_event_type` — Analytics queries
 - Partial indexes with `WHERE` clauses for optimization
+
+### Phase 2.5 Enhancements (Waiter Module)
+
+**New Enum Type**:
+- `order_item_status` — Tracks individual item progress: `'pending'`, `'preparing'`, `'ready'`, `'served'`
+
+**Updated Enum Types**:
+- `user_role` — Added `'waiter'` value
+- `payment_method` — Added `'bill_later'` value
+
+**order_items table (enhanced)**:
+- `status` (order_item_status, NOT NULL, DEFAULT 'pending') — Per-item status tracking
+- `ready_at` (TIMESTAMPTZ) — When item was marked ready
+- `served_at` (TIMESTAMPTZ) — When item was marked served
+- `served_by` (UUID, FK to profiles) — Which waiter served the item
+
+**New Database Triggers**:
+- `sync_order_items_on_order_status` — When order bumped to 'preparing', all pending items auto-sync to 'preparing'. When order cancelled, reset all items.
+- `auto_update_order_status_from_items` — When all items marked 'ready', order auto-transitions to 'ready'. When all items 'served', order auto-transitions to 'served'.
+
+**Updated RLS Policies**:
+- "Staff can read active orders" — Expanded from kitchen+cashier to include waiter
+- "Staff can read order items" — Expanded to include waiter
+- "Waiters can mark items served" — New UPDATE policy (ready → served)
+- "Kitchen can update item status" — New UPDATE policy (pending/preparing → preparing/ready)
+
+**Updated RPC Functions**:
+- `process_cash_payment()` — Now supports bill_later orders (can pay when in preparing/ready/served status)
 
 ---
 
@@ -802,6 +874,7 @@ export default function Page({ params }: { params: { id: string } }) {
 - **[AGENT-DATABASE.md](../agents/AGENT-DATABASE.md)** — Complete SQL schema and RLS policies
 - **[AGENT-KIOSK.md](../agents/AGENT-KIOSK.md)** — Kiosk module specification
 - **[AGENT-KITCHEN.md](../agents/AGENT-KITCHEN.md)** — Kitchen Display System specification
+- **[AGENT-WAITER.md](../agents/AGENT-WAITER.md)** — Waiter service module specification
 - **[AGENT-CASHIER.md](../agents/AGENT-CASHIER.md)** — Cashier module specification
 - **[AGENT-ADMIN.md](../agents/AGENT-ADMIN.md)** — Admin dashboard specification
 - **[AGENT-PAYMENTS.md](../agents/AGENT-PAYMENTS.md)** — PayMongo integration guide
@@ -1091,6 +1164,22 @@ CREATE TABLE audit_log (
 ---
 
 ## 21. Version History
+
+### Version 2.5 (February 10, 2026)
+**Status**: Phase 2.5 Waiter Module + Phase 3 Payments
+
+**Changes**:
+- Added waiter module: route group, layouts, service page
+- Added 7 waiter components (split-panel, order queue, cards, detail panel)
+- Added use-realtime-waiter-orders.ts and use-realtime-unpaid-bills.ts hooks
+- Added item-status constants and utils
+- Added unpaid-bills-list.tsx to cashier components
+- Updated high-level architecture diagram to include waiter module
+- Updated route groups, component architecture, folder structure
+- Updated auth architecture to include waiter role
+- Updated realtime subscription model with waiter channel
+- Added Phase 2.5 database schema enhancements (triggers, enums, RLS)
+- Updated migration count from 28 to 34
 
 ### Version 2.4 (February 8, 2026)
 **Status**: Phase 3 Payments Implementation

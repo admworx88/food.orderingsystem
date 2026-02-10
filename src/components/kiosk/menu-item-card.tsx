@@ -72,9 +72,9 @@ export function MenuItemCard({ item, onAddToCart, onItemClick, compact = false }
   // Compact/List View
   if (compact) {
     return (
-      <div onClick={onItemClick} className="kiosk-card flex items-center gap-5 p-5 hover:border-stone-300 cursor-pointer">
+      <div onClick={onItemClick} className="kiosk-card flex items-center gap-3 sm:gap-4 lg:gap-5 p-3 sm:p-4 lg:p-5 hover:border-stone-300 cursor-pointer">
         {/* Image */}
-        <div className="relative w-24 h-24 rounded-xl bg-stone-100 flex-shrink-0 overflow-hidden">
+        <div className="relative w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-lg sm:rounded-xl bg-stone-100 flex-shrink-0 overflow-hidden">
           {item.image_url && !imageError ? (
             <>
               {!imageLoaded && <div className="absolute inset-0 bg-stone-100 animate-pulse" />}
@@ -99,12 +99,12 @@ export function MenuItemCard({ item, onAddToCart, onItemClick, compact = false }
         </div>
 
         {/* Content */}
-        <div className="flex-1 min-w-0 py-1">
-          <h3 className="text-base font-bold text-stone-900 line-clamp-1 mb-1">{item.name}</h3>
+        <div className="flex-1 min-w-0 py-0.5 sm:py-1">
+          <h3 className="text-sm sm:text-base font-bold text-stone-900 line-clamp-1 mb-0.5 sm:mb-1">{item.name}</h3>
           {item.description && (
-            <p className="text-sm text-stone-500 line-clamp-1 mb-2">{item.description}</p>
+            <p className="text-xs sm:text-sm text-stone-500 line-clamp-1 mb-1 sm:mb-2 hidden xs:block">{item.description}</p>
           )}
-          <p className="text-xl font-bold text-stone-900 mt-2">
+          <p className="text-base sm:text-lg lg:text-xl font-bold text-stone-900">
             {formatCurrency(Number(item.base_price))}
           </p>
         </div>
@@ -112,16 +112,16 @@ export function MenuItemCard({ item, onAddToCart, onItemClick, compact = false }
         {/* Add Button */}
         <button
           onClick={handleAddToCart}
-          className="flex-shrink-0 w-12 h-12 bg-amber-500 hover:bg-amber-600 text-white rounded-xl flex items-center justify-center active:scale-95 transition-all shadow-md"
+          className="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 lg:w-12 lg:h-12 bg-amber-500 hover:bg-amber-600 text-white rounded-lg sm:rounded-xl flex items-center justify-center active:scale-95 transition-all shadow-md"
           aria-label={`Add ${item.name} to cart`}
         >
-          <Plus className="w-6 h-6" strokeWidth={2.5} />
+          <Plus className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.5} />
         </button>
       </div>
     );
   }
 
-  // Grid View - Premium Card
+  // Grid View - Premium Card (mobile-optimized)
   return (
     <div onClick={onItemClick} className="kiosk-card overflow-hidden h-full flex flex-col group hover:shadow-lg transition-shadow cursor-pointer">
       {/* Image Container */}
@@ -151,73 +151,73 @@ export function MenuItemCard({ item, onAddToCart, onItemClick, compact = false }
           </div>
         )}
 
-        {/* Badges */}
-        <div className="absolute top-4 left-4 right-4 flex items-start justify-between pointer-events-none">
+        {/* Badges - responsive sizing */}
+        <div className="absolute top-2 sm:top-3 lg:top-4 left-2 sm:left-3 lg:left-4 right-2 sm:right-3 lg:right-4 flex items-start justify-between pointer-events-none">
           {/* Popular Badge */}
           {item.is_featured && (
-            <span className="px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg shadow-md">
+            <span className="px-2 py-1 sm:px-3 sm:py-1.5 bg-amber-500 text-white text-[10px] sm:text-xs font-bold rounded-md sm:rounded-lg shadow-md">
               Popular
             </span>
           )}
 
           {/* Prep Time Badge */}
           {prepTime && (
-            <span className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-white/95 backdrop-blur-sm text-stone-700 text-xs font-semibold rounded-lg shadow-md">
-              <Clock className="w-3.5 h-3.5" />
+            <span className="ml-auto flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 bg-white/95 backdrop-blur-sm text-stone-700 text-[10px] sm:text-xs font-semibold rounded-md sm:rounded-lg shadow-md">
+              <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               {prepTime}m
             </span>
           )}
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex flex-col flex-1 p-5">
+      {/* Content - responsive padding */}
+      <div className="flex flex-col flex-1 p-3 sm:p-4 lg:p-5">
         {/* Title */}
-        <h3 className="text-base font-bold text-stone-900 line-clamp-1 mb-2">
+        <h3 className="text-xs sm:text-sm lg:text-base font-bold text-stone-900 line-clamp-2 sm:line-clamp-1 mb-1 sm:mb-2">
           {item.name}
         </h3>
 
-        {/* Description */}
+        {/* Description - hidden on smallest screens */}
         {item.description && (
-          <p className="text-sm text-stone-500 line-clamp-2 mb-4 flex-1 leading-relaxed">
+          <p className="hidden sm:block text-xs lg:text-sm text-stone-500 line-clamp-2 mb-2 sm:mb-3 lg:mb-4 flex-1 leading-relaxed">
             {item.description}
           </p>
         )}
 
-        {/* Allergens */}
+        {/* Allergens - smaller on mobile */}
         {allergens.length > 0 && (
-          <div className="flex items-center gap-2 mb-4">
-            {allergens.slice(0, 4).map((allergen) => {
+          <div className="hidden sm:flex items-center gap-1 sm:gap-2 mb-2 sm:mb-3 lg:mb-4">
+            {allergens.slice(0, 3).map((allergen) => {
               const info = ALLERGEN_ICONS[allergen];
               return (
                 <span
                   key={allergen}
-                  className="w-7 h-7 rounded-lg bg-stone-100 flex items-center justify-center text-sm"
+                  className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7 rounded-md sm:rounded-lg bg-stone-100 flex items-center justify-center text-xs sm:text-sm"
                   title={info?.label || allergen}
                 >
                   {info?.icon || '⚠️'}
                 </span>
               );
             })}
-            {allergens.length > 4 && (
-              <span className="text-xs text-stone-500 font-semibold">+{allergens.length - 4}</span>
+            {allergens.length > 3 && (
+              <span className="text-[10px] sm:text-xs text-stone-500 font-semibold">+{allergens.length - 3}</span>
             )}
           </div>
         )}
 
-        {/* Price & Add Button */}
-        <div className="flex items-center justify-between mt-auto pt-4 border-t border-stone-100">
-          <span className="text-xl font-black text-stone-900">
+        {/* Price & Add Button - responsive */}
+        <div className="flex items-center justify-between mt-auto pt-2 sm:pt-3 lg:pt-4 border-t border-stone-100">
+          <span className="text-sm sm:text-base lg:text-xl font-black text-stone-900">
             {formatCurrency(Number(item.base_price))}
           </span>
 
           <button
             onClick={handleAddToCart}
-            className="flex items-center gap-2 h-12 px-5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-xl active:scale-95 transition-all shadow-md"
+            className="flex items-center gap-1 sm:gap-2 h-9 sm:h-10 lg:h-12 px-3 sm:px-4 lg:px-5 bg-amber-500 hover:bg-amber-600 text-white text-xs sm:text-sm font-bold rounded-lg sm:rounded-xl active:scale-95 transition-all shadow-md"
             aria-label={`Add ${item.name} to cart`}
           >
-            <Plus className="w-5 h-5" strokeWidth={2.5} />
-            <span>Add</span>
+            <Plus className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2.5} />
+            <span className="hidden sm:inline">Add</span>
           </button>
         </div>
       </div>

@@ -12,6 +12,7 @@ export const PAYMENT_METHOD_CONFIG: Record<PaymentMethod, {
   cash: { label: 'Cash', icon: 'Banknote', description: 'Pay at the counter' },
   gcash: { label: 'GCash', icon: 'Smartphone', description: 'Pay via GCash' },
   card: { label: 'Credit/Debit Card', icon: 'CreditCard', description: 'Pay with card' },
+  bill_later: { label: 'Pay After Meal', icon: 'Utensils', description: 'Settle when ready to leave' },
 };
 
 // Payment status display config

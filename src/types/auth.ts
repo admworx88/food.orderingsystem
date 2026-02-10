@@ -19,11 +19,11 @@ export interface UserProfile {
   id: string;
   email: string | undefined;
   fullName: string;
-  role: 'admin' | 'cashier' | 'kitchen' | 'kiosk';
+  role: 'admin' | 'cashier' | 'kitchen' | 'kiosk' | 'waiter';
   isActive: boolean;
 }
 
-export type UserRole = 'admin' | 'cashier' | 'kitchen' | 'kiosk';
+export type UserRole = 'admin' | 'cashier' | 'kitchen' | 'kiosk' | 'waiter';
 
 export interface SessionUser {
   id: string;

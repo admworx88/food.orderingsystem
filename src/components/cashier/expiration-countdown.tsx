@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Badge } from '@/components/ui/badge';
+import { Clock, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EXPIRATION_THRESHOLDS } from '@/lib/constants/payment-methods';
 
@@ -10,8 +10,8 @@ interface ExpirationCountdownProps {
 }
 
 /**
- * Reusable countdown badge showing time remaining before order expires.
- * Green >5min, Yellow 2-5min, Red <2min, EXPIRED badge when past.
+ * Countdown timer - Terminal Command Center theme
+ * Mint >5min, Amber 2-5min, Red <2min, EXPIRED when past
  */
 export function ExpirationCountdown({ expiresAt }: ExpirationCountdownProps) {
   const [minutesLeft, setMinutesLeft] = useState<number | null>(null);
@@ -25,7 +25,7 @@ export function ExpirationCountdown({ expiresAt }: ExpirationCountdownProps) {
     }
 
     update();
-    const interval = setInterval(update, 10_000); // Update every 10s for smooth countdown
+    const interval = setInterval(update, 1_000); // Update every second for smooth countdown
     return () => clearInterval(interval);
   }, [expiresAt]);
 
@@ -35,25 +35,28 @@ export function ExpirationCountdown({ expiresAt }: ExpirationCountdownProps) {
 
   if (minutesLeft <= 0) {
     return (
-      <Badge variant="destructive" className="animate-pulse font-semibold">
+      <span className="pos-timer pos-timer-expired">
+        <AlertTriangle className="w-3 h-3" />
         EXPIRED
-      </Badge>
+      </span>
     );
   }
 
   const minutes = Math.floor(minutesLeft);
   const seconds = Math.floor((minutesLeft - minutes) * 60);
 
-  let colorClass = 'bg-green-100 text-green-800';
-  if (minutesLeft <= EXPIRATION_THRESHOLDS.warning) {
-    colorClass = 'bg-red-100 text-red-800 animate-pulse';
-  } else if (minutesLeft <= EXPIRATION_THRESHOLDS.safe) {
-    colorClass = 'bg-yellow-100 text-yellow-800';
-  }
+  const isWarning = minutesLeft <= EXPIRATION_THRESHOLDS.warning;
+  const isCaution = minutesLeft <= EXPIRATION_THRESHOLDS.safe && !isWarning;
 
   return (
-    <Badge variant="outline" className={cn('font-mono text-xs', colorClass)}>
-      {minutes}:{seconds.toString().padStart(2, '0')} left
-    </Badge>
+    <span className={cn(
+      'pos-timer',
+      isWarning && 'pos-timer-warning',
+      isCaution && 'pos-timer-caution',
+      !isWarning && !isCaution && 'pos-timer-safe'
+    )}>
+      <Clock className="w-3 h-3" />
+      {minutes}:{seconds.toString().padStart(2, '0')}
+    </span>
   );
 }

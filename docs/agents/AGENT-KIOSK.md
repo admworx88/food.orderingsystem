@@ -1,7 +1,7 @@
 # Agent: Kiosk Module
 # Scope: /(kiosk) route group — Guest-facing ordering interface
 
-> **Version:** 2.2 | **Last Updated:** February 7, 2026 | **Status:** ✅ Frontend Complete, Aligned with PRD v1.3
+> **Version:** 2.3 | **Last Updated:** February 10, 2026 | **Status:** ✅ Frontend Complete + Bill Later Support, Aligned with PRD v1.4
 
 ---
 
@@ -97,7 +97,7 @@ src/components/kiosk/
 ├── promo-code-input.tsx    # NEW: Promo code entry + validation
 ├── phone-input.tsx         # NEW: Optional guest phone number collection
 ├── order-type-selector.tsx # Dine-in / Room Service / Takeout cards
-├── payment-method-selector.tsx  # Cash / GCash / Card option cards
+├── payment-method-selector.tsx  # Cash / GCash / Card / Pay After Meal option cards
 ├── order-number-display.tsx     # Large animated order number
 ├── order-expiration-timer.tsx   # NEW: 15-minute countdown for unpaid orders
 ├── idle-timer.tsx          # Resets to welcome after 2min inactivity
@@ -308,9 +308,10 @@ async function createOrder(cart: CartStore): Promise<OrderConfirmation> {
 
   // 5. Generate order number (via DB sequence)
   // 6. Set expires_at (15 minutes from now if payment_method is cash)
+  // Bill Later orders don't expire — guests pay after eating
   const expiresAt = cart.paymentMethod === 'cash'
     ? new Date(Date.now() + 15 * 60 * 1000)
-    : null;
+    : null; // null for gcash, card, and bill_later
 
   // 7. Insert order + items + addons in a transaction
   const { data: order } = await supabase
@@ -329,8 +330,10 @@ async function createOrder(cart: CartStore): Promise<OrderConfirmation> {
       guest_phone: cart.guestPhone,
       expires_at: expiresAt,
       payment_method: cart.paymentMethod,
-      payment_status: cart.paymentMethod === 'cash' ? 'unpaid' : 'processing',
-      status: cart.paymentMethod === 'cash' ? 'pending_payment' : 'paid',
+      payment_status: cart.paymentMethod === 'bill_later' ? 'unpaid'
+        : cart.paymentMethod === 'cash' ? 'unpaid' : 'processing',
+      status: cart.paymentMethod === 'bill_later' ? 'paid'  // Goes to kitchen immediately
+        : cart.paymentMethod === 'cash' ? 'pending_payment' : 'paid',
     })
     .select()
     .single();
@@ -591,6 +594,13 @@ trackOrderEvent('payment_started', { method: paymentMethod });
 
 ## Version History
 
+### Version 2.3 (February 10, 2026)
+**Changes**:
+- Added "Pay After Meal" (bill_later) as payment option for dine-in orders
+- Updated payment-method-selector.tsx description to include bill_later
+- Updated order creation code example to handle bill_later flow
+- Updated version references to PRD v1.4 and Architecture v2.5
+
 ### Version 2.2 (February 7, 2026)
 **Changes**:
 - Updated all version references to PRD v1.3 and Architecture v2.3
@@ -623,6 +633,6 @@ trackOrderEvent('payment_started', { method: paymentMethod });
 
 ## Related Documents
 
-- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.3
-- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.3
-- **[AGENT-DATABASE.md](./AGENT-DATABASE.md)** — Database schema v2.2
+- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.4
+- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.5
+- **[AGENT-DATABASE.md](./AGENT-DATABASE.md)** — Database schema v2.4

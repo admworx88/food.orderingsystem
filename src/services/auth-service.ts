@@ -131,10 +131,13 @@ export async function signInWithEmail(
         defaultRedirect = '/admin';
         break;
       case 'cashier':
-        defaultRedirect = '/cashier';
+        defaultRedirect = '/payments';
         break;
       case 'kitchen':
         defaultRedirect = '/orders';
+        break;
+      case 'waiter':
+        defaultRedirect = '/service';
         break;
     }
 

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card } from '@/components/ui/card';
+import { Banknote, Smartphone, CreditCard, AlertTriangle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { CashCalculator } from './cash-calculator';
 import { GcashPayment } from './gcash-payment';
 import { CardPayment } from './card-payment';
@@ -15,10 +15,10 @@ interface PaymentFormProps {
   cashierId: string;
 }
 
+type PaymentTab = 'cash' | 'gcash' | 'card';
+
 /**
- * Payment form with tabs: Cash / GCash / Card.
- * GCash and Card tabs are hidden if PayMongo is not configured.
- * All tabs are disabled if the order has expired.
+ * Payment form - Terminal Command Center theme
  */
 export function PaymentForm({
   order,
@@ -26,70 +26,99 @@ export function PaymentForm({
   isPayMongoEnabled,
   cashierId,
 }: PaymentFormProps) {
-  const [activeTab, setActiveTab] = useState('cash');
+  const [activeTab, setActiveTab] = useState<PaymentTab>('cash');
   const isExpired = order.expires_at && new Date(order.expires_at) < new Date();
 
   if (isExpired) {
     return (
-      <Card className="p-6 text-center">
-        <p className="text-lg font-semibold text-red-600">Order Expired</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          This order has passed the 15-minute payment window.
-        </p>
-      </Card>
+      <div className="pos-payment-section">
+        <div className="p-8 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--pos-red-glow)] flex items-center justify-center">
+            <AlertTriangle className="w-8 h-8 text-[var(--pos-red)]" />
+          </div>
+          <p className="text-lg font-semibold text-[var(--pos-red)]">Order Expired</p>
+          <p className="mt-2 text-sm text-[var(--pos-text-muted)]">
+            This order has passed the 15-minute payment window.
+          </p>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card className="p-4">
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="w-full">
-          <TabsTrigger value="cash" className="flex-1">
-            Cash
-          </TabsTrigger>
-          {isPayMongoEnabled && (
-            <>
-              <TabsTrigger value="gcash" className="flex-1">
-                GCash
-              </TabsTrigger>
-              <TabsTrigger value="card" className="flex-1">
-                Card
-              </TabsTrigger>
-            </>
+    <div className="pos-payment-section">
+      {/* Payment method tabs */}
+      <div className="pos-payment-tabs">
+        <button
+          onClick={() => setActiveTab('cash')}
+          className={cn(
+            'pos-payment-tab',
+            activeTab === 'cash' && 'pos-payment-tab-active'
           )}
-        </TabsList>
+        >
+          <Banknote className="w-4 h-4 inline mr-2" />
+          Cash
+        </button>
 
-        <TabsContent value="cash" className="mt-4">
+        {isPayMongoEnabled && (
+          <>
+            <button
+              onClick={() => setActiveTab('gcash')}
+              className={cn(
+                'pos-payment-tab',
+                activeTab === 'gcash' && 'pos-payment-tab-active'
+              )}
+            >
+              <Smartphone className="w-4 h-4 inline mr-2" />
+              GCash
+            </button>
+
+            <button
+              onClick={() => setActiveTab('card')}
+              className={cn(
+                'pos-payment-tab',
+                activeTab === 'card' && 'pos-payment-tab-active'
+              )}
+            >
+              <CreditCard className="w-4 h-4 inline mr-2" />
+              Card
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Payment content */}
+      <div>
+        {activeTab === 'cash' && (
           <CashCalculator
             totalAmount={order.total_amount}
             onConfirm={(amountTendered) => {
-              // Parent handles the actual payment processing
               onPaymentComplete('cash', amountTendered);
             }}
             isProcessing={false}
           />
-        </TabsContent>
-
-        {isPayMongoEnabled && (
-          <>
-            <TabsContent value="gcash" className="mt-4">
-              <GcashPayment
-                orderId={order.id}
-                totalAmount={order.total_amount}
-                onPaymentComplete={onPaymentComplete}
-              />
-            </TabsContent>
-
-            <TabsContent value="card" className="mt-4">
-              <CardPayment
-                orderId={order.id}
-                totalAmount={order.total_amount}
-                onPaymentComplete={onPaymentComplete}
-              />
-            </TabsContent>
-          </>
         )}
-      </Tabs>
-    </Card>
+
+        {isPayMongoEnabled && activeTab === 'gcash' && (
+          <div className="p-6">
+            <GcashPayment
+              orderId={order.id}
+              totalAmount={order.total_amount}
+              onPaymentComplete={onPaymentComplete}
+            />
+          </div>
+        )}
+
+        {isPayMongoEnabled && activeTab === 'card' && (
+          <div className="p-6">
+            <CardPayment
+              orderId={order.id}
+              totalAmount={order.total_amount}
+              onPaymentComplete={onPaymentComplete}
+            />
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

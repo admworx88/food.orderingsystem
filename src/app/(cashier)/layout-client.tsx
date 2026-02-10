@@ -4,21 +4,30 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { User } from 'lucide-react';
 
 function LiveClock() {
-  const [time, setTime] = useState<string>('');
+  const [time, setTime] = useState<{ hours: string; minutes: string; seconds: string; period: string }>({
+    hours: '--',
+    minutes: '--',
+    seconds: '--',
+    period: '--',
+  });
 
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      setTime(
-        now.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true,
-        })
-      );
+      const hours = now.getHours();
+      const h = hours % 12 || 12;
+      const m = now.getMinutes();
+      const s = now.getSeconds();
+
+      setTime({
+        hours: h.toString().padStart(2, '0'),
+        minutes: m.toString().padStart(2, '0'),
+        seconds: s.toString().padStart(2, '0'),
+        period: hours >= 12 ? 'PM' : 'AM',
+      });
     };
 
     updateTime();
@@ -27,8 +36,13 @@ function LiveClock() {
   }, []);
 
   return (
-    <div className="font-mono text-lg font-semibold tabular-nums">
-      {time || '--:--:--'}
+    <div className="pos-clock flex items-center gap-0.5">
+      <span>{time.hours}</span>
+      <span className="pos-clock-separator">:</span>
+      <span>{time.minutes}</span>
+      <span className="pos-clock-separator">:</span>
+      <span>{time.seconds}</span>
+      <span className="ml-1.5 text-sm opacity-60">{time.period}</span>
     </div>
   );
 }
@@ -50,27 +64,29 @@ export function CashierLayoutClient({
   const pathname = usePathname();
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
+    <div className="flex min-h-screen flex-col pos-bg">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b bg-white shadow-sm">
+      <header className="sticky top-0 z-50 pos-header relative">
         <div className="flex items-center justify-between px-6 py-3">
-          {/* Left: Title */}
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-blue-700">POS</h1>
-            <span className="text-sm text-muted-foreground">Point of Sale</span>
+          {/* Left: Logo */}
+          <div className="flex items-center gap-4">
+            <Link href="/payments" className="flex items-center gap-3">
+              <div className="pos-logo">TERMINAL</div>
+              <span className="text-[var(--pos-text-muted)] text-sm font-medium">
+                Point of Sale
+              </span>
+            </Link>
           </div>
 
           {/* Center: Navigation */}
-          <nav className="flex items-center gap-1">
+          <nav className="pos-nav">
             {NAV_ITEMS.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'rounded-md px-4 py-2 text-sm font-medium transition-colors',
-                  pathname === item.href
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-muted-foreground hover:bg-gray-100 hover:text-gray-900'
+                  'pos-nav-item',
+                  pathname === item.href && 'pos-nav-item-active'
                 )}
               >
                 {item.label}
@@ -79,13 +95,21 @@ export function CashierLayoutClient({
           </nav>
 
           {/* Right: Clock & Cashier */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-5">
             <LiveClock />
-            <div className="rounded-md bg-gray-100 px-3 py-1.5 text-sm">
-              {cashierName}
+
+            <div className="h-6 w-px bg-[var(--pos-border)]" />
+
+            <div className="pos-cashier-badge">
+              <span className="pos-cashier-badge-dot" />
+              <User className="w-4 h-4" />
+              <span>{cashierName}</span>
             </div>
           </div>
         </div>
+
+        {/* Subtle glow line */}
+        <div className="pos-header-glow" />
       </header>
 
       {/* Main Content */}

@@ -20,7 +20,7 @@ export interface CartItem {
 }
 
 export type OrderType = 'dine_in' | 'room_service' | 'takeout';
-export type PaymentMethod = 'cash' | 'gcash' | 'card';
+export type PaymentMethod = 'cash' | 'gcash' | 'card' | 'bill_later';
 
 interface CartStore {
   // Cart state

@@ -1,7 +1,7 @@
 # Agent: Payments Integration
 # Scope: PayMongo integration, payment processing, webhooks
 
-> **Version:** 2.3 | **Last Updated:** February 8, 2026 | **Status:** Phase 3 Implementation Complete
+> **Version:** 2.4 | **Last Updated:** February 10, 2026 | **Status:** Phase 3 Implementation Complete + Bill Later Support
 
 ---
 
@@ -14,6 +14,7 @@
 | GCash | E-wallet | QR/redirect via PayMongo |
 | Card | Credit/Debit | PayMongo card form |
 | Maya | E-wallet | Redirect via PayMongo |
+| Bill Later | Dine-in deferred | Serve first, cashier settles later |
 
 ### PayMongo API Endpoints
 | Endpoint | Purpose |
@@ -607,6 +608,56 @@ export async function cancelExpiredOrders() {
 
 ---
 
+## Bill Later Payment Flow (Phase 2.5)
+
+### Overview
+
+Bill Later is a deferred payment option for dine-in orders. Guests can select "Pay After Meal" at the kiosk — the order goes directly to the kitchen without requiring immediate payment.
+
+### Flow
+
+```
+1. Kiosk: Guest selects "Pay After Meal" (dine-in only)
+   → order.payment_method = 'bill_later'
+   → order.payment_status = 'unpaid'
+   → order.status = 'paid' (sent to kitchen immediately)
+   → order.expires_at = NULL (no expiration)
+
+2. Kitchen: Prepares food normally
+
+3. Waiter: Serves items to guest (per-item tracking)
+
+4. Cashier: When guest requests bill
+   → Order appears in "Unpaid Bills" queue
+   → Cashier processes as cash payment
+   → process_cash_payment() RPC handles bill_later logic
+
+5. Settlement:
+   → If order is 'served': keeps status as 'served', sets payment_status = 'paid'
+   → If order is 'preparing'/'ready': sets status = 'paid', payment_status = 'paid'
+   → Event log includes was_bill_later = true
+```
+
+### Key Differences from Regular Cash Payment
+
+| Aspect | Regular Cash | Bill Later |
+|--------|-------------|------------|
+| Valid order status | `pending_payment` | `preparing`, `ready`, `served` |
+| Expiration check | Yes (15 min) | No (no expires_at) |
+| After payment (served) | Sets to `paid` | Keeps as `served` |
+| Payment method stored | `cash` | `cash` (overrides `bill_later`) |
+| Audit flag | None | `was_bill_later: true` |
+
+### Constants
+
+```typescript
+// src/lib/constants/payment-methods.ts
+// 'bill_later' added to payment methods list
+// Displayed as "Pay After Meal" in kiosk checkout (dine-in only)
+```
+
+---
+
 ## Key Implementation Notes
 
 1. **PayMongo Test Mode**: Use test API keys during development.
@@ -710,6 +761,17 @@ curl -X POST https://your-ngrok-url.ngrok.io/api/webhooks/paymongo \
 
 ## Version History
 
+### Version 2.4 (February 10, 2026)
+**Changes**:
+- Added Bill Later payment method to supported methods table
+- Added Bill Later Payment Flow section with complete flow diagram
+- Added comparison table: Regular Cash vs Bill Later
+- Updated version references to PRD v1.4 and Architecture v2.5
+
+### Version 2.3 (February 8, 2026)
+**Changes**:
+- Phase 3 payments implementation complete
+
 ### Version 2.2 (February 7, 2026)
 **Changes**:
 - Updated all version references to PRD v1.3 and Architecture v2.3
@@ -737,7 +799,8 @@ curl -X POST https://your-ngrok-url.ngrok.io/api/webhooks/paymongo \
 
 ## Related Documents
 
-- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.3
-- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.4
-- **[AGENT-DATABASE.md](./AGENT-DATABASE.md)** — Database schema v2.3
-- **[AGENT-CASHIER.md](./AGENT-CASHIER.md)** — Cashier POS module v2.3
+- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.4
+- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.5
+- **[AGENT-DATABASE.md](./AGENT-DATABASE.md)** — Database schema v2.4
+- **[AGENT-CASHIER.md](./AGENT-CASHIER.md)** — Cashier POS module v2.4
+- **[AGENT-WAITER.md](./AGENT-WAITER.md)** — Waiter module spec v1.1 (bill_later source)

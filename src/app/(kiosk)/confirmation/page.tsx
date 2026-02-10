@@ -62,70 +62,70 @@ function ConfirmationContent() {
   };
 
   return (
-    <div className="h-full flex flex-col items-center justify-center bg-gradient-to-br from-green-50 via-white to-amber-50 px-6 relative overflow-hidden">
+    <div className="h-full flex flex-col items-center justify-center bg-gradient-to-br from-green-50 via-white to-amber-50 px-4 sm:px-6 py-6 relative overflow-hidden">
       {/* Decorative background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-96 h-96 bg-green-200/20 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-amber-200/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+        <div className="absolute top-10 sm:top-20 left-5 sm:left-10 w-48 sm:w-96 h-48 sm:h-96 bg-green-200/20 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-10 sm:bottom-20 right-5 sm:right-10 w-48 sm:w-96 h-48 sm:h-96 bg-amber-200/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
       </div>
 
       {/* Main content */}
-      <div className="relative z-10 max-w-3xl w-full">
+      <div className="relative z-10 max-w-3xl w-full overflow-y-auto">
         {/* Success icon */}
-        <div className="text-center mb-8 animate-scale-in">
-          <div className="inline-flex items-center justify-center w-28 h-28 rounded-full bg-gradient-to-br from-green-400 to-green-600 shadow-2xl shadow-green-500/30 mb-6">
-            <CheckCircle2 className="w-16 h-16 text-white" strokeWidth={2} />
+        <div className="text-center mb-5 sm:mb-6 lg:mb-8 animate-scale-in">
+          <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 lg:w-28 lg:h-28 rounded-full bg-gradient-to-br from-green-400 to-green-600 shadow-2xl shadow-green-500/30 mb-4 sm:mb-6">
+            <CheckCircle2 className="w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 text-white" strokeWidth={2} />
           </div>
-          <h1 className="text-4xl font-bold text-stone-800 mb-3">
+          <h1 className="text-xl sm:text-2xl lg:text-4xl font-bold text-stone-800 mb-2 sm:mb-3">
             Order Placed Successfully!
           </h1>
-          <p className="text-lg text-stone-600">
+          <p className="text-sm sm:text-base lg:text-lg text-stone-600">
             Thank you for your order
           </p>
         </div>
 
-        {/* Order number - HUGE */}
-        <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 p-10 mb-8 text-center animate-fade-in-up animation-delay-200">
-          <p className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-4">
+        {/* Order number - responsive sizing */}
+        <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-stone-200 p-5 sm:p-8 lg:p-10 mb-5 sm:mb-6 lg:mb-8 text-center animate-fade-in-up animation-delay-200">
+          <p className="text-[10px] sm:text-xs lg:text-sm font-semibold text-stone-500 uppercase tracking-wider mb-2 sm:mb-4">
             Your Order Number
           </p>
           <div className="relative">
             <div className="absolute inset-0 bg-gradient-to-r from-amber-400 to-amber-600 opacity-10 blur-2xl rounded-full" />
-            <p className="relative text-9xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-amber-700 tracking-tight tabular-nums">
+            <p className="relative text-5xl sm:text-7xl lg:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-amber-700 tracking-tight tabular-nums">
               {orderNumber}
             </p>
           </div>
-          <p className="text-sm text-stone-500 mt-6">
+          <p className="text-[10px] sm:text-xs lg:text-sm text-stone-500 mt-3 sm:mt-6">
             Please keep this number for order tracking
           </p>
         </div>
 
-        {/* Order details grid */}
-        <div className="grid grid-cols-3 gap-4 mb-8 animate-fade-in-up animation-delay-400">
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-stone-200 text-center">
-            <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-amber-100 flex items-center justify-center">
-              <Clock className="w-6 h-6 text-amber-600" strokeWidth={2} />
+        {/* Order details grid - stack on mobile */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 lg:gap-4 mb-5 sm:mb-6 lg:mb-8 animate-fade-in-up animation-delay-400">
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 border border-stone-200 text-center">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 mx-auto mb-2 sm:mb-3 rounded-lg sm:rounded-xl bg-amber-100 flex items-center justify-center">
+              <Clock className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-amber-600" strokeWidth={2} />
             </div>
-            <p className="text-sm text-stone-500 mb-1">Estimated Wait</p>
-            <p className="text-2xl font-bold text-stone-800">15 min</p>
+            <p className="text-[10px] sm:text-xs lg:text-sm text-stone-500 mb-0.5 sm:mb-1">Est. Wait</p>
+            <p className="text-base sm:text-xl lg:text-2xl font-bold text-stone-800">15m</p>
           </div>
 
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-stone-200 text-center">
-            <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-amber-100 flex items-center justify-center">
-              <Receipt className="w-6 h-6 text-amber-600" strokeWidth={2} />
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 border border-stone-200 text-center">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 mx-auto mb-2 sm:mb-3 rounded-lg sm:rounded-xl bg-amber-100 flex items-center justify-center">
+              <Receipt className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-amber-600" strokeWidth={2} />
             </div>
-            <p className="text-sm text-stone-500 mb-1">Total Amount</p>
-            <p className="text-2xl font-bold text-stone-800">{formatCurrency(totalAmount)}</p>
+            <p className="text-[10px] sm:text-xs lg:text-sm text-stone-500 mb-0.5 sm:mb-1">Total</p>
+            <p className="text-sm sm:text-xl lg:text-2xl font-bold text-stone-800">{formatCurrency(totalAmount)}</p>
           </div>
 
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-stone-200 text-center">
-            <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-amber-100 flex items-center justify-center">
-              <span className="text-2xl">
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 border border-stone-200 text-center">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 mx-auto mb-2 sm:mb-3 rounded-lg sm:rounded-xl bg-amber-100 flex items-center justify-center">
+              <span className="text-base sm:text-xl lg:text-2xl">
                 {paymentMethod === 'cash' ? '💵' : paymentMethod === 'gcash' ? '📱' : '💳'}
               </span>
             </div>
-            <p className="text-sm text-stone-500 mb-1">Payment</p>
-            <p className="text-xl font-bold text-stone-800 capitalize">
+            <p className="text-[10px] sm:text-xs lg:text-sm text-stone-500 mb-0.5 sm:mb-1">Payment</p>
+            <p className="text-sm sm:text-lg lg:text-xl font-bold text-stone-800 capitalize truncate">
               {paymentMethod || 'Cash'}
             </p>
           </div>
@@ -133,24 +133,24 @@ function ConfirmationContent() {
 
         {/* Payment-specific message */}
         {paymentMethod === 'cash' && expiryCountdown !== null && (
-          <div className="bg-amber-50 rounded-2xl border border-amber-200 p-6 mb-8 animate-fade-in-up animation-delay-500">
-            <h3 className="text-lg font-bold text-amber-900 mb-2 flex items-center gap-2">
+          <div className="bg-amber-50 rounded-xl sm:rounded-2xl border border-amber-200 p-4 sm:p-5 lg:p-6 mb-5 sm:mb-6 lg:mb-8 animate-fade-in-up animation-delay-500">
+            <h3 className="text-sm sm:text-base lg:text-lg font-bold text-amber-900 mb-1 sm:mb-2 flex items-center gap-2">
               <span>💵</span>
-              Cash Payment - Please pay at the counter
+              <span className="hidden xs:inline">Cash Payment -</span> Pay at counter
             </h3>
-            <p className="text-amber-800 mb-3">
-              Your order will be prepared once payment is confirmed. Please proceed to the cashier.
+            <p className="text-xs sm:text-sm lg:text-base text-amber-800 mb-2 sm:mb-3">
+              Your order will be prepared once payment is confirmed.
             </p>
             {expiryCountdown > 0 && (
               <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-amber-700" />
-                <span className="text-sm font-semibold text-amber-900">
+                <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-amber-700" />
+                <span className="text-xs sm:text-sm font-semibold text-amber-900">
                   Time remaining: {formatCountdown(expiryCountdown)}
                 </span>
               </div>
             )}
             {expiryCountdown === 0 && (
-              <p className="text-sm font-semibold text-red-700">
+              <p className="text-xs sm:text-sm font-semibold text-red-700">
                 Order expired. Please place a new order.
               </p>
             )}
@@ -158,51 +158,51 @@ function ConfirmationContent() {
         )}
 
         {(paymentMethod === 'gcash' || paymentMethod === 'card') && (
-          <div className="bg-blue-50 rounded-2xl border border-blue-200 p-6 mb-8 animate-fade-in-up animation-delay-500">
-            <h3 className="text-lg font-bold text-blue-900 mb-2 flex items-center gap-2">
+          <div className="bg-blue-50 rounded-xl sm:rounded-2xl border border-blue-200 p-4 sm:p-5 lg:p-6 mb-5 sm:mb-6 lg:mb-8 animate-fade-in-up animation-delay-500">
+            <h3 className="text-sm sm:text-base lg:text-lg font-bold text-blue-900 mb-1 sm:mb-2 flex items-center gap-2">
               <span>{paymentMethod === 'gcash' ? '📱' : '💳'}</span>
               Payment Confirmed
             </h3>
-            <p className="text-blue-800">
+            <p className="text-xs sm:text-sm lg:text-base text-blue-800">
               Your payment has been processed. Your order is now being prepared.
             </p>
           </div>
         )}
 
-        {/* Action buttons */}
-        <div className="flex gap-4 animate-fade-in-up animation-delay-600">
+        {/* Action buttons - stack on mobile */}
+        <div className="flex flex-col xs:flex-row gap-3 sm:gap-4 animate-fade-in-up animation-delay-600">
           <Link
             href="/"
-            className="flex-1 flex items-center justify-center gap-2 h-14 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl shadow-lg active:scale-[0.98] transition-all"
+            className="flex-1 flex items-center justify-center gap-2 h-12 sm:h-14 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl shadow-lg active:scale-[0.98] transition-all text-sm sm:text-base"
           >
-            <Home className="w-5 h-5" strokeWidth={2} />
+            <Home className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2} />
             Start New Order
           </Link>
           <Button
             variant="outline"
-            className="flex-1 h-14 border-2 border-stone-300 hover:bg-stone-50 font-semibold rounded-xl"
+            className="flex-1 h-12 sm:h-14 border-2 border-stone-300 hover:bg-stone-50 font-semibold rounded-xl text-sm sm:text-base"
             disabled
           >
-            <Receipt className="w-5 h-5 mr-2" strokeWidth={2} />
+            <Receipt className="w-4 h-4 sm:w-5 sm:h-5 mr-2" strokeWidth={2} />
             Print Receipt
           </Button>
         </div>
 
         {/* Auto-redirect notice */}
-        <div className="mt-8 text-center animate-fade-in animation-delay-700">
-          <p className="text-sm text-stone-400">
-            Returning to home screen in{' '}
-            <span className="font-bold text-amber-600 tabular-nums">{autoRedirect}</span> seconds
+        <div className="mt-5 sm:mt-6 lg:mt-8 text-center animate-fade-in animation-delay-700">
+          <p className="text-xs sm:text-sm text-stone-400">
+            Returning to home in{' '}
+            <span className="font-bold text-amber-600 tabular-nums">{autoRedirect}</span>s
           </p>
         </div>
       </div>
 
       {/* Footer message */}
-      <div className="absolute bottom-8 left-0 right-0 text-center animate-fade-in animation-delay-800">
-        <p className="text-sm text-stone-500 mb-2">
+      <div className="absolute bottom-4 sm:bottom-8 left-0 right-0 text-center animate-fade-in animation-delay-800 safe-area-inset-bottom">
+        <p className="text-xs sm:text-sm text-stone-500 mb-1 sm:mb-2">
           Thank you for dining with us!
         </p>
-        <p className="text-xs text-stone-400">
+        <p className="text-[10px] sm:text-xs text-stone-400">
           Need help? Ask our staff at the counter
         </p>
       </div>
