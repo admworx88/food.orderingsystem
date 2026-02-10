@@ -1,7 +1,7 @@
 # Agent: Cashier Module
 # Scope: /(cashier) route group — Payment processing & POS
 
-> **Version:** 2.3 | **Last Updated:** February 8, 2026 | **Status:** Phase 3 Implementation Complete
+> **Version:** 2.4 | **Last Updated:** February 10, 2026 | **Status:** Phase 3 Implementation Complete + Bill Later Support
 
 ---
 
@@ -22,11 +22,13 @@ Order arrives (unpaid) → Cashier selects → Process payment → Generate rece
 | Cash | Enter amount, calculate change | <10 sec |
 | GCash | QR scan or redirect | <20 sec |
 | Card | PayMongo card form | <20 sec |
+| Bill Later | Dine-in deferred payment | Pay when ready |
 
 ### Key Components
 | Component | Purpose |
 |-----------|---------|
 | `pending-orders-list.tsx` | Orders awaiting payment |
+| `unpaid-bills-list.tsx` | Bill later orders queue |
 | `payment-form.tsx` | Payment method tabs |
 | `cash-calculator.tsx` | Amount + change |
 | `receipt-preview.tsx` | BIR receipt preview |
@@ -69,10 +71,12 @@ src/components/cashier/
 ├── receipt-preview.tsx         # Receipt view + print button (ENHANCED for BIR)
 ├── bir-receipt-generator.tsx   # NEW: BIR-compliant receipt PDF
 ├── shift-summary.tsx           # End-of-shift cash report
-└── refund-dialog.tsx           # Refund processing flow
+├── refund-dialog.tsx           # Refund processing flow
+└── unpaid-bills-list.tsx       # Bill later unpaid orders queue (Phase 2.5)
 
 src/services/payment-service.ts  # Server actions for payment processing (ENHANCED)
 src/services/bir-service.ts      # NEW: BIR receipt generation
+src/hooks/use-realtime-unpaid-bills.ts  # Realtime subscription for bill_later orders
 ```
 
 ---
@@ -463,6 +467,55 @@ async function generateBIRReceipt(orderId: string): Promise<BIRReceiptData> {
 
 ---
 
+## Unpaid Bills Queue — Bill Later Orders (Phase 2.5)
+
+### Overview
+
+Dine-in guests can select "Pay After Meal" at kiosk checkout, creating a `bill_later` order that skips the payment queue and goes directly to the kitchen. After the food is served, these orders appear in the cashier's **Unpaid Bills** queue for settlement.
+
+### Data Flow
+
+```
+Kiosk (dine-in) → "Pay After Meal" → order.payment_method = 'bill_later'
+                                     order.payment_status = 'unpaid'
+                                     order.status = 'paid' (goes to kitchen)
+                                     order.expires_at = NULL (no expiry)
+    ↓
+Kitchen prepares → Waiter serves → Order appears in Cashier Unpaid Bills
+    ↓
+Cashier processes cash payment → process_cash_payment() RPC (bill_later aware)
+```
+
+### Component: `unpaid-bills-list.tsx`
+
+Displays bill_later orders awaiting payment, using the `use-realtime-unpaid-bills.ts` hook.
+
+**Filters**: `payment_method = 'bill_later'`, `payment_status = 'unpaid'`, `status IN ('preparing', 'ready', 'served')`
+
+**Card displays**: Order number, order type badge, served badge (if served), item count, total amount, location (table/room), time elapsed since creation.
+
+### Payment Processing for Bill Later
+
+The `process_cash_payment()` RPC function handles bill_later differently:
+- **Regular orders**: Must be in `pending_payment` status
+- **Bill_later orders**: Can be in `preparing`, `ready`, or `served` status
+- **Served bill_later**: Payment keeps order as `served` (doesn't change status to `paid`)
+- **Non-served bill_later**: Payment sets status to `paid` normally
+- **No expiration**: Bill_later orders don't expire (no `expires_at` check)
+- **Audit trail**: Event log includes `was_bill_later: true` flag
+
+### Realtime Hook
+
+```typescript
+// src/hooks/use-realtime-unpaid-bills.ts
+// Subscribes to orders with:
+//   payment_status = 'unpaid'
+//   payment_method = 'bill_later'
+//   status IN ('preparing', 'ready', 'served')
+```
+
+---
+
 ## Payment Webhook Handler (SEE AGENT-PAYMENTS.md)
 
 Webhook handling is owned by AGENT-PAYMENTS.md. This module consumes
@@ -566,6 +619,20 @@ webhook results by polling order status or receiving realtime updates.
 
 ## Version History
 
+### Version 2.4 (February 10, 2026)
+**Changes**:
+- Added Bill Later payment method to Quick Reference payment methods table
+- Added `unpaid-bills-list.tsx` to owned files and key components
+- Added `use-realtime-unpaid-bills.ts` hook to owned files
+- Added Unpaid Bills Queue section documenting bill_later payment flow
+- Updated version references to PRD v1.4 and Architecture v2.5
+
+### Version 2.3 (February 8, 2026)
+**Changes**:
+- Phase 3 payments implementation complete
+- Added 12 cashier components
+- Added payment-service.ts and bir-service.ts
+
 ### Version 2.2 (February 7, 2026)
 **Changes**:
 - Fixed service charge in wireframe: 10% (aligned with PRD/CLAUDE.md) — was showing 5%
@@ -595,7 +662,8 @@ webhook results by polling order status or receiving realtime updates.
 
 ## Related Documents
 
-- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.3
-- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.4
-- **[AGENT-DATABASE.md](./AGENT-DATABASE.md)** — Database schema v2.3
-- **[AGENT-PAYMENTS.md](./AGENT-PAYMENTS.md)** — PayMongo webhook handling v2.3
+- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.4
+- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.5
+- **[AGENT-DATABASE.md](./AGENT-DATABASE.md)** — Database schema v2.4
+- **[AGENT-PAYMENTS.md](./AGENT-PAYMENTS.md)** — PayMongo webhook handling v2.4
+- **[AGENT-WAITER.md](./AGENT-WAITER.md)** — Waiter module spec v1.1 (bill_later flow)

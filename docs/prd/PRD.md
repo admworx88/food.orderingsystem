@@ -1,10 +1,10 @@
 # Product Requirements Document (PRD)
 # Hotel Restaurant Web Ordering System — "OrderFlow"
 
-**Version:** 1.3
-**Date:** February 6, 2026
+**Version:** 1.4
+**Date:** February 10, 2026
 **Author:** System Architect
-**Status:** Complete PRD — Phase 1 + Kiosk Frontend Complete ✅
+**Status:** Complete PRD — Phase 1-3 Complete + Phase 2.5 Waiter Module Complete ✅
 
 ---
 
@@ -44,6 +44,13 @@ Hotel restaurants currently rely on traditional waiter-based ordering which crea
 - Views pending payment orders
 - Issues receipts (digital or printed)
 - Handles refunds and order modifications
+
+### 3.5 Waiter Staff
+- Views orders with ready items for service on split-panel display
+- Marks individual items as served (per-item tracking, not just whole order)
+- Receives audio + visual alerts when new items become ready
+- Handles dine-in "bill later" orders (food served before payment)
+- Tracks service progress across Ready, Preparing, and Recent tabs
 
 ### 3.4 Restaurant Manager / Admin
 - Manages menu items, categories, pricing, and availability
@@ -101,6 +108,7 @@ Rationale: We need server-side auth validation, API routes for webhook handlers 
 - **F-K08**: Receive order number and estimated wait time
 - **F-K09**: Touch-optimized UI (large buttons, swipe gestures)
 - **F-K10**: Idle timeout — reset to welcome screen after inactivity
+- **F-K11**: "Pay After Meal" option for dine-in orders — order goes to kitchen, payment deferred
 
 ### 5.2 Kitchen Display System (KDS)
 - **F-KD01**: Real-time order queue (newest at bottom, oldest at top)
@@ -112,6 +120,8 @@ Rationale: We need server-side auth validation, API routes for webhook handlers 
 - **F-KD07**: Bump bar / touch interaction to advance status
 - **F-KD08**: Auto-hide served orders after configurable delay
 - **F-KD09**: Recall served orders if needed
+- **F-KD10**: Per-item status tracking — mark individual items as ready (not just whole order)
+- **F-KD11**: Partial ready badges showing "2/4 Ready" on order cards
 
 ### 5.3 Cashier Module
 - **F-C01**: View orders pending payment
@@ -123,13 +133,14 @@ Rationale: We need server-side auth validation, API routes for webhook handlers 
 - **F-C07**: Generate and print receipts
 - **F-C08**: Handle refunds and cancellations
 - **F-C09**: End-of-day cash reconciliation report
+- **F-C10**: Unpaid bills queue — bill_later orders awaiting payment after service
 
 ### 5.4 Admin Module
 - **F-A01**: CRUD menu items with images, categories, pricing
 - **F-A02**: Manage item availability (in-stock / out-of-stock toggle)
 - **F-A03**: Manage categories and display ordering
 - **F-A04**: Manage add-on groups and pricing
-- **F-A05**: User management (roles: admin, cashier, kitchen)
+- **F-A05**: User management (roles: admin, cashier, kitchen, waiter)
 - **F-A06**: Real-time dashboard (orders today, revenue, avg order value)
 - **F-A07**: Sales reports by date range, category, item
 - **F-A08**: System settings (tax rate, service charge, operating hours)
@@ -137,7 +148,17 @@ Rationale: We need server-side auth validation, API routes for webhook handlers 
 - **F-A10**: Manage promo codes (discount %, validity period, usage limits)
 - **F-A11**: BIR-compliant receipt configuration (TIN, permit number, series)
 
-### 5.5 Additional Features (Phase 2+)
+### 5.5 Waiter Module
+- **F-W01**: View orders with ready/preparing items in tab-based queue (Ready, Preparing, Recent)
+- **F-W02**: Split-panel UI — click order card to see full details with item-level controls
+- **F-W03**: Mark individual items as served with per-item SERVE buttons
+- **F-W04**: Audio + visual alerts when new items become ready (configurable toggle)
+- **F-W05**: Recent tab showing served orders from last 30 minutes
+- **F-W06**: Bill Later flow — dine-in orders skip payment queue, go directly to kitchen
+- **F-W07**: Real-time updates via Supabase Realtime (orders + order_items tables)
+- **F-W08**: Optimistic UI updates for instant feedback on SERVE actions
+
+### 5.6 Additional Features (Phase 4+)
 - **F-X01**: Order modification/cancellation (5-minute grace period after submit)
 - **F-X02**: Table/room number validation against active reservations
 - **F-X03**: Multi-language support (English, Tagalog minimum)
@@ -911,8 +932,9 @@ FROM funnel;
 |---|---|---|---|
 | **Phase 1 — Foundation** | Auth, DB schema, menu CRUD, basic kiosk UI | 2 weeks | ✅ **COMPLETE**<br>✅ Supabase setup with RLS<br>✅ Menu management admin panel<br>✅ Categories & items CRUD<br>✅ Image upload to Supabase Storage<br>✅ Staff authentication (PIN + role)<br>✅ Order number generation (DB sequence) |
 | **Phase 1.5 — Kiosk Frontend** | Complete customer-facing UI with cart & checkout | 1 week | ✅ **COMPLETE** (Feb 2026)<br>✅ Zustand cart store with persistence<br>✅ Welcome page with animated hero<br>✅ Responsive menu grid/list view<br>✅ Category sidebar with flat borders<br>✅ Cart review page with special instructions<br>✅ 4-step checkout flow (order type, promo, phone, payment)<br>✅ Confirmation page with 144px order number<br>✅ Touch-optimized UI (48-60px targets)<br>✅ Premium design (flat borders, generous spacing, bold typography) |
-| **Phase 2 — Backend Integration** | Order submission, kitchen display, real-time | 2 weeks | ⏳ **IN PROGRESS**<br>⏳ Server Action for order submission<br>⏳ Server Action for promo code validation<br>⏳ Item detail sheet with addon selection<br>⏳ Kitchen Display System (KDS)<br>⏳ Realtime order updates<br>⏳ Order age color coding |
-| **Phase 3 — Payments** | Cash, GCash, card integration, cashier module | **3 weeks** | ⏳ **PENDING**<br>⏳ PayMongo GCash integration<br>⏳ PayMongo card payments (3DS)<br>⏳ Webhook handler with idempotency<br>⏳ Cashier POS interface<br>⏳ Cash payment + change calculation<br>⏳ Unpaid order timeout (15 min)<br>⏳ BIR-compliant receipt generation |
+| **Phase 2 — Backend Integration** | Order submission, kitchen display, real-time | 2 weeks | ✅ **COMPLETE**<br>✅ Server Action for order submission<br>✅ Server Action for promo code validation<br>✅ Item detail sheet with addon selection<br>✅ Kitchen Display System (KDS)<br>✅ Realtime order updates<br>✅ Order age color coding |
+| **Phase 2.5 — Waiter Module** | Item-level tracking, waiter service UI, bill later | 1 week | ✅ **COMPLETE** (Feb 2026)<br>✅ Item-level status tracking (pending/preparing/ready/served)<br>✅ Waiter route group with auth guard<br>✅ Split-panel UI with Framer Motion animations<br>✅ Tab-based filtering (Ready/Preparing/Recent)<br>✅ Per-item SERVE buttons with optimistic UI<br>✅ Audio alerts for ready items<br>✅ Bill Later payment flow for dine-in<br>✅ Kitchen per-item ready badges<br>✅ 6 database migrations (triggers, RLS, enums) |
+| **Phase 3 — Payments** | Cash, GCash, card integration, cashier module | **3 weeks** | ✅ **COMPLETE**<br>✅ PayMongo GCash integration<br>✅ PayMongo card payments (3DS)<br>✅ Webhook handler with idempotency<br>✅ Cashier POS interface<br>✅ Cash payment + change calculation<br>✅ Unpaid order timeout (15 min)<br>✅ BIR-compliant receipt generation |
 | **Phase 4 — Admin & Polish** | Analytics, reports, promo codes, multi-language | 2 weeks | ✅ Real-time dashboard (revenue, orders)<br>✅ Sales reports (date range, category)<br>✅ Promo code management<br>✅ Multi-language (EN, TL)<br>✅ Allergen/nutrition info<br>✅ Audit log |
 | **Phase 5 — Testing & Deploy** | E2E testing, load testing, security audit, deployment | **2 weeks** | ✅ Playwright E2E tests (kiosk → kitchen flow)<br>✅ Load testing (200 concurrent users)<br>✅ Security audit (OWASP top 10)<br>✅ Vercel production deployment<br>✅ Monitoring + alerts setup |
 
@@ -1667,6 +1689,17 @@ Before each release:
 ---
 
 ## 24. Version History
+
+### Version 1.4 (February 10, 2026)
+**Major Updates — Phase 2.5 Waiter Module + Phase 2-3 Completion**:
+- ✅ Added **Section 3.5: Waiter Staff** persona with item-level service tracking
+- ✅ Added **Section 5.5: Waiter Module** with 8 feature requirements (F-W01 through F-W08)
+- ✅ Added **F-K11** (Kiosk): Pay After Meal option for dine-in orders
+- ✅ Added **F-KD10/F-KD11** (Kitchen): Per-item status tracking and partial ready badges
+- ✅ Added **F-C10** (Cashier): Unpaid bills queue for bill_later orders
+- ✅ Updated **F-A05** (Admin): Added waiter role to user management
+- ✅ Updated **Section 14 Milestones**: Phase 2 and Phase 3 marked COMPLETE, added Phase 2.5
+- ✅ Renumbered "Additional Features" from Section 5.5 to Section 5.6
 
 ### Version 1.2 (February 5, 2026)
 **Major Updates — PRD Enhancement**:

@@ -51,6 +51,7 @@ function validateId(id: string): { valid: true } | { valid: false; error: string
 /**
  * Fetch all unpaid orders for the cashier pending queue.
  * Sorted by created_at ASC (oldest first).
+ * These are orders where customers chose "Pay at Counter".
  */
 export async function getPendingOrders(): Promise<ServiceResult<CashierOrder[]>> {
   try {
@@ -79,6 +80,47 @@ export async function getPendingOrders(): Promise<ServiceResult<CashierOrder[]>>
     return { success: true, data: (data || []) as CashierOrder[] };
   } catch (error) {
     console.error('getPendingOrders unexpected error:', error);
+    return serviceError('E9001', 'An unexpected error occurred');
+  }
+}
+
+// ============================================================
+// F-C01b: Get Unpaid Bills (Bill Later Queue)
+// ============================================================
+
+/**
+ * Fetch all bill_later orders that have been served but not yet paid.
+ * These are dine-in orders where customers chose "Pay After Meal".
+ * Sorted by created_at ASC (oldest first).
+ */
+export async function getUnpaidBills(): Promise<ServiceResult<CashierOrder[]>> {
+  try {
+    const supabase = await createServerClient();
+
+    const { data, error } = await supabase
+      .from('orders')
+      .select(`
+        *,
+        order_items(
+          *,
+          order_item_addons(*)
+        ),
+        promo_codes(code, discount_value, discount_type)
+      `)
+      .eq('payment_status', 'unpaid')
+      .eq('payment_method', 'bill_later')
+      .in('status', ['preparing', 'ready', 'served'])
+      .is('deleted_at', null)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('getUnpaidBills failed:', error);
+      return serviceError('E9001', 'Failed to fetch unpaid bills');
+    }
+
+    return { success: true, data: (data || []) as CashierOrder[] };
+  } catch (error) {
+    console.error('getUnpaidBills unexpected error:', error);
     return serviceError('E9001', 'An unexpected error occurred');
   }
 }
@@ -152,7 +194,7 @@ export async function processCashPayment(
     // Fetch the order total to calculate change
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('total_amount, status, payment_status, expires_at')
+      .select('total_amount, status, payment_status, payment_method, expires_at')
       .eq('id', orderId)
       .is('deleted_at', null)
       .single();
@@ -162,11 +204,25 @@ export async function processCashPayment(
     }
 
     // Client-side validation before RPC call
-    if (order.status !== 'pending_payment' || order.payment_status !== 'unpaid') {
+    // Bill later orders can be in preparing/ready/served status
+    const isBillLater = order.payment_method === 'bill_later';
+    const validBillLaterStatus = ['preparing', 'ready', 'served'].includes(order.status);
+    const validPendingStatus = order.status === 'pending_payment';
+
+    if (order.payment_status !== 'unpaid') {
+      return serviceError('E3007', 'Order is already paid');
+    }
+
+    if (!isBillLater && !validPendingStatus) {
       return serviceError('E3007', 'Order is not pending payment');
     }
 
-    if (order.expires_at && new Date(order.expires_at) < new Date()) {
+    if (isBillLater && !validBillLaterStatus) {
+      return serviceError('E3007', 'Bill later order is not ready for payment');
+    }
+
+    // Only check expiration for non-bill-later orders
+    if (!isBillLater && order.expires_at && new Date(order.expires_at) < new Date()) {
       return serviceError('E2003', 'Order has expired');
     }
 

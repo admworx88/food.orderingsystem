@@ -20,7 +20,7 @@ export interface CartItem {
 }
 
 export type OrderType = 'dine_in' | 'room_service' | 'takeout';
-export type PaymentMethod = 'cash' | 'gcash' | 'card';
+export type PaymentMethod = 'cash' | 'gcash' | 'card' | 'bill_later';
 
 interface CartStore {
   // Cart state
@@ -48,7 +48,7 @@ interface CartStore {
   applyPromoCode: (code: string, discount: number, promoId: string) => void;
   removePromoCode: () => void;
   setGuestPhone: (phone: string) => void;
-  setPaymentMethod: (method: PaymentMethod) => void;
+  setPaymentMethod: (method: PaymentMethod | null) => void;
   setExpiresAt: (date: Date | null) => void;
   clearCart: () => void;
 

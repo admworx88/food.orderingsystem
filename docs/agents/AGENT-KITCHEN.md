@@ -1,7 +1,7 @@
 # Agent: Kitchen Display System (KDS)
 # Scope: /(kitchen) route group — Kitchen staff order management
 
-> **Version:** 2.2 | **Last Updated:** February 7, 2026 | **Status:** Aligned with PRD v1.3
+> **Version:** 2.3 | **Last Updated:** February 10, 2026 | **Status:** Phase 2 + Waiter Integration Complete
 
 ---
 
@@ -20,10 +20,18 @@ received   working   pickup      to guest
 | Component | Purpose |
 |-----------|---------|
 | `order-queue.tsx` | Main display grid |
-| `order-card.tsx` | Individual order |
+| `order-card.tsx` | Individual order (with per-item status) |
 | `order-timer.tsx` | Time since paid (color-coded) |
 | `status-controls.tsx` | Bump buttons |
 | `station-filter.tsx` | Filter by station |
+
+### Item-Level Status (Phase 2.5)
+| Item Status | Meaning | Who Changes |
+|-------------|---------|-------------|
+| `pending` | Waiting to start | Auto (on order creation) |
+| `preparing` | Being cooked | Auto (when order bumped to preparing) |
+| `ready` | Done, waiting for service | Kitchen (per-item DONE button) |
+| `served` | Delivered to guest | Waiter (SERVE button) |
 
 ### Timer Color Coding (PRD Section 5: F-KD04)
 | Age (from paid_at) | Color | Status |
@@ -61,8 +69,8 @@ src/app/(kitchen)/
 └── settings/page.tsx       # KDS config: sounds, auto-hide, display prefs, station filter
 
 src/components/kitchen/
-├── order-card.tsx          # Single order card with all items + customizations (ENHANCED)
-├── order-queue.tsx         # Grid/column layout of order cards
+├── order-card.tsx          # Single order card with per-item status + DONE buttons (ENHANCED)
+├── order-queue.tsx         # Grid/column layout of order cards (per-item updates)
 ├── status-controls.tsx     # Large "bump" buttons to advance order status
 ├── order-timer.tsx         # Elapsed time since order PAID (color-coded) — FIXED
 ├── expired-orders-list.tsx # NEW: Display cancelled/expired orders
@@ -374,6 +382,60 @@ interface KitchenSettings {
 
 ---
 
+## Item-Level Status Tracking (Phase 2.5)
+
+### Per-Item Ready Buttons
+
+Kitchen staff can now mark individual items as ready instead of bumping the entire order:
+
+```
+┌─────────────────────────────────────┐
+│  #A023  │  DINE-IN  │  Table 5     │
+│─────────────────────────────────────│
+│  2× Chicken Adobo      [✓ DONE]    │  ← Mark this item ready
+│  1× Sinigang            [✓ DONE]    │  ← Mark this item ready
+│  1× Halo-Halo           preparing   │  ← Not yet done
+│─────────────────────────────────────│
+│  ⏱ 4 min  │  2/3 Ready            │  ← Partial ready badge
+│  [MARK ALL READY]                   │  ← Bulk action still available
+└─────────────────────────────────────┘
+```
+
+**Server Actions used**:
+- `updateItemToReady(itemId)` — Marks a single item as ready (validates pending/preparing → ready)
+- `markAllItemsReady(orderId)` — Bulk marks all items ready (existing bump behavior)
+
+**Auto-transitions via DB triggers**:
+- When order bumped to `preparing` → all pending items auto-sync to `preparing` (`sync_order_items_on_order_status` trigger)
+- When all items marked `ready` → order auto-transitions to `ready` (`auto_update_order_status_from_items` trigger)
+- When all items marked `served` (by waiter) → order auto-transitions to `served`
+
+### Waiter Integration
+
+Kitchen and waiter modules work together for item-level service:
+
+```
+Kitchen                           Waiter
+────────                          ──────
+1. Order arrives (status: paid)
+2. Bump to "Preparing"
+   → All items sync to preparing
+3. Mark item ready (per item)     → Ready items appear in waiter "Ready" tab
+   → Shows "2/4 Ready" badge      → Waiter gets audio alert
+                                  4. Waiter marks item served
+                                     → served_by + served_at recorded
+                                  5. When all items served
+                                     → Order auto-transitions to "served"
+```
+
+### Realtime for order_items
+
+In addition to subscribing to the `orders` table, the kitchen hook (`use-realtime-orders.ts`) now also subscribes to the `order_items` table for item-level status changes. This enables:
+- Seeing when waiter marks items as served (partial progress updates)
+- Optimistic updates when kitchen marks items ready
+
+---
+
 ## Key Implementation Notes
 
 1. **Never lose an order**: If realtime disconnects, show a prominent
@@ -461,6 +523,16 @@ if (channel.state !== 'joined') {
 
 ## Version History
 
+### Version 2.3 (February 10, 2026)
+**Changes**:
+- Added Item-Level Status Tracking section (Phase 2.5 integration)
+- Added per-item ready buttons documentation with wireframe
+- Added Waiter Integration section with kitchen↔waiter flow diagram
+- Added Realtime for order_items section (dual table subscription)
+- Updated order-card.tsx and order-queue.tsx descriptions for per-item support
+- Added Item-Level Status table to Quick Reference
+- Updated version references to PRD v1.4 and Architecture v2.5
+
 ### Version 2.2 (February 7, 2026)
 **Changes**:
 - Fixed color coding: 3 levels (green/yellow/red) aligned with PRD Section 5 (F-KD04) — removed orange 10-15min tier
@@ -492,6 +564,7 @@ if (channel.state !== 'joined') {
 
 ## Related Documents
 
-- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.3
-- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.3
-- **[AGENT-DATABASE.md](./AGENT-DATABASE.md)** — Database schema v2.2
+- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.4
+- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.5
+- **[AGENT-DATABASE.md](./AGENT-DATABASE.md)** — Database schema v2.4
+- **[AGENT-WAITER.md](./AGENT-WAITER.md)** — Waiter module spec v1.1 (kitchen↔waiter integration)

@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Clock, MapPin, User, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/utils/currency';
 import { ExpirationCountdown } from './expiration-countdown';
@@ -22,9 +20,7 @@ const ORDER_TYPE_LABELS: Record<string, string> = {
 };
 
 /**
- * Left panel: scrollable list of pending orders.
- * Active orders sorted by created_at ASC (oldest first).
- * Expired orders shown with red badge, dimmed and unselectable.
+ * Pending orders queue - Terminal Command Center theme
  */
 export function PendingOrdersList({
   orders,
@@ -33,7 +29,6 @@ export function PendingOrdersList({
 }: PendingOrdersListProps) {
   const [now, setNow] = useState(() => Date.now());
 
-  // Refresh expiration status every 10 seconds
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 10_000);
     return () => clearInterval(interval);
@@ -48,100 +43,114 @@ export function PendingOrdersList({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b px-4 py-3">
-        <h2 className="text-lg font-semibold">Pending Orders</h2>
-        <p className="text-sm text-muted-foreground">
+      {/* Header */}
+      <div className="pos-queue-header">
+        <h2 className="pos-queue-title">Pending Orders</h2>
+        <p className="pos-queue-subtitle">
           {activeOrders.length} order{activeOrders.length !== 1 ? 's' : ''} awaiting payment
         </p>
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="space-y-2 p-3">
-          {activeOrders.length === 0 && expiredOrders.length === 0 && (
-            <div className="py-12 text-center text-muted-foreground">
-              No pending orders
+      {/* Orders list */}
+      <div className="flex-1 overflow-y-auto pos-scrollbar">
+        {activeOrders.length === 0 && expiredOrders.length === 0 && (
+          <div className="py-16 text-center">
+            <Clock className="w-8 h-8 mx-auto text-[var(--pos-text-muted)] mb-3" />
+            <p className="text-[var(--pos-text-muted)] text-sm">No pending orders</p>
+          </div>
+        )}
+
+        {/* Active orders */}
+        {activeOrders.map((order, index) => {
+          const isSelected = order.id === selectedOrderId;
+          const expiresAt = order.expires_at;
+          const minutesLeft = expiresAt
+            ? (new Date(expiresAt).getTime() - now) / 60_000
+            : null;
+          const isUrgent = minutesLeft !== null && minutesLeft < 2;
+
+          return (
+            <div
+              key={order.id}
+              style={{ animationDelay: `${index * 50}ms` }}
+              className={cn(
+                'pos-order-card',
+                isSelected && 'pos-order-card-selected',
+                isUrgent && !isSelected && 'pos-order-card-urgent'
+              )}
+              onClick={() => onSelectOrder(order.id)}
+            >
+              {/* Top row: Order number + badges */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className={cn(
+                    'pos-order-number',
+                    isSelected && 'pos-order-number-selected'
+                  )}>
+                    #{order.order_number}
+                  </span>
+                  <span className="pos-order-badge">
+                    {ORDER_TYPE_LABELS[order.order_type] || order.order_type}
+                  </span>
+                </div>
+                <ExpirationCountdown expiresAt={order.expires_at} />
+              </div>
+
+              {/* Middle row: Items + Amount */}
+              <div className="pos-order-meta">
+                <span>
+                  {order.order_items?.length || 0} item{(order.order_items?.length || 0) !== 1 ? 's' : ''}
+                </span>
+                <span className={cn(
+                  'pos-order-amount',
+                  isSelected && 'pos-order-amount-selected'
+                )}>
+                  {formatCurrency(order.total_amount)}
+                </span>
+              </div>
+
+              {/* Bottom row: Location */}
+              {(order.table_number || order.room_number) && (
+                <div className="flex items-center gap-1 mt-2 text-xs text-[var(--pos-text-muted)]">
+                  <MapPin className="w-3 h-3" />
+                  {order.table_number && <span>Table {order.table_number}</span>}
+                  {order.room_number && <span>Room {order.room_number}</span>}
+                </div>
+              )}
             </div>
-          )}
+          );
+        })}
 
-          {activeOrders.map((order) => {
-            const isSelected = order.id === selectedOrderId;
-            const expiresAt = order.expires_at;
-            const minutesLeft = expiresAt
-              ? (new Date(expiresAt).getTime() - now) / 60_000
-              : null;
-            const isUrgent = minutesLeft !== null && minutesLeft < 2;
-
-            return (
-              <Card
+        {/* Expired section */}
+        {expiredOrders.length > 0 && (
+          <>
+            <div className="px-4 pt-6 pb-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-[var(--pos-text-muted)] uppercase tracking-wider">
+                <AlertTriangle className="w-3 h-3" />
+                Expired
+              </div>
+            </div>
+            {expiredOrders.map((order) => (
+              <div
                 key={order.id}
-                className={cn(
-                  'cursor-pointer p-3 transition-colors',
-                  isSelected && 'border-blue-500 bg-blue-50 ring-1 ring-blue-500',
-                  !isSelected && 'hover:bg-muted/50',
-                  isUrgent && !isSelected && 'border-red-300 bg-red-50'
-                )}
-                onClick={() => onSelectOrder(order.id)}
+                className="pos-order-card pos-order-card-expired"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-lg font-bold">#{order.order_number}</span>
-                    <Badge variant="outline" className="text-xs">
-                      {ORDER_TYPE_LABELS[order.order_type] || order.order_type}
-                    </Badge>
+                    <span className="pos-order-number">#{order.order_number}</span>
+                    <span className="pos-order-badge pos-order-badge-expired">
+                      EXPIRED
+                    </span>
                   </div>
-                  <ExpirationCountdown expiresAt={order.expires_at} />
-                </div>
-
-                <div className="mt-1.5 flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    {order.order_items?.length || 0} item{(order.order_items?.length || 0) !== 1 ? 's' : ''}
-                  </span>
-                  <span className="font-semibold">
+                  <span className="pos-order-amount">
                     {formatCurrency(order.total_amount)}
                   </span>
                 </div>
-
-                {order.table_number && (
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    Table {order.table_number}
-                  </div>
-                )}
-                {order.room_number && (
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    Room {order.room_number}
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-
-          {expiredOrders.length > 0 && (
-            <>
-              <div className="px-1 pt-4 pb-1 text-xs font-medium text-muted-foreground uppercase">
-                Expired
               </div>
-              {expiredOrders.map((order) => (
-                <Card
-                  key={order.id}
-                  className="cursor-not-allowed p-3 opacity-50"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold">#{order.order_number}</span>
-                      <Badge variant="destructive" className="text-xs">
-                        EXPIRED
-                      </Badge>
-                    </div>
-                    <span className="text-sm font-semibold">
-                      {formatCurrency(order.total_amount)}
-                    </span>
-                  </div>
-                </Card>
-              ))}
-            </>
-          )}
-        </div>
-      </ScrollArea>
+            ))}
+          </>
+        )}
+      </div>
     </div>
   );
 }

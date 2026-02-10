@@ -1,7 +1,7 @@
 # Agent: Database & Infrastructure
 # Scope: Supabase schema, migrations, RLS policies, functions
 
-> **Version:** 2.3 | **Last Updated:** February 8, 2026 | **Status:** Phase 3 Migration Applied
+> **Version:** 2.4 | **Last Updated:** February 10, 2026 | **Status:** Phase 2.5 Waiter Module Migration Applied
 
 ---
 
@@ -10,9 +10,9 @@
 ### Database Statistics
 | Metric | Count |
 |--------|-------|
-| Migration Files | 28 |
+| Migration Files | 34 |
 | Tables | 15 |
-| Enum Types | 6 |
+| Enum Types | 7 |
 | Indexes | 15+ |
 | RLS Policies | 20+ |
 
@@ -74,7 +74,16 @@ supabase/
 │   ├── 20260205142100_system_seed_data.sql
 │   ├── 20260206000001_fix_profile_trigger.sql
 │   ├── 20260207000001_add_increment_promo_usage_function.sql
-│   └── 20260207000002_menu_categories_seed_data.sql
+│   ├── 20260207000002_menu_categories_seed_data.sql
+│   ├── 20260209000001_payment_rpc_functions.sql
+│   ├── 20260209000002_add_version_to_orders.sql
+│   ├── 20260209000003_fix_order_items_rls.sql
+│   ├── 20260209140000_add_item_status_tracking.sql
+│   ├── 20260209140100_add_waiter_role_bill_later.sql
+│   ├── 20260209140200_kitchen_items_sync_trigger.sql
+│   ├── 20260209140300_order_status_auto_calculate.sql
+│   ├── 20260209140400_waiter_rls_policies.sql
+│   └── 20260209150000_update_cash_payment_for_bill_later.sql
 ├── seed.sql
 └── config.toml
 
@@ -106,14 +115,17 @@ src/lib/supabase/
 
 ```sql
 -- 20260205140000_enums_schema.sql
-CREATE TYPE user_role AS ENUM ('admin', 'cashier', 'kitchen', 'kiosk');
+CREATE TYPE user_role AS ENUM ('admin', 'cashier', 'kitchen', 'waiter', 'kiosk');
 CREATE TYPE order_type AS ENUM ('dine_in', 'room_service', 'takeout');
 CREATE TYPE order_status AS ENUM (
   'pending_payment', 'paid', 'preparing', 'ready', 'served', 'cancelled'
 );
 CREATE TYPE payment_status AS ENUM ('unpaid', 'processing', 'paid', 'refunded', 'expired');
-CREATE TYPE payment_method AS ENUM ('cash', 'gcash', 'card');
+CREATE TYPE payment_method AS ENUM ('cash', 'gcash', 'card', 'bill_later');
 CREATE TYPE discount_type AS ENUM ('percentage', 'fixed_amount');
+
+-- 20260209140000_add_item_status_tracking.sql
+CREATE TYPE order_item_status AS ENUM ('pending', 'preparing', 'ready', 'served');
 ```
 
 **Note:** Discounts are now managed via the `promo_codes` table, not as an enum on orders.
@@ -339,10 +351,15 @@ CREATE TABLE order_items (
   unit_price DECIMAL(10,2) NOT NULL,  -- Denormalized: price at order time
   total_price DECIMAL(10,2) NOT NULL,
   special_instructions TEXT,
+  status order_item_status NOT NULL DEFAULT 'pending',  -- Phase 2.5: Per-item tracking
+  ready_at TIMESTAMPTZ,               -- Phase 2.5: When marked ready
+  served_at TIMESTAMPTZ,              -- Phase 2.5: When marked served
+  served_by UUID REFERENCES profiles(id),  -- Phase 2.5: Which waiter served
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE INDEX idx_order_items_order ON order_items(order_id);
+CREATE INDEX idx_order_items_status ON order_items(order_id, status);  -- Phase 2.5
 ```
 
 ### order_item_addons
@@ -608,7 +625,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE orders;
 COMMENT ON TABLE orders IS 'Orders table with Realtime enabled for kitchen display updates';
 ```
 
-**Note:** Only the `orders` table needs Realtime. Not order_items or payments.
+**Note:** Both the `orders` and `order_items` tables have Realtime enabled. The `order_items` table was added in Phase 2.5 for waiter item-level tracking. Kitchen and waiter modules subscribe to both tables.
 
 ---
 
@@ -737,6 +754,132 @@ CREATE POLICY "Admin can manage settings"
 -- === AUDIT LOG ===
 CREATE POLICY "Admin can read audit log"
   ON audit_log FOR SELECT USING (public.user_role() = 'admin');
+```
+
+### Phase 2.5 RLS Policy Updates
+
+```sql
+-- 20260209140400_waiter_rls_policies.sql
+
+-- "Kitchen can read active orders" → renamed to "Staff can read active orders"
+-- Now includes waiter role
+CREATE POLICY "Staff can read active orders"
+  ON orders FOR SELECT TO authenticated
+  USING (
+    public.user_role() IN ('kitchen', 'cashier', 'waiter', 'admin')
+    AND deleted_at IS NULL
+  );
+
+-- "Staff can read order items" — expanded to include waiter
+CREATE POLICY "Staff can read order items"
+  ON order_items FOR SELECT TO authenticated
+  USING (
+    public.user_role() IN ('kitchen', 'cashier', 'waiter', 'admin')
+  );
+
+-- NEW: Waiters can mark items as served (ready → served only)
+CREATE POLICY "Waiters can mark items served"
+  ON order_items FOR UPDATE TO authenticated
+  USING (
+    public.user_role() IN ('waiter', 'admin')
+    AND status = 'ready'
+  )
+  WITH CHECK (
+    status = 'served'
+  );
+
+-- NEW: Kitchen can update item status (pending/preparing → preparing/ready)
+CREATE POLICY "Kitchen can update item status"
+  ON order_items FOR UPDATE TO authenticated
+  USING (
+    public.user_role() IN ('kitchen', 'admin')
+    AND status IN ('pending', 'preparing')
+  )
+  WITH CHECK (
+    status IN ('preparing', 'ready')
+  );
+```
+
+---
+
+## Database Triggers (Phase 2.5)
+
+### Kitchen → Items Sync Trigger
+```sql
+-- 20260209140200_kitchen_items_sync_trigger.sql
+-- When kitchen bumps order to 'preparing', sync all pending items
+CREATE OR REPLACE FUNCTION sync_order_items_on_order_status()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.status = 'preparing' AND OLD.status = 'paid' THEN
+    UPDATE order_items
+    SET status = 'preparing'
+    WHERE order_id = NEW.id AND status = 'pending';
+  END IF;
+
+  IF NEW.status = 'cancelled' AND OLD.status != 'cancelled' THEN
+    UPDATE order_items
+    SET status = 'pending', ready_at = NULL, served_at = NULL, served_by = NULL
+    WHERE order_id = NEW.id;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER orders_sync_items_status
+  AFTER UPDATE OF status ON orders
+  FOR EACH ROW
+  EXECUTE FUNCTION sync_order_items_on_order_status();
+```
+
+### Order Status Auto-Calculate from Items
+```sql
+-- 20260209140300_order_status_auto_calculate.sql
+-- Auto-update order status when all items reach a status
+CREATE OR REPLACE FUNCTION auto_update_order_status_from_items()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_order_id UUID;
+  v_total_items INT;
+  v_ready_items INT;
+  v_served_items INT;
+  v_current_status order_status;
+BEGIN
+  v_order_id := COALESCE(NEW.order_id, OLD.order_id);
+
+  SELECT status INTO v_current_status FROM orders WHERE id = v_order_id;
+
+  IF v_current_status NOT IN ('preparing', 'ready') THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT
+    COUNT(*),
+    COUNT(*) FILTER (WHERE status = 'ready'),
+    COUNT(*) FILTER (WHERE status = 'served')
+  INTO v_total_items, v_ready_items, v_served_items
+  FROM order_items
+  WHERE order_id = v_order_id;
+
+  IF v_served_items = v_total_items THEN
+    UPDATE orders
+    SET status = 'served', served_at = now(), version = version + 1
+    WHERE id = v_order_id AND status != 'served';
+  ELSIF v_ready_items + v_served_items = v_total_items AND v_served_items < v_total_items THEN
+    UPDATE orders
+    SET status = 'ready', ready_at = now(), version = version + 1
+    WHERE id = v_order_id AND status = 'preparing';
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER order_items_auto_update_order
+  AFTER UPDATE OF status ON order_items
+  FOR EACH ROW
+  EXECUTE FUNCTION auto_update_order_status_from_items();
 ```
 
 ---
@@ -881,6 +1024,14 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
+### Updated RPC: process_cash_payment (Phase 2.5)
+
+The `process_cash_payment()` function was updated in migration `20260209150000_update_cash_payment_for_bill_later.sql` to support bill_later orders:
+- Bill_later orders can be paid when in `preparing`, `ready`, or `served` status (not just `pending_payment`)
+- For served bill_later orders, payment keeps the order as `served` (doesn't change status to `paid`)
+- Expiration check skipped for bill_later orders (they don't have `expires_at`)
+- Event log includes `was_bill_later` flag for audit trail
+
 ---
 
 ## Key Implementation Notes
@@ -889,7 +1040,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
    to generate TypeScript types. Commit these to `src/lib/supabase/types.ts`.
 
 2. **Realtime**: Enabled via migration `20260205141900_orders_realtime.sql`.
-   Only the `orders` table needs realtime — not order_items or payments.
+   Both the `orders` and `order_items` tables have Realtime enabled (order_items added in Phase 2.5).
 
 3. **Indexes**: The partial indexes on `orders` (WHERE status NOT IN...)
    keep the index small and fast for the most common queries.
@@ -983,6 +1134,21 @@ FROM pg_stat_user_tables WHERE relname = 'orders';
 
 ## Version History
 
+### Version 2.4 (February 10, 2026)
+**Status**: Phase 2.5 Waiter Module Migration Applied
+
+**Changes**:
+- Added 6 new migrations for waiter module (item status tracking, triggers, RLS, bill_later)
+- Added `order_item_status` enum (pending, preparing, ready, served)
+- Updated `user_role` enum to include 'waiter'
+- Updated `payment_method` enum to include 'bill_later'
+- Added status, ready_at, served_at, served_by columns to order_items
+- Added Database Triggers section (sync trigger + auto-calculate trigger)
+- Updated RLS policies to include waiter role
+- Updated process_cash_payment RPC for bill_later support
+- Updated Realtime note: order_items table now has Realtime enabled
+- Updated migration count from 28 to 34, enum count from 6 to 7
+
 ### Version 2.2 (February 7, 2026)
 **Changes**:
 - Fixed migration count: 25 files (was 21) — added 3 new migrations (profile trigger fix, promo usage function, menu categories seed)
@@ -1021,5 +1187,5 @@ FROM pg_stat_user_tables WHERE relname = 'orders';
 
 ## Related Documents
 
-- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.3
-- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.4
+- **[PRD.md](../prd/PRD.md)** — Product Requirements Document v1.4
+- **[ARCHITECTURE.md](../architecture/ARCHITECTURE.md)** — System Architecture v2.5

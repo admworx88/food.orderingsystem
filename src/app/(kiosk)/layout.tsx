@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { ShoppingBag } from 'lucide-react';
+import { ShoppingBag, Menu, X } from 'lucide-react';
 import { CartDrawer } from '@/components/kiosk/cart-drawer';
 import { useCartStore } from '@/stores/cart-store';
 import { formatCurrency } from '@/lib/utils/currency';
@@ -102,39 +102,41 @@ export default function KioskLayout({ children }: KioskLayoutProps) {
   }, [lastInteraction]);
 
   return (
-    <div className="h-screen flex flex-col bg-[var(--kiosk-bg)] overflow-hidden">
-      {/* Premium Header - 72px */}
-      <header className="flex-shrink-0 h-[72px] px-6 flex items-center justify-between bg-white border-b border-stone-200 shadow-sm">
+    <div className="h-[100dvh] flex flex-col bg-[var(--kiosk-bg)] overflow-hidden">
+      {/* Premium Header - responsive height */}
+      <header className="flex-shrink-0 h-14 sm:h-16 md:h-[72px] px-3 sm:px-4 md:px-6 flex items-center justify-between bg-white border-b border-stone-200 shadow-sm safe-area-inset-top">
         {/* Logo & Brand */}
-        <Link href="/" className="flex items-center gap-3 active:scale-[0.98] transition-transform">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-md">
-            <span className="text-white font-bold text-lg tracking-tight">OF</span>
+        <Link href="/" className="flex items-center gap-2 sm:gap-3 active:scale-[0.98] transition-transform">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-lg sm:rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-md">
+            <span className="text-white font-bold text-sm sm:text-base md:text-lg tracking-tight">OF</span>
           </div>
-          <div>
-            <h1 className="text-lg font-semibold text-stone-800 leading-tight tracking-tight">
+          <div className="hidden xs:block">
+            <h1 className="text-base sm:text-lg font-semibold text-stone-800 leading-tight tracking-tight">
               OrderFlow
             </h1>
-            <p className="text-xs text-stone-400 font-medium">Hotel Restaurant</p>
+            <p className="text-[10px] sm:text-xs text-stone-400 font-medium hidden sm:block">Hotel Restaurant</p>
           </div>
         </Link>
 
         {/* Right side: Language + Time */}
-        <div className="flex items-center gap-5">
-          {/* Language Toggle */}
-          <div className="flex bg-stone-100 rounded-lg p-1">
-            <button className="px-3 py-1.5 text-sm font-semibold rounded-md bg-white text-amber-600 shadow-sm transition-all">
+        <div className="flex items-center gap-2 sm:gap-3 md:gap-5">
+          {/* Language Toggle - compact on mobile */}
+          <div className="flex bg-stone-100 rounded-md sm:rounded-lg p-0.5 sm:p-1">
+            <button className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-semibold rounded-md bg-white text-amber-600 shadow-sm transition-all">
               EN
             </button>
-            <button className="px-3 py-1.5 text-sm font-medium rounded-md text-stone-400 hover:text-stone-600 transition-colors">
+            <button className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md text-stone-400 hover:text-stone-600 transition-colors">
               TL
             </button>
           </div>
 
-          {/* Divider */}
-          <div className="w-px h-6 bg-stone-200" />
+          {/* Divider - hidden on smallest screens */}
+          <div className="hidden sm:block w-px h-5 sm:h-6 bg-stone-200" />
 
-          {/* Current Time */}
-          <CurrentTime />
+          {/* Current Time - hidden on very small screens */}
+          <div className="hidden sm:block">
+            <CurrentTime />
+          </div>
         </div>
       </header>
 
@@ -143,26 +145,27 @@ export default function KioskLayout({ children }: KioskLayoutProps) {
         {children}
       </main>
 
-      {/* Premium Floating Cart Button — only on menu page */}
+      {/* Premium Floating Cart Button — only on menu page, responsive positioning */}
       {showCartButton && (
         <button
           onClick={() => setIsCartOpen(true)}
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white pl-4 pr-5 h-14 rounded-full shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 active:scale-[0.98] transition-all"
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex items-center gap-2 sm:gap-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white pl-3 pr-4 sm:pl-4 sm:pr-5 h-12 sm:h-14 rounded-full shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 active:scale-[0.98] transition-all safe-area-inset-bottom"
         >
-          <div className="relative flex items-center justify-center w-9 h-9 bg-white/20 rounded-full">
-            <ShoppingBag className="w-5 h-5" strokeWidth={2} />
+          <div className="relative flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 bg-white/20 rounded-full">
+            <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2} />
             {cartItemCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-white text-amber-600 text-xs font-bold rounded-full flex items-center justify-center shadow">
+              <span className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 bg-white text-amber-600 text-[10px] sm:text-xs font-bold rounded-full flex items-center justify-center shadow">
                 {cartItemCount > 9 ? '9+' : cartItemCount}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-3">
-            <span className="font-semibold">View Cart</span>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <span className="font-semibold text-sm sm:text-base hidden xs:inline">Cart</span>
+            <span className="font-semibold text-sm sm:text-base xs:hidden">{cartItemCount}</span>
             {cartItemCount > 0 && (
               <>
-                <div className="w-px h-5 bg-white/30" />
-                <span className="font-bold">{formatCurrency(cartTotal)}</span>
+                <div className="hidden sm:block w-px h-4 sm:h-5 bg-white/30" />
+                <span className="font-bold text-sm sm:text-base hidden sm:inline">{formatCurrency(cartTotal)}</span>
               </>
             )}
           </div>

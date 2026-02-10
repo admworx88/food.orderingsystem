@@ -20,7 +20,7 @@ export const orderInputSchema = z.object({
   orderType: z.enum(['dine_in', 'room_service', 'takeout']),
   tableNumber: z.string().optional().nullable(),
   roomNumber: z.string().optional().nullable(),
-  paymentMethod: z.enum(['cash', 'gcash', 'card']),
+  paymentMethod: z.enum(['cash', 'gcash', 'card', 'bill_later']),
   promoCode: z.string().optional().nullable(),
   promoCodeId: z.string().uuid().optional().nullable(),
   guestPhone: z.string().max(20).optional().nullable(),
@@ -41,6 +41,15 @@ export const orderInputSchema = z.object({
     return true;
   },
   { message: 'Room number is required for room service orders', path: ['roomNumber'] }
+).refine(
+  (data) => {
+    // bill_later is only allowed for dine_in orders
+    if (data.paymentMethod === 'bill_later' && data.orderType !== 'dine_in') {
+      return false;
+    }
+    return true;
+  },
+  { message: 'Pay After Meal is only available for dine-in orders', path: ['paymentMethod'] }
 );
 
 export const promoCodeInputSchema = z.object({

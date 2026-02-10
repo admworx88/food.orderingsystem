@@ -448,7 +448,11 @@ export type Database = {
           menu_item_id: string | null
           order_id: string
           quantity: number
+          ready_at: string | null
+          served_at: string | null
+          served_by: string | null
           special_instructions: string | null
+          status: Database["public"]["Enums"]["order_item_status"]
           total_price: number
           unit_price: number
         }
@@ -459,7 +463,11 @@ export type Database = {
           menu_item_id?: string | null
           order_id: string
           quantity?: number
+          ready_at?: string | null
+          served_at?: string | null
+          served_by?: string | null
           special_instructions?: string | null
+          status?: Database["public"]["Enums"]["order_item_status"]
           total_price: number
           unit_price: number
         }
@@ -470,7 +478,11 @@ export type Database = {
           menu_item_id?: string | null
           order_id?: string
           quantity?: number
+          ready_at?: string | null
+          served_at?: string | null
+          served_by?: string | null
           special_instructions?: string | null
+          status?: Database["public"]["Enums"]["order_item_status"]
           total_price?: number
           unit_price?: number
         }
@@ -487,6 +499,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_served_by_fkey"
+            columns: ["served_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -782,6 +801,7 @@ export type Database = {
     }
     Enums: {
       discount_type: "percentage" | "fixed_amount"
+      order_item_status: "pending" | "preparing" | "ready" | "served"
       order_status:
         | "pending_payment"
         | "paid"
@@ -790,9 +810,9 @@ export type Database = {
         | "served"
         | "cancelled"
       order_type: "dine_in" | "room_service" | "takeout"
-      payment_method: "cash" | "gcash" | "card"
+      payment_method: "cash" | "gcash" | "card" | "bill_later"
       payment_status: "unpaid" | "processing" | "paid" | "refunded" | "expired"
-      user_role: "admin" | "cashier" | "kitchen" | "kiosk"
+      user_role: "admin" | "cashier" | "kitchen" | "kiosk" | "waiter"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -924,6 +944,7 @@ export const Constants = {
   public: {
     Enums: {
       discount_type: ["percentage", "fixed_amount"],
+      order_item_status: ["pending", "preparing", "ready", "served"],
       order_status: [
         "pending_payment",
         "paid",
@@ -933,9 +954,9 @@ export const Constants = {
         "cancelled",
       ],
       order_type: ["dine_in", "room_service", "takeout"],
-      payment_method: ["cash", "gcash", "card"],
+      payment_method: ["cash", "gcash", "card", "bill_later"],
       payment_status: ["unpaid", "processing", "paid", "refunded", "expired"],
-      user_role: ["admin", "cashier", "kitchen", "kiosk"],
+      user_role: ["admin", "cashier", "kitchen", "kiosk", "waiter"],
     },
   },
 } as const
