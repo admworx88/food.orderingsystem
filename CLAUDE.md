@@ -105,6 +105,52 @@ Every feature you implement should account for ALL of these:
 - **Performance**: Avoid N+1 queries, use Supabase `.select()` joins over
   multiple round-trips, consider what happens with 200 concurrent kiosk sessions
 
+### 4. Database Operations — CRITICAL
+
+**NEVER run `supabase db reset` or `npm run supabase:reset` unless explicitly asked.**
+
+These commands WIPE ALL DATA and should ONLY be used in fresh local development when testing migrations from scratch. For applying new migrations:
+- ✅ **ALWAYS use**: `npm run supabase:push` or `supabase migration up`
+- ✅ **Create new migrations** to apply schema changes without data loss
+- ❌ **NEVER use**: `supabase db reset` during normal development
+- ❌ **NEVER use**: Commands that drop tables or truncate data without explicit user approval
+
+After any schema change, regenerate types with `npm run supabase:types`.
+
+### 5. UI/UX Implementation — Match the Exact Pattern
+
+When implementing UI changes, match the EXACT pattern described by the user. Do not substitute a different UX pattern.
+
+**Common patterns (not interchangeable):**
+- **Expandable card**: Card expands in-place to show detail
+- **Split-panel/Master-detail**: Grid collapses to sidebar, detail panel slides in from side
+- **Bottom sheet**: Modal slides up from bottom
+- **Kanban**: Vertical columns with draggable cards
+
+**Before writing code:**
+1. Confirm the exact interaction pattern with the user if ANY ambiguity exists
+2. Describe the interaction back to the user in one sentence for verification
+3. Reference existing similar patterns in the codebase when possible
+
+**If the user says "expandable card", do NOT build a split-panel layout.**
+
+### 6. Module Boundaries — Never Mix Responsibilities
+
+**Kitchen Display System (KDS):**
+- Shows ONLY: `preparing` and `ready` statuses
+- Actions: Mark items/orders as "Ready" (preparing → ready)
+- NEVER handles `served` status — that's the waiter's job
+
+**Waiter Module:**
+- Shows: `ready`, `preparing`, and `served` statuses
+- Actions: Mark items as "Served" (ready → served)
+- NEVER handles initial order preparation — that's the kitchen's job
+
+**Cashier Module:**
+- Handles: Payment processing, refunds, shift reports
+- Shows: `pending_payment` and `unpaid` orders
+- NEVER handles order preparation or service status
+
 ### 4. Setup Dependencies Before Implementation
 Before implementing features that require them:
 - **Supabase**: Set up project, link locally, add environment variables
@@ -493,6 +539,25 @@ export default {
 - For kitchen: dark theme only, high contrast, `text-xl` minimum (20px) for details, `text-3xl` (28px+) for order numbers.
 - **Do NOT create a `tailwind.config.js` or `tailwind.config.ts` file.**
   If you see one, delete it — v4 doesn't use it.
+
+**CRITICAL CSS RULES:**
+
+1. **Do NOT indent CSS rules in `src/app/globals.css`** — Tailwind v4 is sensitive to indentation and it will break styling silently. All CSS at root level should have zero indentation.
+
+2. **Before making ANY CSS/styling changes, verify these will be tested:**
+   - Dark theme contrast is readable (especially text on colored backgrounds)
+   - No overflow on screens 768px-1920px wide
+   - Borders and spacing match adjacent components
+   - Typography changes don't affect unintended elements
+
+3. **After CSS changes, explicitly list what you verified:**
+   ```
+   ✅ Dark theme: text-slate-300 on slate-800 background = 7.2:1 contrast (WCAG AAA)
+   ✅ Tested at 768px, 1024px, 1920px — no horizontal scroll
+   ✅ Left border matches card-header pattern from order-card.tsx
+   ```
+
+4. **Never change typography, borders, or spacing in isolation** — always check downstream effects on related components in the same module.
 
 ### Package Manager
 - **Use `npm`** (NOT `pnpm` or `yarn`) - the project uses `package-lock.json`
