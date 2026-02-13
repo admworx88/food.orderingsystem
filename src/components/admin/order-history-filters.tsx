@@ -32,6 +32,7 @@ const ORDER_TYPES = [
   { value: 'dine_in', label: 'Dine In' },
   { value: 'room_service', label: 'Room Service' },
   { value: 'takeout', label: 'Takeout' },
+  { value: 'ocean_view', label: 'Ocean View' },
 ];
 
 const PAYMENT_STATUSES = [

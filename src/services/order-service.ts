@@ -4,7 +4,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import type { Database } from '@/lib/supabase/types';
-import { orderInputSchema, promoCodeInputSchema, type OrderInput } from '@/lib/validators/order';
+import { orderInputSchema, promoCodeInputSchema, addItemsInputSchema, orderLookupSchema, type OrderInput } from '@/lib/validators/order';
 
 // Type definitions
 type Order = Database['public']['Tables']['orders']['Row'];
@@ -358,6 +358,7 @@ export async function exportOrdersCSV(filters: OrderFilters = {}): Promise<Servi
       case 'dine_in': return 'Dine In';
       case 'room_service': return 'Room Service';
       case 'takeout': return 'Takeout';
+      case 'ocean_view': return 'Ocean View';
       default: return type;
     }
   };
@@ -1042,8 +1043,7 @@ export async function getWaiterOrders(): Promise<ServiceResult<WaiterOrder[]>> {
  * Used when kitchen marks items ready one at a time
  */
 export async function updateItemToReady(
-  itemId: string,
-  _currentVersion?: number
+  itemId: string
 ): Promise<ServiceResult<{ status: string; orderAutoUpdated: boolean }>> {
   const idValidation = validateId(itemId);
   if (!idValidation.valid) {
@@ -1255,4 +1255,334 @@ export async function getOrderItemStatusCounts(
   }
 
   return { success: true, data: counts };
+}
+
+// ==========================================
+// Phase 3.5: Add Items to Existing Order
+// ==========================================
+
+/**
+ * Lookup an active dine-in order by order number + table number.
+ */
+export async function lookupDineInOrder(
+  orderNumber: string,
+  tableNumber: string
+): Promise<ServiceResult<OrderWithItems>> {
+  const parseResult = orderLookupSchema.safeParse({ orderNumber, tableNumber });
+  if (!parseResult.success) {
+    return { success: false, error: parseResult.error.issues[0]?.message || 'Invalid input' };
+  }
+
+  const supabase = await createServerClient();
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select(`
+      *,
+      order_items(
+        *,
+        order_item_addons(*)
+      )
+    `)
+    .eq('order_number', parseResult.data.orderNumber)
+    .eq('table_number', parseResult.data.tableNumber)
+    .eq('order_type', 'dine_in')
+    .in('status', ['paid', 'preparing', 'ready'])
+    .is('deleted_at', null)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return serviceError('E2001', 'No active dine-in order found with that order number and table number');
+    }
+    console.error('lookupDineInOrder failed:', error);
+    return serviceError('E9001', 'Failed to look up order');
+  }
+
+  return { success: true, data: data as OrderWithItems };
+}
+
+/**
+ * Get all active dine-in orders for browse/lookup.
+ */
+export async function getActiveDineInOrders(): Promise<ServiceResult<OrderWithItems[]>> {
+  const supabase = await createServerClient();
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select(`
+      *,
+      order_items(
+        *,
+        order_item_addons(*)
+      )
+    `)
+    .eq('order_type', 'dine_in')
+    .in('status', ['paid', 'preparing', 'ready'])
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (error) {
+    console.error('getActiveDineInOrders failed:', error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, data: (data || []) as OrderWithItems[] };
+}
+
+/**
+ * Add new items to an existing dine-in order.
+ * Re-fetches prices server-side, inserts new order_items, recalculates totals.
+ */
+export async function addItemsToOrder(
+  orderId: string,
+  items: Array<{ menuItemId: string; name: string; basePrice: number; quantity: number; addons: Array<{ id: string; name: string; price: number }>; specialInstructions?: string }>
+): Promise<ServiceResult<{ orderId: string; orderNumber: string; newItemCount: number }>> {
+  const parseResult = addItemsInputSchema.safeParse({ orderId, items });
+  if (!parseResult.success) {
+    return { success: false, error: parseResult.error.issues[0]?.message || 'Invalid input' };
+  }
+
+  const supabase = await createServerClient();
+
+  try {
+    // 1. Verify order exists and is active dine-in
+    const { data: order, error: orderFetchError } = await supabase
+      .from('orders')
+      .select('id, order_number, order_type, status, subtotal, discount_amount, promo_code_id')
+      .eq('id', orderId)
+      .is('deleted_at', null)
+      .single();
+
+    if (orderFetchError || !order) {
+      return serviceError('E2001', 'Order not found');
+    }
+
+    if (order.order_type !== 'dine_in') {
+      return serviceError('E2004', 'Can only add items to dine-in orders');
+    }
+
+    if (!['paid', 'preparing', 'ready'].includes(order.status)) {
+      return serviceError('E2004', 'Cannot add items to this order — it may be served or cancelled');
+    }
+
+    // 2. Re-fetch menu item prices from DB
+    const validated = parseResult.data;
+    const menuItemIds = validated.items.map((item) => item.menuItemId);
+    const { data: dbMenuItems, error: menuError } = await supabase
+      .from('menu_items')
+      .select('id, base_price, name, is_available, deleted_at')
+      .in('id', menuItemIds);
+
+    if (menuError || !dbMenuItems || dbMenuItems.length === 0) {
+      return serviceError('E4001', 'Failed to verify menu items');
+    }
+
+    const menuItemMap = new Map(dbMenuItems.map((item) => [item.id, item]));
+
+    for (const cartItem of validated.items) {
+      const dbItem = menuItemMap.get(cartItem.menuItemId);
+      if (!dbItem) {
+        return serviceError('E4001', `Menu item "${cartItem.name}" not found`);
+      }
+      if (!dbItem.is_available || dbItem.deleted_at) {
+        return serviceError('E4002', `"${dbItem.name}" is no longer available`);
+      }
+    }
+
+    // 3. Fetch addon prices
+    const allAddonIds = validated.items.flatMap((item) => item.addons.map((a) => a.id));
+    const addonPriceMap = new Map<string, { price: number; name: string }>();
+
+    if (allAddonIds.length > 0) {
+      const { data: dbAddons, error: addonError } = await supabase
+        .from('addon_options')
+        .select('id, additional_price, name, is_available')
+        .in('id', allAddonIds);
+
+      if (addonError) {
+        return { success: false, error: 'Failed to verify addon options' };
+      }
+
+      for (const addon of dbAddons || []) {
+        if (!addon.is_available) {
+          return { success: false, error: `Addon "${addon.name}" is no longer available` };
+        }
+        addonPriceMap.set(addon.id, { price: addon.additional_price, name: addon.name });
+      }
+    }
+
+    // 4. Calculate new items subtotal
+    let newItemsSubtotal = 0;
+    const orderItemsData: Array<{
+      menuItemId: string;
+      itemName: string;
+      quantity: number;
+      unitPrice: number;
+      totalPrice: number;
+      specialInstructions: string | null;
+      addons: Array<{ addonOptionId: string; addonName: string; additionalPrice: number }>;
+    }> = [];
+
+    for (const cartItem of validated.items) {
+      const dbItem = menuItemMap.get(cartItem.menuItemId)!;
+      const basePrice = Number(dbItem.base_price);
+
+      let addonsTotal = 0;
+      const itemAddons: Array<{ addonOptionId: string; addonName: string; additionalPrice: number }> = [];
+
+      for (const addon of cartItem.addons) {
+        const dbAddon = addonPriceMap.get(addon.id);
+        if (dbAddon) {
+          addonsTotal += dbAddon.price;
+          itemAddons.push({
+            addonOptionId: addon.id,
+            addonName: dbAddon.name,
+            additionalPrice: dbAddon.price,
+          });
+        }
+      }
+
+      const unitPrice = basePrice + addonsTotal;
+      const totalPrice = unitPrice * cartItem.quantity;
+      newItemsSubtotal += totalPrice;
+
+      orderItemsData.push({
+        menuItemId: cartItem.menuItemId,
+        itemName: dbItem.name,
+        quantity: cartItem.quantity,
+        unitPrice,
+        totalPrice,
+        specialInstructions: cartItem.specialInstructions || null,
+        addons: itemAddons,
+      });
+    }
+
+    // 5. Insert new order items
+    const orderItemInserts = orderItemsData.map((item) => ({
+      order_id: orderId,
+      menu_item_id: item.menuItemId,
+      item_name: item.itemName,
+      quantity: item.quantity,
+      unit_price: item.unitPrice,
+      total_price: item.totalPrice,
+      special_instructions: item.specialInstructions,
+    }));
+
+    const { data: insertedItems, error: itemsError } = await supabase
+      .from('order_items')
+      .insert(orderItemInserts)
+      .select('id');
+
+    if (itemsError || !insertedItems) {
+      console.error('addItemsToOrder: Failed to insert items:', itemsError);
+      return { success: false, error: 'Failed to add items to order' };
+    }
+
+    // 6. Insert addons for new items
+    const allAddonInserts: Array<{
+      order_item_id: string;
+      addon_option_id: string;
+      addon_name: string;
+      additional_price: number;
+    }> = [];
+
+    for (let i = 0; i < orderItemsData.length; i++) {
+      const item = orderItemsData[i];
+      const orderItemId = insertedItems[i].id;
+
+      for (const addon of item.addons) {
+        allAddonInserts.push({
+          order_item_id: orderItemId,
+          addon_option_id: addon.addonOptionId,
+          addon_name: addon.addonName,
+          additional_price: addon.additionalPrice,
+        });
+      }
+    }
+
+    if (allAddonInserts.length > 0) {
+      const { error: addonError } = await supabase
+        .from('order_item_addons')
+        .insert(allAddonInserts);
+
+      if (addonError) {
+        console.error('addItemsToOrder: Failed to insert addons:', addonError);
+      }
+    }
+
+    // 7. Recalculate order totals
+    const newSubtotal = Number(order.subtotal) + newItemsSubtotal;
+
+    // Re-validate promo discount if applicable
+    let discountAmount = Number(order.discount_amount) || 0;
+    if (order.promo_code_id) {
+      // Fetch the promo to recalculate discount on new subtotal
+      const { data: promo } = await supabase
+        .from('promo_codes')
+        .select('discount_type, discount_value')
+        .eq('id', order.promo_code_id)
+        .single();
+
+      if (promo) {
+        if (promo.discount_type === 'percentage') {
+          discountAmount = Math.min(newSubtotal * (promo.discount_value / 100), newSubtotal);
+        } else {
+          discountAmount = Math.min(promo.discount_value, newSubtotal);
+        }
+        discountAmount = Math.round(discountAmount * 100) / 100;
+      }
+    }
+
+    const discountedSubtotal = newSubtotal - discountAmount;
+    const taxAmount = Math.round(discountedSubtotal * 0.12 * 100) / 100;
+    const serviceCharge = Math.round(discountedSubtotal * 0.10 * 100) / 100;
+    const totalAmount = Math.round((discountedSubtotal + taxAmount + serviceCharge) * 100) / 100;
+
+    // 8. Update order totals and set status back to preparing (new items need cooking)
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update({
+        subtotal: newSubtotal,
+        discount_amount: discountAmount,
+        tax_amount: taxAmount,
+        service_charge: serviceCharge,
+        total_amount: totalAmount,
+        status: 'preparing',
+      })
+      .eq('id', orderId);
+
+    if (updateError) {
+      console.error('addItemsToOrder: Failed to update order totals:', updateError);
+      return { success: false, error: 'Items added but failed to update order totals' };
+    }
+
+    // 9. Log event
+    await supabase.from('order_events').insert({
+      order_id: orderId,
+      event_type: 'items_added',
+      metadata: {
+        new_item_count: validated.items.length,
+        added_subtotal: newItemsSubtotal,
+        new_total: totalAmount,
+      },
+    });
+
+    revalidatePath('/admin/order-history');
+    revalidatePath('/kitchen/orders');
+    revalidatePath('/waiter/service');
+
+    return {
+      success: true,
+      data: {
+        orderId: order.id,
+        orderNumber: order.order_number,
+        newItemCount: validated.items.length,
+      },
+    };
+  } catch (error) {
+    console.error('addItemsToOrder failed:', error);
+    return { success: false, error: 'An unexpected error occurred. Please try again.' };
+  }
 }

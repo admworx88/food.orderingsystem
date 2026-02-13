@@ -24,6 +24,13 @@ export type CashierOrder = Order & {
   promo_codes: Pick<PromoCode, 'code' | 'discount_value' | 'discount_type'> | null;
 };
 
+// Recent completed order (with payment data for receipt viewing)
+export type RecentOrder = Order & {
+  order_items: CashierOrderItem[];
+  promo_codes: Pick<PromoCode, 'code' | 'discount_value' | 'discount_type'> | null;
+  payments: Payment[];
+};
+
 // Payment processing inputs
 export interface CashPaymentInput {
   orderId: string;

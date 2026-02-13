@@ -49,6 +49,7 @@ function LiveClock() {
 
 const NAV_ITEMS = [
   { href: '/payments', label: 'Payments' },
+  { href: '/recent', label: 'Recent Orders' },
   { href: '/reports', label: 'Reports' },
 ];
 

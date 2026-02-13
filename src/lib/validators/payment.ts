@@ -4,6 +4,7 @@ export const cashPaymentSchema = z.object({
   orderId: z.string().uuid('Invalid order ID'),
   amountTendered: z.number().min(0, 'Amount must be positive'),
   cashierId: z.string().uuid('Invalid cashier ID'),
+  cashierName: z.string().min(1, 'Cashier name is required'),
 }).refine(
   (data) => data.amountTendered > 0,
   { message: 'Amount tendered must be greater than zero', path: ['amountTendered'] }

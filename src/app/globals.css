@@ -294,6 +294,64 @@
   }
 }
 
+
+/* Welcome Page — Tropical Resort Animations */
+
+@keyframes welcome-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-8px) rotate(1deg); }
+  75% { transform: translateY(-4px) rotate(-1deg); }
+}
+
+@keyframes welcome-glow {
+  0%, 100% { box-shadow: 0 20px 60px -12px rgba(245, 158, 11, 0.35), 0 0 0 0 rgba(245, 158, 11, 0); }
+  50% { box-shadow: 0 25px 70px -10px rgba(245, 158, 11, 0.5), 0 0 40px -5px rgba(245, 158, 11, 0.15); }
+}
+
+@keyframes welcome-blob-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -20px) scale(1.05); }
+  66% { transform: translate(-20px, 15px) scale(0.95); }
+}
+
+@keyframes welcome-blob-drift-reverse {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-25px, 20px) scale(0.95); }
+  66% { transform: translate(20px, -15px) scale(1.05); }
+}
+
+@keyframes welcome-wave {
+  0% { transform: translateX(0) scaleY(1); }
+  50% { transform: translateX(-25%) scaleY(0.85); }
+  100% { transform: translateX(-50%) scaleY(1); }
+}
+
+@keyframes welcome-food-appear {
+  0% { opacity: 0; transform: translateY(20px) scale(0.8); }
+  60% { transform: translateY(-4px) scale(1.05); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes welcome-food-hover {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes welcome-shimmer-sweep {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@layer utilities {
+  .animate-welcome-float { animation: welcome-float 4s ease-in-out infinite; }
+  .animate-welcome-glow { animation: welcome-glow 3s ease-in-out infinite; }
+  .animate-welcome-blob { animation: welcome-blob-drift 20s ease-in-out infinite; }
+  .animate-welcome-blob-reverse { animation: welcome-blob-drift-reverse 25s ease-in-out infinite; }
+  .animate-welcome-wave { animation: welcome-wave 8s linear infinite; }
+  .animate-welcome-food-appear { animation: welcome-food-appear 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; opacity: 0; }
+  .animate-welcome-food-hover { animation: welcome-food-hover 3s ease-in-out infinite; }
+  .animate-welcome-shimmer { background: linear-gradient(110deg, transparent 25%, rgba(255,255,255,0.4) 37%, transparent 63%); background-size: 200% 100%; animation: welcome-shimmer-sweep 3s ease-in-out infinite; }
+}
 /* Focus visible styles for accessibility */
 @layer utilities {
   .focus-ring {
@@ -1216,6 +1274,11 @@
   /* Accent */
   --waiter-gold: #b8860b;
   --waiter-gold-light: #fef5e7;
+
+  /* Typography - Font Stacks */
+  --waiter-font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --waiter-font-body: 'DM Sans', 'Satoshi', system-ui, -apple-system, sans-serif;
+  --waiter-font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', ui-monospace, monospace;
 }
 
 /* Waiter Animations */
@@ -1286,6 +1349,13 @@
   background-image:
     radial-gradient(circle at 1px 1px, var(--waiter-bg-pattern) 1px, transparent 0);
   background-size: 24px 24px;
+  font-family: var(--waiter-font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: var(--waiter-text);
+  letter-spacing: -0.01em;
 }
 
 /* Header styling */
@@ -1332,8 +1402,11 @@
   align-items: center;
   gap: 8px;
   padding: 10px 16px;
+  font-family: var(--waiter-font-body);
   font-size: 14px;
   font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.005em;
   color: var(--waiter-text-muted);
   background: transparent;
   border: none;
@@ -1412,8 +1485,11 @@
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
+  font-family: var(--waiter-font-mono);
   font-size: 11px;
   font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
   border-radius: 10px;
   background: rgba(0, 0, 0, 0.06);
   color: var(--waiter-text-muted);
@@ -1469,11 +1545,13 @@
 
 /* Order number - serif typography */
 .waiter-order-number {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: var(--waiter-font-display);
   font-weight: 700;
   font-size: 1.75rem;
-  letter-spacing: -0.02em;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
   color: var(--waiter-text);
+  font-feature-settings: 'liga' 1, 'kern' 1;
 }
 
 .waiter-order-number-ready {
@@ -1486,8 +1564,11 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
+  font-family: var(--waiter-font-body);
   font-size: 12px;
   font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.01em;
   border-radius: 20px;
   background: var(--waiter-ready-light);
   color: var(--waiter-ready);
@@ -1579,10 +1660,12 @@
   gap: 6px;
   padding: 10px 18px;
   min-height: 44px;
+  font-family: var(--waiter-font-body);
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
+  line-height: 1;
   border-radius: 10px;
   border: 2px solid var(--waiter-ready);
   background: var(--waiter-ready-light);
@@ -1616,10 +1699,12 @@
   align-items: center;
   gap: 4px;
   padding: 8px 14px;
+  font-family: var(--waiter-font-body);
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
+  line-height: 1;
   border-radius: 8px;
   background: var(--waiter-served-light);
   color: var(--waiter-served);
@@ -1646,8 +1731,10 @@
   align-items: center;
   gap: 8px;
   padding: 8px 14px;
+  font-family: var(--waiter-font-body);
   font-size: 13px;
   font-weight: 600;
+  line-height: 1.3;
   border-radius: 10px;
   background: var(--waiter-ready-light);
   color: var(--waiter-ready);
@@ -1660,8 +1747,10 @@
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
+  font-family: var(--waiter-font-body);
   font-size: 13px;
   font-weight: 500;
+  line-height: 1.3;
   border-radius: 8px;
   background: transparent;
   border: 1px solid var(--waiter-border);
@@ -1687,18 +1776,23 @@
 
 /* Clock styling */
 .waiter-clock {
-  font-family: 'DM Sans', system-ui, sans-serif;
+  font-family: var(--waiter-font-mono);
   font-size: 15px;
   font-weight: 600;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
   color: var(--waiter-text);
 }
 
 .waiter-clock-ampm {
-  font-size: 11px;
-  font-weight: 500;
+  font-family: var(--waiter-font-body);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: var(--waiter-text-muted);
-  margin-left: 2px;
+  margin-left: 3px;
 }
 
 /* Empty state styling */
@@ -1719,24 +1813,30 @@
 }
 
 .waiter-empty-title {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: var(--waiter-font-display);
   font-size: 1.25rem;
   font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
   color: var(--waiter-text);
 }
 
 .waiter-empty-description {
-  font-size: 14px;
-  color: var(--waiter-text-secondary);
+  font-family: var(--waiter-font-body);
+  font-size: 15px;
   line-height: 1.6;
+  letter-spacing: -0.005em;
+  color: var(--waiter-text-secondary);
 }
 
 /* Timer styling */
 .waiter-timer {
-  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-family: var(--waiter-font-mono);
   font-size: 14px;
   font-weight: 600;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
 }
 
 .waiter-timer-ok {
@@ -1756,10 +1856,12 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  font-family: var(--waiter-font-body);
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
+  line-height: 1;
   color: var(--waiter-text-muted);
 }
 
@@ -1768,8 +1870,11 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  font-family: var(--waiter-font-body);
   font-size: 13px;
   font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
   color: var(--waiter-text-secondary);
 }
 
@@ -1779,8 +1884,10 @@
   align-items: center;
   gap: 6px;
   padding: 10px 16px;
+  font-family: var(--waiter-font-body);
   font-size: 13px;
   font-weight: 600;
+  line-height: 1.3;
   border-radius: 10px;
   background: var(--waiter-surface);
   border: 1px solid var(--waiter-border);
@@ -1802,8 +1909,10 @@
 
 /* Order count */
 .waiter-order-count {
+  font-family: var(--waiter-font-body);
   font-size: 13px;
   font-weight: 500;
+  line-height: 1.3;
   color: var(--waiter-text-muted);
 }
 
@@ -1958,9 +2067,11 @@
 }
 
 .waiter-sheet-order-number {
-  font-family: "Playfair Display", serif;
+  font-family: var(--waiter-font-display);
   font-size: 1.5rem;
   font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
   color: var(--waiter-text);
   margin-bottom: 0.75rem;
 }
@@ -1980,8 +2091,11 @@
   background: var(--waiter-bg);
   border: 1px solid var(--waiter-border);
   border-radius: 8px;
+  font-family: var(--waiter-font-body);
   font-size: 0.8125rem;
   font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
   color: var(--waiter-text-secondary);
 }
 
@@ -1989,7 +2103,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  font-family: var(--waiter-font-body);
   font-size: 0.875rem;
+  line-height: 1.4;
   color: var(--waiter-text-secondary);
 }
 
@@ -2013,21 +2129,28 @@
 }
 
 .waiter-sheet-item-qty {
+  font-family: var(--waiter-font-mono);
   font-size: 0.875rem;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   color: var(--waiter-text-secondary);
 }
 
 .waiter-sheet-item-name {
+  font-family: var(--waiter-font-body);
   font-size: 0.9375rem;
   font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: -0.005em;
   color: var(--waiter-text);
 }
 
 .waiter-sheet-item-addon {
+  font-family: var(--waiter-font-body);
   margin-top: 0.375rem;
   padding-left: 1.75rem;
   font-size: 0.8125rem;
+  line-height: 1.5;
   color: var(--waiter-text-secondary);
 }
 
@@ -2039,13 +2162,18 @@
   padding: 0.5rem 0.75rem;
   background: var(--waiter-preparing-light);
   border-radius: 6px;
+  font-family: var(--waiter-font-body);
   font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.5;
   color: var(--waiter-preparing);
 }
 
 .waiter-sheet-item-price {
+  font-family: var(--waiter-font-mono);
   font-size: 0.875rem;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--waiter-text);
   white-space: nowrap;
 }
@@ -2062,7 +2190,9 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.5rem 0;
+  font-family: var(--waiter-font-body);
   font-size: 0.875rem;
+  line-height: 1.4;
   color: var(--waiter-text-secondary);
 }
 
@@ -2079,9 +2209,11 @@
 }
 
 .waiter-sheet-total-value {
-  font-family: "Playfair Display", serif;
+  font-family: var(--waiter-font-display);
   font-size: 1.25rem;
   font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
   color: var(--waiter-text);
 }
 
@@ -2092,21 +2224,27 @@
 }
 
 .waiter-sheet-notes-label {
+  font-family: var(--waiter-font-body);
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
+  line-height: 1;
   color: var(--waiter-text-muted);
   margin-bottom: 0.5rem;
 }
 
 .waiter-sheet-notes-text {
+  font-family: var(--waiter-font-body);
   font-size: 0.875rem;
+  line-height: 1.6;
+  letter-spacing: -0.005em;
   color: var(--waiter-text-secondary);
 }
 
 /* Compact card for Recent tab kanban grid */
 .waiter-compact-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -2119,6 +2257,7 @@
   transition: all 0.2s ease;
   animation: waiter-compact-card-enter 0.3s ease-out forwards;
   opacity: 0;
+  overflow: hidden;
 }
 
 .waiter-compact-card:hover {
@@ -2133,11 +2272,26 @@
   box-shadow: none;
 }
 
+/* Prevent list card indicator from appearing on compact cards */
+.waiter-compact-card .waiter-list-card-indicator,
+.waiter-compact-card::before,
+.waiter-compact-card::after {
+  display: none !important;
+}
+
+/* Ensure compact card border stays inside container */
+.waiter-compact-card {
+  box-sizing: border-box;
+  isolation: isolate;
+}
+
 /* Compact card content */
 .waiter-compact-order-number {
-  font-family: "Playfair Display", serif;
+  font-family: var(--waiter-font-display);
   font-size: 1.125rem;
   font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
   color: var(--waiter-text);
 }
 
@@ -2148,9 +2302,11 @@
   padding: 3px 10px;
   background: var(--waiter-served-light);
   color: var(--waiter-served);
+  font-family: var(--waiter-font-body);
   font-size: 0.6875rem;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
+  line-height: 1;
   border-radius: 6px;
 }
 
@@ -2158,18 +2314,22 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  font-family: var(--waiter-font-body);
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--waiter-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.05em;
+  line-height: 1;
 }
 
 .waiter-compact-meta {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  font-family: var(--waiter-font-body);
   font-size: 0.8125rem;
+  line-height: 1.4;
   color: var(--waiter-text-secondary);
 }
 
@@ -2179,6 +2339,9 @@
 }
 
 .waiter-compact-total {
+  font-family: var(--waiter-font-mono);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--waiter-text);
 }
 
@@ -2194,8 +2357,10 @@
 }
 
 .waiter-compact-time {
+  font-family: var(--waiter-font-mono);
   color: var(--waiter-text-muted);
   font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ============================================
@@ -2298,9 +2463,11 @@
 }
 
 .waiter-list-card-number {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: var(--waiter-font-display);
   font-size: 1.125rem;
   font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
   color: var(--waiter-text);
 }
 
@@ -2315,9 +2482,12 @@
   padding: 3px 8px;
   background: var(--waiter-bg);
   color: var(--waiter-text-muted);
+  font-family: var(--waiter-font-mono);
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
   border-radius: 6px;
 }
 
@@ -2335,30 +2505,38 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  font-family: var(--waiter-font-body);
   font-size: 0.6875rem;
   font-weight: 600;
   color: var(--waiter-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.06em;
+  line-height: 1;
 }
 
 .waiter-list-card-location {
   display: inline-flex;
   align-items: center;
   gap: 3px;
+  font-family: var(--waiter-font-body);
   font-size: 0.75rem;
   font-weight: 600;
+  line-height: 1.3;
   color: var(--waiter-text-secondary);
 }
 
 .waiter-list-card-items {
+  font-family: var(--waiter-font-body);
   font-size: 0.75rem;
+  line-height: 1.3;
   color: var(--waiter-text-muted);
 }
 
 .waiter-list-card-total {
+  font-family: var(--waiter-font-mono);
   font-size: 0.8125rem;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--waiter-text);
 }
 
@@ -2388,8 +2566,10 @@
   padding: 0.75rem 1rem;
   margin: 1rem;
   margin-bottom: 0;
+  font-family: var(--waiter-font-body);
   font-size: 0.875rem;
   font-weight: 500;
+  line-height: 1.3;
   color: var(--waiter-text-secondary);
   background: transparent;
   border: none;
@@ -2432,9 +2612,11 @@
 }
 
 .waiter-detail-order-number {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: var(--waiter-font-display);
   font-size: 1.75rem;
   font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
   color: var(--waiter-text);
   margin-bottom: 0.75rem;
 }
@@ -2454,8 +2636,11 @@
   background: var(--waiter-bg);
   border: 1px solid var(--waiter-border);
   border-radius: 8px;
+  font-family: var(--waiter-font-body);
   font-size: 0.8125rem;
   font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
   color: var(--waiter-text-secondary);
 }
 
@@ -2463,7 +2648,10 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  font-family: var(--waiter-font-body);
   font-size: 0.875rem;
+  line-height: 1.4;
+  letter-spacing: -0.005em;
   color: var(--waiter-text-secondary);
 }
 
@@ -2539,10 +2727,12 @@
   gap: 6px;
   padding: 10px 18px;
   min-height: 44px;
+  font-family: var(--waiter-font-body);
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
+  line-height: 1;
   border-radius: 10px;
   border: 2px solid var(--waiter-ready);
   background: var(--waiter-ready-light);
@@ -2576,10 +2766,12 @@
   align-items: center;
   gap: 4px;
   padding: 8px 14px;
+  font-family: var(--waiter-font-body);
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
+  line-height: 1;
   border-radius: 8px;
   background: var(--waiter-served-light);
   color: var(--waiter-served);
@@ -2588,9 +2780,11 @@
 
 /* Detail preparing text */
 .waiter-detail-preparing-text {
+  font-family: var(--waiter-font-body);
   font-size: 12px;
   font-weight: 500;
   font-style: italic;
+  line-height: 1.3;
   color: var(--waiter-text-muted);
   padding: 8px 14px;
 }
@@ -2606,7 +2800,9 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  font-family: var(--waiter-font-body);
   font-size: 0.875rem;
+  line-height: 1.4;
   color: var(--waiter-text-secondary);
 }
 
@@ -2623,9 +2819,11 @@
 }
 
 .waiter-detail-total-value {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: var(--waiter-font-body);
   font-size: 1.25rem;
   font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
   color: var(--waiter-text);
 }
 
@@ -2639,16 +2837,21 @@
 }
 
 .waiter-detail-notes-label {
+  font-family: var(--waiter-font-body);
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
+  line-height: 1;
   color: var(--waiter-text-muted);
   margin-bottom: 0.5rem;
 }
 
 .waiter-detail-notes-text {
+  font-family: var(--waiter-font-body);
   font-size: 0.875rem;
+  line-height: 1.6;
+  letter-spacing: -0.005em;
   color: var(--waiter-text-secondary);
 }
 

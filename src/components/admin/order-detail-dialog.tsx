@@ -92,6 +92,8 @@ function formatOrderType(type: string): string {
       return 'Room Service';
     case 'takeout':
       return 'Takeout';
+    case 'ocean_view':
+      return 'Ocean View';
     default:
       return type;
   }

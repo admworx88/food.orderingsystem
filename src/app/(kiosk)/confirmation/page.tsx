@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { CheckCircle2, Clock, Home, Receipt } from 'lucide-react';
+import { CheckCircle2, Clock, Home, Receipt, Plus } from 'lucide-react';
 import { useCartStore } from '@/stores/cart-store';
 import { formatCurrency } from '@/lib/utils/currency';
 import { Button } from '@/components/ui/button';
@@ -17,9 +17,11 @@ function ConfirmationContent() {
   const paymentMethod = searchParams.get('paymentMethod') || 'cash';
   const orderNumber = searchParams.get('orderNumber') || '0000';
   const totalAmount = searchParams.get('total') ? parseFloat(searchParams.get('total')!) : 0;
-  const expiresAt = searchParams.get('expiresAt');
+  const orderId = searchParams.get('orderId') || '';
+  const tableNumberParam = searchParams.get('tableNumber') || '';
+  const addedItems = searchParams.get('addedItems');
+  const isAddedItems = !!addedItems;
   const [autoRedirect, setAutoRedirect] = useState(30);
-  const [expiryCountdown, setExpiryCountdown] = useState<number | null>(null);
 
   useEffect(() => {
     // Clear cart on successful order
@@ -41,25 +43,6 @@ function ConfirmationContent() {
     return () => clearInterval(interval);
   }, [router]);
 
-  // Expiry countdown for cash orders
-  useEffect(() => {
-    if (!expiresAt) return;
-
-    const updateCountdown = () => {
-      const remaining = Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
-      setExpiryCountdown(remaining);
-    };
-
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
-    return () => clearInterval(interval);
-  }, [expiresAt]);
-
-  const formatCountdown = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   return (
     <div className="h-full flex flex-col items-center justify-center bg-gradient-to-br from-green-50 via-white to-amber-50 px-4 sm:px-6 py-6 relative overflow-hidden">
@@ -77,10 +60,12 @@ function ConfirmationContent() {
             <CheckCircle2 className="w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 text-white" strokeWidth={2} />
           </div>
           <h1 className="text-xl sm:text-2xl lg:text-4xl font-bold text-stone-800 mb-2 sm:mb-3">
-            Order Placed Successfully!
+            {isAddedItems ? 'Items Added Successfully!' : 'Order Placed Successfully!'}
           </h1>
           <p className="text-sm sm:text-base lg:text-lg text-stone-600">
-            Thank you for your order
+            {isAddedItems
+              ? `${addedItems} new item${Number(addedItems) !== 1 ? 's' : ''} added to your order`
+              : 'Thank you for your order'}
           </p>
         </div>
 
@@ -121,39 +106,38 @@ function ConfirmationContent() {
           <div className="bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 border border-stone-200 text-center">
             <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 mx-auto mb-2 sm:mb-3 rounded-lg sm:rounded-xl bg-amber-100 flex items-center justify-center">
               <span className="text-base sm:text-xl lg:text-2xl">
-                {paymentMethod === 'cash' ? '💵' : paymentMethod === 'gcash' ? '📱' : '💳'}
+                {paymentMethod === 'cash' ? '💵' : paymentMethod === 'gcash' ? '📱' : paymentMethod === 'bill_later' ? '🍽️' : '💳'}
               </span>
             </div>
             <p className="text-[10px] sm:text-xs lg:text-sm text-stone-500 mb-0.5 sm:mb-1">Payment</p>
             <p className="text-sm sm:text-lg lg:text-xl font-bold text-stone-800 capitalize truncate">
-              {paymentMethod || 'Cash'}
+              {paymentMethod === 'bill_later' ? 'Pay Later' : paymentMethod || 'Cash'}
             </p>
           </div>
         </div>
 
         {/* Payment-specific message */}
-        {paymentMethod === 'cash' && expiryCountdown !== null && (
+        {paymentMethod === 'cash' && (
           <div className="bg-amber-50 rounded-xl sm:rounded-2xl border border-amber-200 p-4 sm:p-5 lg:p-6 mb-5 sm:mb-6 lg:mb-8 animate-fade-in-up animation-delay-500">
             <h3 className="text-sm sm:text-base lg:text-lg font-bold text-amber-900 mb-1 sm:mb-2 flex items-center gap-2">
               <span>💵</span>
-              <span className="hidden xs:inline">Cash Payment -</span> Pay at counter
+              <span className="hidden xs:inline">Cash Payment -</span> Pay at Counter
             </h3>
-            <p className="text-xs sm:text-sm lg:text-base text-amber-800 mb-2 sm:mb-3">
-              Your order will be prepared once payment is confirmed.
+            <p className="text-xs sm:text-sm lg:text-base text-amber-800">
+              Please proceed to the cashier to complete your payment. Your order will be prepared once payment is confirmed.
             </p>
-            {expiryCountdown > 0 && (
-              <div className="flex items-center gap-2">
-                <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-amber-700" />
-                <span className="text-xs sm:text-sm font-semibold text-amber-900">
-                  Time remaining: {formatCountdown(expiryCountdown)}
-                </span>
-              </div>
-            )}
-            {expiryCountdown === 0 && (
-              <p className="text-xs sm:text-sm font-semibold text-red-700">
-                Order expired. Please place a new order.
-              </p>
-            )}
+          </div>
+        )}
+
+        {paymentMethod === 'bill_later' && (
+          <div className="bg-green-50 rounded-xl sm:rounded-2xl border border-green-200 p-4 sm:p-5 lg:p-6 mb-5 sm:mb-6 lg:mb-8 animate-fade-in-up animation-delay-500">
+            <h3 className="text-sm sm:text-base lg:text-lg font-bold text-green-900 mb-1 sm:mb-2 flex items-center gap-2">
+              <span>🍽️</span>
+              Order Sent to Kitchen
+            </h3>
+            <p className="text-xs sm:text-sm lg:text-base text-green-800">
+              Your order has been sent to the kitchen. Pay when you&apos;re ready at the cashier.
+            </p>
           </div>
         )}
 
@@ -171,6 +155,15 @@ function ConfirmationContent() {
 
         {/* Action buttons - stack on mobile */}
         <div className="flex flex-col xs:flex-row gap-3 sm:gap-4 animate-fade-in-up animation-delay-600">
+          {paymentMethod === 'bill_later' && orderId && (
+            <Link
+              href={`/add-items?order=${orderNumber}&table=${tableNumberParam}`}
+              className="flex-1 flex items-center justify-center gap-2 h-12 sm:h-14 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold rounded-xl shadow-lg active:scale-[0.98] transition-all text-sm sm:text-base"
+            >
+              <Plus className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2.5} />
+              Add More Items
+            </Link>
+          )}
           <Link
             href="/"
             className="flex-1 flex items-center justify-center gap-2 h-12 sm:h-14 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl shadow-lg active:scale-[0.98] transition-all text-sm sm:text-base"
@@ -178,14 +171,6 @@ function ConfirmationContent() {
             <Home className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2} />
             Start New Order
           </Link>
-          <Button
-            variant="outline"
-            className="flex-1 h-12 sm:h-14 border-2 border-stone-300 hover:bg-stone-50 font-semibold rounded-xl text-sm sm:text-base"
-            disabled
-          >
-            <Receipt className="w-4 h-4 sm:w-5 sm:h-5 mr-2" strokeWidth={2} />
-            Print Receipt
-          </Button>
         </div>
 
         {/* Auto-redirect notice */}

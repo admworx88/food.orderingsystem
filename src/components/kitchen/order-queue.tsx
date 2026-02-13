@@ -8,7 +8,7 @@ import { useKitchenContext } from '@/app/(kitchen)/layout-client';
 import { OrderCard } from './order-card';
 
 type FilterStatus = 'all' | 'paid' | 'preparing' | 'ready' | 'served';
-type FilterOrderType = 'all' | 'dine_in' | 'room_service' | 'takeout';
+type FilterOrderType = 'all' | 'dine_in' | 'room_service' | 'takeout' | 'ocean_view';
 
 const STATUS_FILTERS: { value: FilterStatus; label: string; colorClass: string }[] = [
   { value: 'all', label: 'All Orders', colorClass: '' },
@@ -22,11 +22,12 @@ const ORDER_TYPE_FILTERS: { value: FilterOrderType; label: string }[] = [
   { value: 'dine_in', label: 'Dine-in' },
   { value: 'room_service', label: 'Room Service' },
   { value: 'takeout', label: 'Takeout' },
+  { value: 'ocean_view', label: 'Ocean View' },
 ];
 
 export function OrderQueue() {
-  const { orders, isLoading, error, refetch, optimisticStatusUpdate } = useRealtimeOrders({ includeServed: true });
-  const { isRecentMode, setIsRecentMode } = useKitchenContext();
+  const { isRecentMode, setIsRecentMode, soundEnabled } = useKitchenContext();
+  const { orders, isLoading, error, refetch, optimisticStatusUpdate } = useRealtimeOrders(soundEnabled, { includeServed: true });
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
   const [typeFilter, setTypeFilter] = useState<FilterOrderType>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -34,6 +35,7 @@ export function OrderQueue() {
   // Sync statusFilter with isRecentMode from header
   useEffect(() => {
     if (isRecentMode) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Syncing filter state with parent mode toggle
       setStatusFilter('served');
     } else if (statusFilter === 'served') {
       setStatusFilter('all');

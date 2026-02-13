@@ -98,8 +98,12 @@ app/
 │   │   └── page.tsx    # Order summary, special instructions
 │   ├── checkout/
 │   │   └── page.tsx    # 4-step flow: order type, promo, phone, payment
-│   └── confirmation/
-│       └── page.tsx    # Order number + auto-redirect
+│   ├── confirmation/
+│   │   └── page.tsx    # Order number + auto-redirect + Add More Items
+│   └── add-items/              # Add items to existing dine-in order
+│       ├── page.tsx            # Order lookup (manual entry + browse active)
+│       └── [orderId]/
+│           └── page.tsx        # Menu browsing for adding items
 │
 ├── (kitchen)/          # Staff-only, large display optimized (route group)
 │   ├── layout.tsx      # Dark theme, full-screen, status bar
@@ -116,6 +120,7 @@ app/
 │   ├── layout.tsx          # Server: AuthGuard + cashier name fetch
 │   ├── layout-client.tsx   # Client: POS header, nav, live clock
 │   ├── payments/page.tsx   # Main POS page (F-C01 through F-C08)
+│   ├── recent/page.tsx    # Recent Orders (split-panel, receipt access)
 │   └── reports/page.tsx    # Shift summary / reconciliation (F-C09)
 │
 ├── admin/              # Admin-only, dashboard layout (regular folder, NOT route group)
@@ -173,7 +178,8 @@ components/
 │   ├── payment-method-selector.tsx
 │   ├── order-number-display.tsx # Big order number confirmation
 │   ├── idle-timer.tsx      # Inactivity reset component
-│   └── numpad.tsx          # On-screen number pad for table/room
+│   ├── numpad.tsx          # On-screen number pad for table/room
+│   └── add-items-client.tsx  # Menu browsing for adding items to existing order
 │
 ├── kitchen/                # KDS-specific components
 │   ├── order-card.tsx      # Single order card with items
@@ -205,7 +211,10 @@ components/
 │   ├── refund-dialog.tsx        # Refund with manager PIN + reason
 │   ├── expiration-countdown.tsx # "X min left" badge (color-coded)
 │   ├── shift-summary-view.tsx   # Shift report display
-│   └── unpaid-bills-list.tsx      # Bill later unpaid orders queue
+│   ├── unpaid-bills-list.tsx      # Bill later unpaid orders queue
+│   ├── recent-orders-client.tsx   # Split-panel recent orders UI
+│   ├── recent-order-card.tsx      # Compact order card for recent list
+│   └── recent-order-detail.tsx    # Order detail panel + receipt button
 │
 ├── admin/                  # Admin-specific components
 │   ├── sidebar-nav.tsx

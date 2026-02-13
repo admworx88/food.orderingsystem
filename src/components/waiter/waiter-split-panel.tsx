@@ -49,10 +49,12 @@ export function WaiterSplitPanel({
     };
   }, [handleKeyDown]);
 
-  // Handle card click - toggle selection
+  // Handle card click - toggle selection (only for Recent tab)
   const handleCardClick = useCallback((orderId: string) => {
+    // Only allow selection for Recent tab
+    if (viewFilter !== 'recent') return;
     onSelectOrder(orderId === selectedOrderId ? null : orderId);
-  }, [selectedOrderId, onSelectOrder]);
+  }, [selectedOrderId, onSelectOrder, viewFilter]);
 
   // Handle close detail panel
   const handleCloseDetail = useCallback(() => {
@@ -147,13 +149,12 @@ export function WaiterSplitPanel({
                     />
                   ))
                 ) : (
-                  /* Full cards for Ready/Preparing tabs */
+                  /* Full cards for Ready/Preparing tabs - no click handler */
                   orders.map((order, index) => (
                     <WaiterOrderCard
                       key={order.id}
                       order={order}
                       onItemServed={onItemServed}
-                      onClick={() => handleCardClick(order.id)}
                       delayClass={getDelayClass(index)}
                     />
                   ))

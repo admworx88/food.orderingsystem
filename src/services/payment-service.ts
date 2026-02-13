@@ -10,7 +10,7 @@ import {
   refundSchema,
   discountSchema,
 } from '@/lib/validators/payment';
-import type { CashierOrder, ShiftSummary } from '@/types/payment';
+import type { CashierOrder, RecentOrder, ShiftSummary } from '@/types/payment';
 import { SENIOR_PWD_DISCOUNT_RATE } from '@/lib/constants/payment-methods';
 
 // Database row types
@@ -186,7 +186,7 @@ export async function processCashPayment(
     return serviceError('E3003', parseResult.error.issues[0]?.message || 'Invalid payment input');
   }
 
-  const { orderId, amountTendered, cashierId } = parseResult.data;
+  const { orderId, amountTendered, cashierId, cashierName } = parseResult.data;
 
   try {
     const supabase = await createServerClient();
@@ -239,6 +239,7 @@ export async function processCashPayment(
       p_cash_received: amountTendered,
       p_change_given: changeGiven,
       p_cashier_id: cashierId,
+      p_cashier_name: cashierName,
     });
 
     if (rpcError) {
@@ -808,6 +809,50 @@ export async function cancelExpiredOrders(): Promise<ServiceResult<{ cancelledCo
     return { success: true, data: { cancelledCount } };
   } catch (error) {
     console.error('cancelExpiredOrders unexpected error:', error);
+    return serviceError('E9001', 'An unexpected error occurred');
+  }
+}
+
+// ============================================================
+// F-C10: Get Recent Completed Orders
+// ============================================================
+
+/**
+ * Fetch recent completed/served orders from the last 24 hours.
+ * Includes order items, addons, promo code, and payment records.
+ * Sorted by most recent first.
+ */
+export async function getRecentCompletedOrders(): Promise<ServiceResult<RecentOrder[]>> {
+  try {
+    const supabase = await createServerClient();
+
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    const { data, error } = await supabase
+      .from('orders')
+      .select(`
+        *,
+        order_items(
+          *,
+          order_item_addons(*)
+        ),
+        promo_codes(code, discount_value, discount_type),
+        payments(*)
+      `)
+      .in('payment_status', ['paid', 'refunded'])
+      .gte('paid_at', twentyFourHoursAgo)
+      .is('deleted_at', null)
+      .order('paid_at', { ascending: false })
+      .limit(50);
+
+    if (error) {
+      console.error('getRecentCompletedOrders failed:', error);
+      return serviceError('E9001', 'Failed to fetch recent orders');
+    }
+
+    return { success: true, data: (data || []) as RecentOrder[] };
+  } catch (error) {
+    console.error('getRecentCompletedOrders unexpected error:', error);
     return serviceError('E9001', 'An unexpected error occurred');
   }
 }

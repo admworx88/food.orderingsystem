@@ -13,6 +13,7 @@ const ORDER_TYPE_LABELS: Record<string, string> = {
   dine_in: 'Dine-in',
   room_service: 'Room Service',
   takeout: 'Takeout',
+  ocean_view: 'Ocean View',
 };
 
 /**

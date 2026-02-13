@@ -5,9 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ChevronLeft,
-  Coffee,
-  Home,
-  ShoppingBag,
   Wallet,
   Tag,
   Phone,
@@ -15,25 +12,21 @@ import {
   ChevronRight,
   X,
   Loader2,
+  Pencil,
 } from 'lucide-react';
-import { useCartStore, type OrderType, type PaymentMethod } from '@/stores/cart-store';
+import { useCartStore, type PaymentMethod } from '@/stores/cart-store';
 import { validatePromoCode, createOrder } from '@/services/order-service';
 import { formatCurrency } from '@/lib/utils/currency';
+import { ORDER_TYPE_CONFIG, getAllowedPaymentMethods } from '@/lib/constants/order-types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
-const ORDER_TYPES: { value: OrderType; label: string; icon: typeof Coffee; description: string }[] = [
-  { value: 'dine_in', label: 'Dine In', icon: Coffee, description: 'Enjoy your meal here' },
-  { value: 'room_service', label: 'Room Service', icon: Home, description: 'Deliver to your room' },
-  { value: 'takeout', label: 'Takeout', icon: ShoppingBag, description: 'Take it to go' },
-];
-
-const PAYMENT_METHODS: { value: PaymentMethod; label: string; icon: string; description: string; dineInOnly?: boolean }[] = [
+const PAYMENT_METHODS: { value: PaymentMethod; label: string; icon: string; description: string }[] = [
   { value: 'cash', label: 'Cash', icon: '💵', description: 'Pay at counter/room' },
   { value: 'gcash', label: 'GCash', icon: '📱', description: 'Digital wallet payment' },
   { value: 'card', label: 'Credit/Debit Card', icon: '💳', description: 'Visa, Mastercard, etc.' },
-  { value: 'bill_later', label: 'Pay After Meal', icon: '🍽️', description: 'Settle bill when ready to leave', dineInOnly: true },
+  { value: 'bill_later', label: 'Pay After Meal', icon: '🍽️', description: 'Settle bill when ready to leave' },
 ];
 
 export default function CheckoutPage() {
@@ -41,11 +34,8 @@ export default function CheckoutPage() {
   const {
     items,
     orderType,
-    setOrderType,
     tableNumber,
-    setTableNumber,
     roomNumber,
-    setRoomNumber,
     promoCode,
     promoCodeId,
     discountAmount,
@@ -73,17 +63,30 @@ export default function CheckoutPage() {
   const serviceCharge = getServiceCharge();
   const total = getTotal();
 
-  // Reset payment method if bill_later is selected but order type changes from dine_in
+  // Wait for Zustand store hydration before redirecting
+  const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
-    if (paymentMethod === 'bill_later' && orderType !== 'dine_in') {
-      setPaymentMethod(null);
-    }
-  }, [orderType, paymentMethod, setPaymentMethod]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Required for Zustand hydration sync
+    setHydrated(true);
+  }, []);
 
-  if (items.length === 0) {
-    router.push('/menu');
+  // Redirect if no order type selected or cart is empty (only after hydration)
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!orderType) {
+      router.push('/order-type');
+    } else if (items.length === 0) {
+      router.push('/menu');
+    }
+  }, [hydrated, orderType, items.length, router]);
+
+  if (!hydrated || !orderType || items.length === 0) {
     return null;
   }
+
+  const orderTypeConfig = ORDER_TYPE_CONFIG[orderType];
+  const allowedMethods = getAllowedPaymentMethods(orderType);
+  const filteredPaymentMethods = PAYMENT_METHODS.filter((m) => allowedMethods.includes(m.value));
 
   const handleApplyPromo = async () => {
     if (!promoInput.trim()) return;
@@ -106,19 +109,6 @@ export default function CheckoutPage() {
   const handlePlaceOrder = async () => {
     setOrderError('');
 
-    // Client-side validation
-    if (!orderType) {
-      setOrderError('Please select an order type');
-      return;
-    }
-    if (orderType === 'dine_in' && !tableNumber) {
-      setOrderError('Please enter your table number');
-      return;
-    }
-    if (orderType === 'room_service' && !roomNumber) {
-      setOrderError('Please enter your room number');
-      return;
-    }
     if (!paymentMethod) {
       setOrderError('Please select a payment method');
       return;
@@ -155,6 +145,9 @@ export default function CheckoutPage() {
       if (result.data.expiresAt) {
         params.set('expiresAt', result.data.expiresAt);
       }
+      if (tableNumber) {
+        params.set('tableNumber', tableNumber);
+      }
       router.push(`/confirmation?${params.toString()}`);
     } else {
       setOrderError(result.error);
@@ -175,7 +168,7 @@ export default function CheckoutPage() {
             >
               <ChevronLeft className="w-5 h-5 text-stone-600" strokeWidth={2} />
             </Link>
-            <div>
+            <div className="flex-1">
               <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-stone-800">Checkout</h1>
               <p className="text-xs sm:text-sm text-stone-500 mt-0.5">Complete your order details</p>
             </div>
@@ -184,94 +177,25 @@ export default function CheckoutPage() {
 
         {/* Scrollable form sections */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-5 lg:space-y-6">
-          {/* Step 1: Order Type */}
-          <section className="bg-white rounded-xl sm:rounded-2xl border border-stone-200 p-4 sm:p-5 lg:p-6">
-            <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-amber-100 flex items-center justify-center">
-                <span className="text-sm sm:text-lg font-bold text-amber-600">1</span>
+          {/* Order Type Badge */}
+          <div className="flex items-center justify-between bg-white rounded-xl sm:rounded-2xl border border-stone-200 px-4 sm:px-5 py-3 sm:py-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <span className="text-lg sm:text-xl">{orderTypeConfig.icon}</span>
+              <div>
+                <p className="text-xs sm:text-sm text-stone-500">Order Type</p>
+                <p className="text-sm sm:text-base font-semibold text-stone-800">{orderTypeConfig.label}</p>
               </div>
-              <h2 className="text-base sm:text-lg font-bold text-stone-800">Select Order Type</h2>
             </div>
+            <Link
+              href="/order-type"
+              className="flex items-center gap-1 text-xs sm:text-sm text-amber-600 hover:text-amber-700 font-medium transition-colors"
+            >
+              <Pencil className="w-3.5 h-3.5" strokeWidth={2} />
+              <span>Change</span>
+            </Link>
+          </div>
 
-            {/* Order type buttons - stack on very small screens */}
-            <div className="grid grid-cols-1 xs:grid-cols-3 gap-3 sm:gap-4">
-              {ORDER_TYPES.map((type) => {
-                const Icon = type.icon;
-                const isSelected = orderType === type.value;
-                return (
-                  <button
-                    key={type.value}
-                    onClick={() => setOrderType(type.value)}
-                    className={cn(
-                      'relative p-3 sm:p-4 lg:p-5 rounded-lg sm:rounded-xl border-2 transition-all text-left min-h-[80px] sm:min-h-[100px] lg:min-h-[120px] flex xs:flex-col items-center xs:items-start gap-3 xs:gap-0',
-                      isSelected
-                        ? 'border-amber-500 bg-amber-50 shadow-md'
-                        : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50'
-                    )}
-                  >
-                    {isSelected && (
-                      <div className="absolute top-2 right-2 sm:top-3 sm:right-3 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-500 flex items-center justify-center">
-                        <Check className="w-3 h-3 sm:w-4 sm:h-4 text-white" strokeWidth={3} />
-                      </div>
-                    )}
-                    <Icon
-                      className={cn(
-                        'w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 xs:mb-2 lg:mb-3 flex-shrink-0',
-                        isSelected ? 'text-amber-600' : 'text-stone-400'
-                      )}
-                      strokeWidth={2}
-                    />
-                    <div>
-                      <h3
-                        className={cn(
-                          'text-sm sm:text-base font-semibold mb-0.5 sm:mb-1',
-                          isSelected ? 'text-amber-900' : 'text-stone-700'
-                        )}
-                      >
-                        {type.label}
-                      </h3>
-                      <p className={cn('text-[10px] sm:text-xs', isSelected ? 'text-amber-700' : 'text-stone-500')}>
-                        {type.description}
-                      </p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Conditional inputs */}
-            {orderType === 'dine_in' && (
-              <div className="mt-4 sm:mt-5 animate-fade-in">
-                <label className="block text-xs sm:text-sm font-medium text-stone-700 mb-2">
-                  Table Number
-                </label>
-                <Input
-                  type="text"
-                  value={tableNumber || ''}
-                  onChange={(e) => setTableNumber(e.target.value)}
-                  placeholder="Enter your table number"
-                  className="h-11 sm:h-12 text-sm sm:text-base"
-                />
-              </div>
-            )}
-
-            {orderType === 'room_service' && (
-              <div className="mt-4 sm:mt-5 animate-fade-in">
-                <label className="block text-xs sm:text-sm font-medium text-stone-700 mb-2">
-                  Room Number
-                </label>
-                <Input
-                  type="text"
-                  value={roomNumber || ''}
-                  onChange={(e) => setRoomNumber(e.target.value)}
-                  placeholder="Enter your room number"
-                  className="h-11 sm:h-12 text-sm sm:text-base"
-                />
-              </div>
-            )}
-          </section>
-
-          {/* Step 2: Promo Code */}
+          {/* Step 1: Promo Code */}
           <section className="bg-white rounded-xl sm:rounded-2xl border border-stone-200 p-4 sm:p-5 lg:p-6">
             <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5">
               <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-amber-100 flex items-center justify-center">
@@ -331,7 +255,7 @@ export default function CheckoutPage() {
             )}
           </section>
 
-          {/* Step 3: Guest Phone (Optional) */}
+          {/* Step 2: Guest Phone (Optional) */}
           <section className="bg-white rounded-xl sm:rounded-2xl border border-stone-200 p-4 sm:p-5 lg:p-6">
             <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5">
               <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-amber-100 flex items-center justify-center">
@@ -352,7 +276,7 @@ export default function CheckoutPage() {
             />
           </section>
 
-          {/* Step 4: Payment Method */}
+          {/* Step 3: Payment Method */}
           <section className="bg-white rounded-xl sm:rounded-2xl border border-stone-200 p-4 sm:p-5 lg:p-6">
             <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5">
               <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-amber-100 flex items-center justify-center">
@@ -362,50 +286,48 @@ export default function CheckoutPage() {
             </div>
 
             <div className="space-y-2 sm:space-y-3">
-              {PAYMENT_METHODS
-                .filter((method) => !method.dineInOnly || orderType === 'dine_in')
-                .map((method) => {
-                  const isSelected = paymentMethod === method.value;
-                  return (
-                    <button
-                      key={method.value}
-                      onClick={() => setPaymentMethod(method.value)}
-                      className={cn(
-                        'w-full flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg sm:rounded-xl border-2 transition-all text-left',
-                        isSelected
-                          ? 'border-amber-500 bg-amber-50'
-                          : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50'
-                      )}
-                    >
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-md sm:rounded-lg bg-white border border-stone-200 flex items-center justify-center text-xl sm:text-2xl flex-shrink-0">
-                        {method.icon}
+              {filteredPaymentMethods.map((method) => {
+                const isSelected = paymentMethod === method.value;
+                return (
+                  <button
+                    key={method.value}
+                    onClick={() => setPaymentMethod(method.value)}
+                    className={cn(
+                      'w-full flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg sm:rounded-xl border-2 transition-all text-left',
+                      isSelected
+                        ? 'border-amber-500 bg-amber-50'
+                        : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50'
+                    )}
+                  >
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-md sm:rounded-lg bg-white border border-stone-200 flex items-center justify-center text-xl sm:text-2xl flex-shrink-0">
+                      {method.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3
+                        className={cn(
+                          'text-sm sm:text-base font-semibold truncate',
+                          isSelected ? 'text-amber-900' : 'text-stone-700'
+                        )}
+                      >
+                        {method.label}
+                      </h3>
+                      <p
+                        className={cn(
+                          'text-xs sm:text-sm truncate',
+                          isSelected ? 'text-amber-700' : 'text-stone-500'
+                        )}
+                      >
+                        {method.description}
+                      </p>
+                    </div>
+                    {isSelected && (
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0">
+                        <Check className="w-3 h-3 sm:w-4 sm:h-4 text-white" strokeWidth={3} />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h3
-                          className={cn(
-                            'text-sm sm:text-base font-semibold truncate',
-                            isSelected ? 'text-amber-900' : 'text-stone-700'
-                          )}
-                        >
-                          {method.label}
-                        </h3>
-                        <p
-                          className={cn(
-                            'text-xs sm:text-sm truncate',
-                            isSelected ? 'text-amber-700' : 'text-stone-500'
-                          )}
-                        >
-                          {method.description}
-                        </p>
-                      </div>
-                      {isSelected && (
-                        <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0">
-                          <Check className="w-3 h-3 sm:w-4 sm:h-4 text-white" strokeWidth={3} />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </section>
 
@@ -484,7 +406,7 @@ export default function CheckoutPage() {
           )}
           <Button
             onClick={handlePlaceOrder}
-            disabled={!orderType || !paymentMethod || isPlacingOrder}
+            disabled={!paymentMethod || isPlacingOrder}
             className="w-full h-12 sm:h-14 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-base sm:text-lg font-bold rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all group"
           >
             {isPlacingOrder ? (

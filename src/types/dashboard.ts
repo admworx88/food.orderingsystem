@@ -35,7 +35,7 @@ export interface RevenueDataPoint {
 }
 
 export interface OrderTypeData {
-  type: 'dine_in' | 'room_service' | 'takeout';
+  type: 'dine_in' | 'room_service' | 'takeout' | 'ocean_view';
   label: string; // Display label (e.g., "Dine-in", "Room Service")
   count: number;
   percentage: number;

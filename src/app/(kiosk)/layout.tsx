@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { ShoppingBag, Menu, X } from 'lucide-react';
+import Image from 'next/image';
+import { ShoppingBag } from 'lucide-react';
 import { CartDrawer } from '@/components/kiosk/cart-drawer';
+import { FullscreenToggle } from '@/components/kiosk/fullscreen-toggle';
 import { useCartStore } from '@/stores/cart-store';
 import { formatCurrency } from '@/lib/utils/currency';
 
@@ -34,13 +36,13 @@ function CurrentTime() {
 
 export default function KioskLayout({ children }: KioskLayoutProps) {
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [lastInteraction, setLastInteraction] = useState(Date.now());
+  const [lastInteraction, setLastInteraction] = useState(() => Date.now());
   const [showIdleWarning, setShowIdleWarning] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
-  // Only show floating cart button on menu page
-  const showCartButton = pathname === '/menu';
+  // Show floating cart button on menu and add-items pages
+  const showCartButton = pathname === '/menu' || pathname.startsWith('/add-items/');
 
   // Get cart state from Zustand store
   const {
@@ -107,14 +109,18 @@ export default function KioskLayout({ children }: KioskLayoutProps) {
       <header className="flex-shrink-0 h-14 sm:h-16 md:h-[72px] px-3 sm:px-4 md:px-6 flex items-center justify-between bg-white border-b border-stone-200 shadow-sm safe-area-inset-top">
         {/* Logo & Brand */}
         <Link href="/" className="flex items-center gap-2 sm:gap-3 active:scale-[0.98] transition-transform">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-lg sm:rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-md">
-            <span className="text-white font-bold text-sm sm:text-base md:text-lg tracking-tight">OF</span>
-          </div>
+          <Image
+            src="/arenalogo.png"
+            alt="Arena Blanca Resort"
+            width={44}
+            height={44}
+            className="w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-lg sm:rounded-xl object-contain shadow-md"
+          />
           <div className="hidden xs:block">
             <h1 className="text-base sm:text-lg font-semibold text-stone-800 leading-tight tracking-tight">
-              OrderFlow
+              Arena Blanca Resort
             </h1>
-            <p className="text-[10px] sm:text-xs text-stone-400 font-medium hidden sm:block">Hotel Restaurant</p>
+            <p className="text-[10px] sm:text-xs text-stone-400 font-medium hidden sm:block">Restaurant</p>
           </div>
         </Link>
 
@@ -129,6 +135,9 @@ export default function KioskLayout({ children }: KioskLayoutProps) {
               TL
             </button>
           </div>
+
+          {/* Fullscreen Toggle */}
+          <FullscreenToggle variant="header" />
 
           {/* Divider - hidden on smallest screens */}
           <div className="hidden sm:block w-px h-5 sm:h-6 bg-stone-200" />

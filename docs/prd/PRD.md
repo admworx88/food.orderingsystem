@@ -109,6 +109,8 @@ Rationale: We need server-side auth validation, API routes for webhook handlers 
 - **F-K09**: Touch-optimized UI (large buttons, swipe gestures)
 - **F-K10**: Idle timeout — reset to welcome screen after inactivity
 - **F-K11**: "Pay After Meal" option for dine-in orders — order goes to kitchen, payment deferred
+- **F-K12**: Add items to existing dine-in order — lookup by order number + table, or browse active orders
+- **F-K13**: Confirmation page shows "Add More Items" button for bill_later dine-in orders
 
 ### 5.2 Kitchen Display System (KDS)
 - **F-KD01**: Real-time order queue (newest at bottom, oldest at top)
@@ -134,6 +136,8 @@ Rationale: We need server-side auth validation, API routes for webhook handlers 
 - **F-C08**: Handle refunds and cancellations
 - **F-C09**: End-of-day cash reconciliation report
 - **F-C10**: Unpaid bills queue — bill_later orders awaiting payment after service
+- **F-C11**: Recent Orders tab — split-panel view of paid/completed orders (last 24h) with receipt access
+- **F-C12**: Cashier name tracking — payment transactions record which cashier processed them
 
 ### 5.4 Admin Module
 - **F-A01**: CRUD menu items with images, categories, pricing

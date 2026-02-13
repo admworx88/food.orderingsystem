@@ -275,6 +275,7 @@ export async function getOrderTypeBreakdown(): Promise<
       dine_in: 0,
       room_service: 0,
       takeout: 0,
+      ocean_view: 0,
     };
 
     orders?.forEach((order) => {
@@ -306,6 +307,13 @@ export async function getOrderTypeBreakdown(): Promise<
         count: counts.takeout,
         percentage: Math.round((counts.takeout / total) * 100),
         color: '#334155', // Slate
+      },
+      {
+        type: 'ocean_view',
+        label: 'Ocean View',
+        count: counts.ocean_view,
+        percentage: Math.round((counts.ocean_view / total) * 100),
+        color: '#0ea5e9', // Sky blue
       },
     ];
 

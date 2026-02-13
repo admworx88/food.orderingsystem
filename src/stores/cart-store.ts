@@ -19,7 +19,7 @@ export interface CartItem {
   totalPrice: number; // (basePrice + sum(addon prices)) * quantity
 }
 
-export type OrderType = 'dine_in' | 'room_service' | 'takeout';
+export type OrderType = 'dine_in' | 'room_service' | 'takeout' | 'ocean_view';
 export type PaymentMethod = 'cash' | 'gcash' | 'card' | 'bill_later';
 
 interface CartStore {
@@ -36,6 +36,10 @@ interface CartStore {
   paymentMethod: PaymentMethod | null;
   expiresAt: Date | null;
 
+  // Add-to-existing-order state
+  addToOrderId: string | null;
+  addToOrderNumber: string | null;
+
   // Actions
   addItem: (item: Omit<CartItem, 'totalPrice'>) => void;
   removeItem: (index: number) => void;
@@ -50,6 +54,8 @@ interface CartStore {
   setGuestPhone: (phone: string) => void;
   setPaymentMethod: (method: PaymentMethod | null) => void;
   setExpiresAt: (date: Date | null) => void;
+  setAddToOrder: (orderId: string, orderNumber: string) => void;
+  clearAddToOrder: () => void;
   clearCart: () => void;
 
   // Computed getters
@@ -72,6 +78,8 @@ const initialState = {
   guestPhone: null,
   paymentMethod: null,
   expiresAt: null,
+  addToOrderId: null,
+  addToOrderNumber: null,
 };
 
 export const useCartStore = create<CartStore>()(
@@ -125,7 +133,12 @@ export const useCartStore = create<CartStore>()(
         }));
       },
 
-      setOrderType: (type) => set({ orderType: type }),
+      setOrderType: (type) => set({
+        orderType: type,
+        paymentMethod: null,
+        ...(type !== 'dine_in' ? { tableNumber: null } : {}),
+        ...(type !== 'room_service' ? { roomNumber: null } : {}),
+      }),
 
       setTableNumber: (number) => set({ tableNumber: number }),
 
@@ -143,6 +156,10 @@ export const useCartStore = create<CartStore>()(
       setPaymentMethod: (method) => set({ paymentMethod: method }),
 
       setExpiresAt: (date) => set({ expiresAt: date }),
+
+      setAddToOrder: (orderId, orderNumber) => set({ addToOrderId: orderId, addToOrderNumber: orderNumber }),
+
+      clearAddToOrder: () => set({ addToOrderId: null, addToOrderNumber: null }),
 
       clearCart: () => set(initialState),
 

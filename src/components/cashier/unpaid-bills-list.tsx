@@ -15,6 +15,7 @@ const ORDER_TYPE_LABELS: Record<string, string> = {
   dine_in: 'Dine-in',
   room_service: 'Room Svc',
   takeout: 'Takeout',
+  ocean_view: 'Ocean View',
 };
 
 function getTimeAgo(dateString: string): string {
