@@ -204,6 +204,8 @@ export const useCartStore = create<CartStore>()(
         promoCodeId: state.promoCodeId,
         discountAmount: state.discountAmount,
         guestPhone: state.guestPhone,
+        addToOrderId: state.addToOrderId,
+        addToOrderNumber: state.addToOrderNumber,
       }),
     }
   )

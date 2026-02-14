@@ -1509,6 +1509,12 @@ export async function addItemsToOrder(
 
       if (addonError) {
         console.error('addItemsToOrder: Failed to insert addons:', addonError);
+        // Rollback: Delete the inserted order items to maintain data consistency
+        await supabase
+          .from('order_items')
+          .delete()
+          .in('id', insertedItems.map(item => item.id));
+        return { success: false, error: 'Failed to add item addons. Please try again.' };
       }
     }
 
@@ -1518,20 +1524,41 @@ export async function addItemsToOrder(
     // Re-validate promo discount if applicable
     let discountAmount = Number(order.discount_amount) || 0;
     if (order.promo_code_id) {
-      // Fetch the promo to recalculate discount on new subtotal
-      const { data: promo } = await supabase
+      // Fetch and validate the promo code (check active, date range, usage limit, min order)
+      const { data: promo, error: promoError } = await supabase
         .from('promo_codes')
-        .select('discount_type, discount_value')
+        .select('*')
         .eq('id', order.promo_code_id)
+        .eq('is_active', true)
         .single();
 
-      if (promo) {
-        if (promo.discount_type === 'percentage') {
-          discountAmount = Math.min(newSubtotal * (promo.discount_value / 100), newSubtotal);
+      if (promoError || !promo) {
+        // Promo no longer exists or is inactive - remove discount
+        discountAmount = 0;
+      } else {
+        // Check date range
+        const now = new Date();
+        const validFrom = new Date(promo.valid_from);
+        const validUntil = new Date(promo.valid_until);
+
+        if (validFrom > now || validUntil < now) {
+          // Promo expired or not yet active - remove discount
+          discountAmount = 0;
+        } else if (promo.max_usage_count !== null && (promo.current_usage_count ?? 0) >= promo.max_usage_count) {
+          // Usage limit reached - remove discount
+          discountAmount = 0;
+        } else if (promo.min_order_amount !== null && newSubtotal < promo.min_order_amount) {
+          // Minimum order not met - remove discount
+          discountAmount = 0;
         } else {
-          discountAmount = Math.min(promo.discount_value, newSubtotal);
+          // Promo is still valid - recalculate discount on new subtotal
+          if (promo.discount_type === 'percentage') {
+            discountAmount = Math.min(newSubtotal * (promo.discount_value / 100), newSubtotal);
+          } else {
+            discountAmount = Math.min(promo.discount_value, newSubtotal);
+          }
+          discountAmount = Math.round(discountAmount * 100) / 100;
         }
-        discountAmount = Math.round(discountAmount * 100) / 100;
       }
     }
 
@@ -1555,7 +1582,13 @@ export async function addItemsToOrder(
 
     if (updateError) {
       console.error('addItemsToOrder: Failed to update order totals:', updateError);
-      return { success: false, error: 'Items added but failed to update order totals' };
+      // Rollback: Delete the inserted order items and addons to maintain consistency
+      await supabase
+        .from('order_items')
+        .delete()
+        .in('id', insertedItems.map(item => item.id));
+      // Addons will cascade delete due to foreign key constraint
+      return { success: false, error: 'Failed to update order totals. Please try again.' };
     }
 
     // 9. Log event

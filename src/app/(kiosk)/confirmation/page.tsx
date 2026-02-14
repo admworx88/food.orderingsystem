@@ -29,19 +29,22 @@ function ConfirmationContent() {
   }, [clearCart]);
 
   useEffect(() => {
-    // Auto-redirect countdown
-    const interval = setInterval(() => {
-      setAutoRedirect((prev) => {
-        if (prev <= 1) {
-          router.push('/');
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    // Auto-redirect countdown - only for digital payments (gcash, card)
+    // Per CLAUDE.md v2.6: "Removed confirmation countdown for cash/bill_later"
+    if (paymentMethod === 'gcash' || paymentMethod === 'card') {
+      const interval = setInterval(() => {
+        setAutoRedirect((prev) => {
+          if (prev <= 1) {
+            router.push('/');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
 
-    return () => clearInterval(interval);
-  }, [router]);
+      return () => clearInterval(interval);
+    }
+  }, [router, paymentMethod]);
 
 
   return (
@@ -173,13 +176,15 @@ function ConfirmationContent() {
           </Link>
         </div>
 
-        {/* Auto-redirect notice */}
-        <div className="mt-5 sm:mt-6 lg:mt-8 text-center animate-fade-in animation-delay-700">
-          <p className="text-xs sm:text-sm text-stone-400">
-            Returning to home in{' '}
-            <span className="font-bold text-amber-600 tabular-nums">{autoRedirect}</span>s
-          </p>
-        </div>
+        {/* Auto-redirect notice - only for digital payments */}
+        {(paymentMethod === 'gcash' || paymentMethod === 'card') && (
+          <div className="mt-5 sm:mt-6 lg:mt-8 text-center animate-fade-in animation-delay-700">
+            <p className="text-xs sm:text-sm text-stone-400">
+              Returning to home in{' '}
+              <span className="font-bold text-amber-600 tabular-nums">{autoRedirect}</span>s
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Footer message */}
