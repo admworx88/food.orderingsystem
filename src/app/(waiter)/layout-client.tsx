@@ -4,6 +4,7 @@ import { useState, useEffect, useSyncExternalStore, useCallback } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Volume2, VolumeX, User } from 'lucide-react';
+import { FullscreenToggle } from '@/components/shared/fullscreen-toggle';
 
 const STORAGE_KEY = 'waiter-sound-enabled';
 
@@ -138,6 +139,9 @@ export function WaiterLayoutClient({
                 {soundEnabled ? 'Sound On' : 'Sound Off'}
               </span>
             </button>
+
+            {/* Fullscreen Toggle */}
+            <FullscreenToggle variant="staff" />
 
             {/* Divider */}
             <div className="h-8 w-px bg-[var(--waiter-border)]" />

@@ -16,6 +16,12 @@ const nextConfig: NextConfig = {
         port: "54321",
         pathname: "/storage/v1/object/public/**",
       },
+      {
+        protocol: "http",
+        hostname: "192.168.254.133",
+        port: "54321",
+        pathname: "/storage/v1/object/public/**",
+      },
       // Production - Supabase hosted instance
       // Format: https://[project-ref].supabase.co
       {
@@ -26,7 +32,7 @@ const nextConfig: NextConfig = {
     ],
     // For local development, bypass Next.js image optimization
     // In production, Next.js will optimize images from Supabase
-    unoptimized: process.env.NODE_ENV === "development",
+    //unoptimized: process.env.NODE_ENV === "development",
   },
   experimental: {
     serverActions: {

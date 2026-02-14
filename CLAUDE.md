@@ -1,10 +1,13 @@
 # CLAUDE.md
 
-> **Version**: 2.5 | **Last Updated**: February 10, 2026 | **Status**: Phase 1-3 Complete, Phase 2.5 Waiter Module with Split Panel UI
+> **Version**: 2.6 | **Last Updated**: February 11, 2026 | **Status**: Phase 1-3 Complete, Arena Blanca Rebrand, Add Items to Order, Cashier Recent Orders
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ---
+
+# Compact instructions
+When you are using compact, please focus on test output and code changes
 
 ## Quick Reference
 
@@ -101,6 +104,52 @@ Every feature you implement should account for ALL of these:
   network drops during payment, concurrent order number generation
 - **Performance**: Avoid N+1 queries, use Supabase `.select()` joins over
   multiple round-trips, consider what happens with 200 concurrent kiosk sessions
+
+### 4. Database Operations — CRITICAL
+
+**NEVER run `supabase db reset` or `npm run supabase:reset` unless explicitly asked.**
+
+These commands WIPE ALL DATA and should ONLY be used in fresh local development when testing migrations from scratch. For applying new migrations:
+- ✅ **ALWAYS use**: `npm run supabase:push` or `supabase migration up`
+- ✅ **Create new migrations** to apply schema changes without data loss
+- ❌ **NEVER use**: `supabase db reset` during normal development
+- ❌ **NEVER use**: Commands that drop tables or truncate data without explicit user approval
+
+After any schema change, regenerate types with `npm run supabase:types`.
+
+### 5. UI/UX Implementation — Match the Exact Pattern
+
+When implementing UI changes, match the EXACT pattern described by the user. Do not substitute a different UX pattern.
+
+**Common patterns (not interchangeable):**
+- **Expandable card**: Card expands in-place to show detail
+- **Split-panel/Master-detail**: Grid collapses to sidebar, detail panel slides in from side
+- **Bottom sheet**: Modal slides up from bottom
+- **Kanban**: Vertical columns with draggable cards
+
+**Before writing code:**
+1. Confirm the exact interaction pattern with the user if ANY ambiguity exists
+2. Describe the interaction back to the user in one sentence for verification
+3. Reference existing similar patterns in the codebase when possible
+
+**If the user says "expandable card", do NOT build a split-panel layout.**
+
+### 6. Module Boundaries — Never Mix Responsibilities
+
+**Kitchen Display System (KDS):**
+- Shows ONLY: `preparing` and `ready` statuses
+- Actions: Mark items/orders as "Ready" (preparing → ready)
+- NEVER handles `served` status — that's the waiter's job
+
+**Waiter Module:**
+- Shows: `ready`, `preparing`, and `served` statuses
+- Actions: Mark items as "Served" (ready → served)
+- NEVER handles initial order preparation — that's the kitchen's job
+
+**Cashier Module:**
+- Handles: Payment processing, refunds, shift reports
+- Shows: `pending_payment` and `unpaid` orders
+- NEVER handles order preparation or service status
 
 ### 4. Setup Dependencies Before Implementation
 Before implementing features that require them:
@@ -224,6 +273,14 @@ npm run supabase:reset      # Reset local DB (dev only - WIPES DATA)
 - Refund processing with manager PIN verification and audit log
 - Shift summary / reconciliation report
 
+### ✅ Phase 3.5 — Enhancements (Implemented Feb 11, 2026)
+- **Arena Blanca Resort rebrand**: Updated metadata, kiosk welcome, header logo
+- **Remove confirmation countdown**: Cash and bill_later orders no longer show expiry timer
+- **Cashier name tracking**: `payments.cashier_name` column, updated `process_cash_payment()` RPC
+- **Recent Orders tab**: Cashier nav tab with split-panel UI (search, order cards, receipt access)
+- **Add items to existing order**: Kiosk lookup page (order# + table# or browse active orders), menu reuse, server-side total recalculation
+- **Confirmation "Add More Items" button**: Dine-in bill_later orders can add items from confirmation page
+
 ### Phase 4 — Admin & Polish (Pending)
 - Real-time dashboard (revenue, orders, charts)
 - Sales reports (date range, category, item)
@@ -273,7 +330,10 @@ src/app/
   │   ├── menu/page.tsx       → Category grid + item list
   │   ├── cart/page.tsx       → Cart review + special instructions
   │   ├── checkout/page.tsx   → 4-step checkout flow
-  │   └── confirmation/page.tsx → Order number + auto-redirect
+  │   ├── confirmation/page.tsx → Order number + auto-redirect + Add More Items
+  │   └── add-items/            → Add items to existing dine-in order
+  │       ├── page.tsx          → Order lookup (manual + browse active)
+  │       └── [orderId]/page.tsx → Menu browsing for adding items
   ├── (kitchen)/              → Kitchen Display (route group, staff)
   │   ├── layout.tsx          → Dark theme, fullscreen
   │   └── orders/page.tsx     → Real-time order queue (KDS)
@@ -285,6 +345,7 @@ src/app/
   │   ├── layout.tsx          → Server: AuthGuard + cashier name fetch
   │   ├── layout-client.tsx   → Client: POS header, nav, live clock
   │   ├── payments/page.tsx   → Main POS page (pending queue + payment)
+  │   ├── recent/page.tsx     → Recent Orders (split-panel, receipt access)
   │   └── reports/page.tsx    → Shift summary / reconciliation
   ├── admin/                  → Admin dashboard (regular folder, NOT route group)
   │   ├── layout.tsx          → Sidebar navigation
@@ -298,10 +359,10 @@ src/app/
 
 src/components/
   ├── ui/                     → shadcn/ui primitives (20 components). Do NOT edit directly.
-  ├── kiosk/                  → Kiosk-specific (menu-grid, menu-item-card, cart-drawer, etc.)
+  ├── kiosk/                  → Kiosk-specific (menu-grid, menu-item-card, cart-drawer, add-items-client, etc.)
   ├── kitchen/                → KDS-specific (order-card, order-queue)
   ├── waiter/                 → Waiter-specific (split-panel, list-card, detail-panel, etc.)
-  ├── cashier/                → Cashier-specific (payment-form, order-detail-panel, etc.)
+  ├── cashier/                → Cashier-specific (payment-form, order-detail-panel, recent-orders-client, etc.)
   ├── admin/                  → Admin-specific (stats-cards, menu-item-form, sales-chart, etc.)
   ├── auth/                   → Auth components (login-form, signup-form)
   └── shared/                 → Cross-module (date-range-picker, pagination)
@@ -478,6 +539,25 @@ export default {
 - For kitchen: dark theme only, high contrast, `text-xl` minimum (20px) for details, `text-3xl` (28px+) for order numbers.
 - **Do NOT create a `tailwind.config.js` or `tailwind.config.ts` file.**
   If you see one, delete it — v4 doesn't use it.
+
+**CRITICAL CSS RULES:**
+
+1. **Do NOT indent CSS rules in `src/app/globals.css`** — Tailwind v4 is sensitive to indentation and it will break styling silently. All CSS at root level should have zero indentation.
+
+2. **Before making ANY CSS/styling changes, verify these will be tested:**
+   - Dark theme contrast is readable (especially text on colored backgrounds)
+   - No overflow on screens 768px-1920px wide
+   - Borders and spacing match adjacent components
+   - Typography changes don't affect unintended elements
+
+3. **After CSS changes, explicitly list what you verified:**
+   ```
+   ✅ Dark theme: text-slate-300 on slate-800 background = 7.2:1 contrast (WCAG AAA)
+   ✅ Tested at 768px, 1024px, 1920px — no horizontal scroll
+   ✅ Left border matches card-header pattern from order-card.tsx
+   ```
+
+4. **Never change typography, borders, or spacing in isolation** — always check downstream effects on related components in the same module.
 
 ### Package Manager
 - **Use `npm`** (NOT `pnpm` or `yarn`) - the project uses `package-lock.json`
@@ -1150,6 +1230,7 @@ For detailed procedures, see PRD Section 20. Key points:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.6 | Feb 11, 2026 | Phase 3.5 Enhancements: Arena Blanca Resort rebrand (metadata, kiosk welcome, header logo). Removed confirmation countdown for cash/bill_later. Cashier name tracking (payments.cashier_name column, updated process_cash_payment RPC). Recent Orders tab (cashier nav, split-panel UI with search, receipt access). Add items to existing dine-in order (kiosk lookup page, menu reuse, addItemsToOrder server action with total recalculation). Confirmation "Add More Items" button for bill_later orders. New files: add-items/page.tsx, add-items/[orderId]/page.tsx, add-items-client.tsx, recent/page.tsx, recent-orders-client.tsx, recent-order-card.tsx, recent-order-detail.tsx. Updated PRD (F-K12, F-K13, F-C11, F-C12) and ARCHITECTURE.md. |
 | 2.5 | Feb 10, 2026 | Waiter Split Panel UI: added Framer Motion split-panel layout with waiter-split-panel.tsx, waiter-list-card.tsx, waiter-detail-panel.tsx, waiter-compact-card.tsx components. Grid collapses to sidebar on card click, detail panel slides in from right. Tab-based filtering (Ready/Preparing/Recent), Escape key support, crossfade animations. Fixed flex shorthand console warning, fixed stray "0" discount display bug. Updated AGENT-WAITER.md with new UI specs and component architecture. |
 | 2.4 | Feb 9, 2026 | Phase 2.5 Waiter Module: added 5 migrations for item status tracking, waiter route group, waiter components (order-queue, order-card), realtime waiter hook, item-status constants/utils, kitchen updates for per-item tracking, bill_later payment option, auth service waiter redirect. Updated Project Overview to include Waiter module. |
 | 2.3 | Feb 8, 2026 | Phase 3 Payments: added payment-service.ts, bir-service.ts, 12 cashier components, cashier pages (payments + reports), PayMongo webhook handler, payment RPC functions migration, realtime pending orders hook, payment types/validators/constants. Updated Phase 2 and Phase 3 status. |

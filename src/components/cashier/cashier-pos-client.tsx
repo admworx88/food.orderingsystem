@@ -25,6 +25,7 @@ interface CashierPosClientProps {
   initialOrders: CashierOrder[];
   initialUnpaidBills: CashierOrder[];
   cashierId: string;
+  cashierName: string;
   isPayMongoEnabled: boolean;
 }
 
@@ -38,6 +39,7 @@ export function CashierPosClient({
   initialOrders,
   initialUnpaidBills,
   cashierId,
+  cashierName,
   isPayMongoEnabled,
 }: CashierPosClientProps) {
   const { orders: realtimePendingOrders, isLoading: isPendingLoading } = useRealtimePendingOrders();
@@ -91,6 +93,7 @@ export function CashierPosClient({
           orderId: selectedOrder.id,
           amountTendered: amountTenderedOrChange,
           cashierId,
+          cashierName,
         });
         setIsProcessing(false);
 
@@ -120,7 +123,7 @@ export function CashierPosClient({
         }
       }
     },
-    [selectedOrder, cashierId]
+    [selectedOrder, cashierId, cashierName]
   );
 
   const handleNewTransaction = useCallback(() => {

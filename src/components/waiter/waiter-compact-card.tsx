@@ -16,6 +16,7 @@ const ORDER_TYPE_LABELS: Record<string, { label: string; icon: string }> = {
   dine_in: { label: 'DINE-IN', icon: '🍽' },
   room_service: { label: 'ROOM SVC', icon: '🛎' },
   takeout: { label: 'TAKEOUT', icon: '📦' },
+  ocean_view: { label: 'OCEAN VIEW', icon: '🌊' },
 };
 
 /**
@@ -48,7 +49,6 @@ export function WaiterCompactCard({
   return (
     <motion.button
       type="button"
-      layoutId={`order-card-${order.id}`}
       onClick={onClick}
       className={cn(
         'waiter-compact-card',

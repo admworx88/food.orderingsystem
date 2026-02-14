@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { OrderDetailDialog } from './order-detail-dialog';
 import { formatCurrency } from '@/lib/utils/currency';
 import { format } from 'date-fns';
-import { ClipboardList, Phone, MapPin, UtensilsCrossed } from 'lucide-react';
+import { ClipboardList, Phone, MapPin, UtensilsCrossed, Waves } from 'lucide-react';
 import type { Database } from '@/lib/supabase/types';
 
 type Order = Database['public']['Tables']['orders']['Row'];
@@ -74,6 +74,8 @@ function formatOrderType(type: string): string {
       return 'Room Service';
     case 'takeout':
       return 'Takeout';
+    case 'ocean_view':
+      return 'Ocean View';
     default:
       return type;
   }
@@ -94,6 +96,8 @@ function getOrderTypeIcon(type: string) {
       return <MapPin className="h-3.5 w-3.5" />;
     case 'takeout':
       return <ClipboardList className="h-3.5 w-3.5" />;
+    case 'ocean_view':
+      return <Waves className="h-3.5 w-3.5" />;
     default:
       return null;
   }

@@ -1,5 +1,7 @@
 import Link from 'next/link';
-import { ChevronRight, Utensils, Clock, Sparkles } from 'lucide-react';
+import Image from 'next/image';
+import { ChevronRight, Utensils, Clock, Sparkles, Plus } from 'lucide-react';
+import { FullscreenToggle } from '@/components/kiosk/fullscreen-toggle';
 
 export default function KioskWelcomePage() {
   return (
@@ -14,14 +16,18 @@ export default function KioskWelcomePage() {
       <div className="relative z-10 max-w-2xl w-full text-center">
         {/* Logo */}
         <div className="mb-6 sm:mb-8 animate-scale-in">
-          <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-amber-400 to-amber-600 shadow-2xl shadow-amber-500/30 mb-4 sm:mb-6">
-            <Utensils className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-white" strokeWidth={2} />
-          </div>
+          <Image
+            src="/arenalogo.png"
+            alt="Arena Blanca Resort"
+            width={96}
+            height={96}
+            className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-2xl sm:rounded-3xl object-contain shadow-2xl mx-auto mb-4 sm:mb-6"
+          />
           <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-stone-800 mb-2 sm:mb-3 tracking-tight font-display">
-            Welcome to OrderFlow
+            Welcome to Arena Blanca Resort
           </h1>
           <p className="text-base sm:text-lg md:text-xl text-stone-500 font-medium px-4">
-            Your Hotel Restaurant Dining Experience
+            Restaurant &amp; Dining
           </p>
         </div>
 
@@ -60,24 +66,34 @@ export default function KioskWelcomePage() {
 
         {/* CTA Button - responsive sizing */}
         <Link
-          href="/menu"
+          href="/order-type"
           className="inline-flex items-center gap-2 sm:gap-4 bg-gradient-to-r from-amber-500 to-amber-600 text-white px-6 sm:px-8 md:px-12 py-4 sm:py-5 md:py-6 rounded-xl sm:rounded-2xl text-base sm:text-lg md:text-xl font-bold shadow-2xl shadow-amber-500/30 hover:shadow-amber-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all animate-fade-in-up animation-delay-400 group"
         >
           <span>Start Your Order</span>
           <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 group-hover:translate-x-1 transition-transform" strokeWidth={2.5} />
         </Link>
 
+        {/* Add to existing order */}
+        <Link
+          href="/add-items"
+          className="mt-5 sm:mt-6 inline-flex items-center gap-2 text-amber-600 hover:text-amber-700 font-semibold text-sm sm:text-base transition-colors animate-fade-in-up animation-delay-500"
+        >
+          <Plus className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2} />
+          <span>Add to Existing Order</span>
+        </Link>
+
         {/* Helper text */}
-        <p className="mt-6 sm:mt-8 text-xs sm:text-sm text-stone-400 animate-fade-in animation-delay-600 px-4">
-          Tap anywhere to begin • Dine-in, room service & takeout
+        <p className="mt-4 sm:mt-6 text-xs sm:text-sm text-stone-400 animate-fade-in animation-delay-600 px-4">
+          Tap anywhere to begin • Dine-in, room service, takeout & ocean view
         </p>
       </div>
 
       {/* Footer info */}
-      <div className="absolute bottom-4 sm:bottom-8 left-0 right-0 text-center animate-fade-in animation-delay-700 safe-area-inset-bottom">
+      <div className="absolute bottom-4 sm:bottom-8 left-0 right-0 flex items-center justify-center gap-3 animate-fade-in animation-delay-700 safe-area-inset-bottom">
         <p className="text-[10px] sm:text-xs text-stone-400">
           Operating Hours: 6:00 AM - 11:00 PM Daily
         </p>
+        <FullscreenToggle variant="welcome" />
       </div>
     </div>
   );

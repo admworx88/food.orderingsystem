@@ -609,6 +609,7 @@ export type Database = {
         Row: {
           amount: number
           cash_received: number | null
+          cashier_name: string | null
           change_given: number | null
           completed_at: string | null
           created_at: string | null
@@ -622,6 +623,7 @@ export type Database = {
         Insert: {
           amount: number
           cash_received?: number | null
+          cashier_name?: string | null
           change_given?: number | null
           completed_at?: string | null
           created_at?: string | null
@@ -635,6 +637,7 @@ export type Database = {
         Update: {
           amount?: number
           cash_received?: number | null
+          cashier_name?: string | null
           change_given?: number | null
           completed_at?: string | null
           created_at?: string | null
@@ -789,6 +792,7 @@ export type Database = {
           p_amount: number
           p_cash_received: number
           p_cashier_id: string
+          p_cashier_name?: string
           p_change_given: number
           p_order_id: string
         }
@@ -809,7 +813,7 @@ export type Database = {
         | "ready"
         | "served"
         | "cancelled"
-      order_type: "dine_in" | "room_service" | "takeout"
+      order_type: "dine_in" | "room_service" | "takeout" | "ocean_view"
       payment_method: "cash" | "gcash" | "card" | "bill_later"
       payment_status: "unpaid" | "processing" | "paid" | "refunded" | "expired"
       user_role: "admin" | "cashier" | "kitchen" | "kiosk" | "waiter"
@@ -953,7 +957,7 @@ export const Constants = {
         "served",
         "cancelled",
       ],
-      order_type: ["dine_in", "room_service", "takeout"],
+      order_type: ["dine_in", "room_service", "takeout", "ocean_view"],
       payment_method: ["cash", "gcash", "card", "bill_later"],
       payment_status: ["unpaid", "processing", "paid", "refunded", "expired"],
       user_role: ["admin", "cashier", "kitchen", "kiosk", "waiter"],

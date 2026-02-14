@@ -1,14 +1,40 @@
 'use client';
 
-import { useState, useEffect, createContext, useContext } from 'react';
-import Link from 'next/link';
-import { Maximize2, Minimize2, History } from 'lucide-react';
+import { useState, useEffect, createContext, useContext, useCallback, useSyncExternalStore } from 'react';
+import { Maximize2, Minimize2, History, Volume2, VolumeX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// Context for Recent mode state
+const SOUND_STORAGE_KEY = 'kitchen-sound-enabled';
+
+// Custom hook for localStorage with SSR support
+function useKitchenSoundPreference() {
+  const getSnapshot = useCallback(() => {
+    if (typeof window === 'undefined') return 'true';
+    return localStorage.getItem(SOUND_STORAGE_KEY) ?? 'true';
+  }, []);
+
+  const getServerSnapshot = useCallback(() => 'true', []);
+
+  const subscribe = useCallback((callback: () => void) => {
+    window.addEventListener('storage', callback);
+    // Also listen for custom events for same-tab updates
+    window.addEventListener('kitchen-sound-change', callback);
+    return () => {
+      window.removeEventListener('storage', callback);
+      window.removeEventListener('kitchen-sound-change', callback);
+    };
+  }, []);
+
+  const value = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  return value === 'true';
+}
+
+// Context for Recent mode state and sound preference
 interface KitchenContextType {
   isRecentMode: boolean;
   setIsRecentMode: (value: boolean) => void;
+  soundEnabled: boolean;
+  toggleSound: () => void;
 }
 
 const KitchenContext = createContext<KitchenContextType | null>(null);
@@ -54,6 +80,14 @@ export function KitchenLayoutClient({
 }: Readonly<{ children: React.ReactNode }>) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isRecentMode, setIsRecentMode] = useState(false);
+  const soundEnabled = useKitchenSoundPreference();
+
+  const toggleSound = useCallback(() => {
+    const newValue = !soundEnabled;
+    localStorage.setItem(SOUND_STORAGE_KEY, String(newValue));
+    // Dispatch custom event for same-tab updates
+    window.dispatchEvent(new Event('kitchen-sound-change'));
+  }, [soundEnabled]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -76,7 +110,7 @@ export function KitchenLayoutClient({
   }, []);
 
   return (
-    <KitchenContext.Provider value={{ isRecentMode, setIsRecentMode }}>
+    <KitchenContext.Provider value={{ isRecentMode, setIsRecentMode, soundEnabled, toggleSound }}>
       <div className="min-h-screen bg-[#050506] text-zinc-100 flex flex-col kds-grid-bg kds-scanline">
         {/* Mission Control Header - responsive padding */}
         <header className="flex-shrink-0 bg-[#0a0a0c]/90 backdrop-blur-md border-b border-white/[0.06] sticky top-0 z-50">
@@ -150,9 +184,26 @@ export function KitchenLayoutClient({
               </button>
             </nav>
 
-            {/* Right: Clock & Fullscreen - responsive spacing */}
+            {/* Right: Clock, Sound Toggle & Fullscreen - responsive spacing */}
             <div className="flex items-center gap-3 lg:gap-6">
               <LiveClock />
+
+              <button
+                onClick={toggleSound}
+                className={cn(
+                  "p-2 lg:p-2.5 rounded-lg border transition-all",
+                  soundEnabled
+                    ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20"
+                    : "bg-zinc-800/50 border-white/[0.08] text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50"
+                )}
+                aria-label={soundEnabled ? 'Mute notifications' : 'Unmute notifications'}
+              >
+                {soundEnabled ? (
+                  <Volume2 className="w-4 h-4 lg:w-5 lg:h-5" />
+                ) : (
+                  <VolumeX className="w-4 h-4 lg:w-5 lg:h-5" />
+                )}
+              </button>
 
               <button
                 onClick={toggleFullscreen}

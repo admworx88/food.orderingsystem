@@ -12,12 +12,21 @@ export default async function PaymentsPage() {
   const initialOrders = pendingResult.success ? pendingResult.data : [];
   const initialUnpaidBills = unpaidResult.success ? unpaidResult.data : [];
 
-  // Get cashier ID for payment processing
+  // Get cashier ID and name for payment processing
   let cashierId = '';
+  let cashierName = 'Unknown';
   try {
     const supabase = await createServerClient();
     const { data: { user } } = await supabase.auth.getUser();
     cashierId = user?.id || '';
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single();
+      cashierName = profile?.full_name || 'Unknown';
+    }
   } catch {
     // Fallback
   }
@@ -30,6 +39,7 @@ export default async function PaymentsPage() {
       initialOrders={initialOrders}
       initialUnpaidBills={initialUnpaidBills}
       cashierId={cashierId}
+      cashierName={cashierName}
       isPayMongoEnabled={isPayMongoEnabled}
     />
   );

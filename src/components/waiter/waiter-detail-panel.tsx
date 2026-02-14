@@ -21,6 +21,7 @@ const ORDER_TYPE_LABELS: Record<string, { label: string; icon: string }> = {
   dine_in: { label: 'DINE-IN', icon: '🍽' },
   room_service: { label: 'ROOM SERVICE', icon: '🛎' },
   takeout: { label: 'TAKEOUT', icon: '📦' },
+  ocean_view: { label: 'OCEAN VIEW', icon: '🌊' },
 };
 
 /**

@@ -26,6 +26,9 @@ interface UseRealtimeOrdersReturn {
   optimisticStatusUpdate: (orderId: string, newStatus: string, newVersion: number) => void;
 }
 
+// Notification sound for new orders
+const NOTIFICATION_SOUND_URL = '/sounds/notification.mp3';
+
 // Get midnight of today in ISO format for current shift filtering
 function getTodayMidnight(): string {
   const now = new Date();
@@ -34,6 +37,7 @@ function getTodayMidnight(): string {
 }
 
 export function useRealtimeOrders(
+  soundEnabled: boolean = true,
   options: UseRealtimeOrdersOptions = {}
 ): UseRealtimeOrdersReturn {
   const { includeServed = false } = options;
@@ -41,6 +45,19 @@ export function useRealtimeOrders(
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
+  const prevNewOrderCountRef = useRef<number>(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Initialize audio element
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      audioRef.current = new Audio(NOTIFICATION_SOUND_URL);
+      audioRef.current.volume = 0.5;
+    }
+    return () => {
+      audioRef.current = null;
+    };
+  }, []);
 
   function getSupabase() {
     if (!supabaseRef.current) {
@@ -48,6 +65,20 @@ export function useRealtimeOrders(
     }
     return supabaseRef.current;
   }
+
+  // Count new orders (status = 'paid')
+  const newOrderCount = orders.filter((o) => o.status === 'paid').length;
+
+  // Play notification sound when new orders arrive
+  useEffect(() => {
+    if (soundEnabled && newOrderCount > prevNewOrderCountRef.current && audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch((err) => {
+        console.warn('Failed to play notification sound:', err);
+      });
+    }
+    prevNewOrderCountRef.current = newOrderCount;
+  }, [newOrderCount, soundEnabled]);
 
   const fetchOrders = useCallback(async () => {
     const supabase = getSupabase();
@@ -183,6 +214,7 @@ export function useRealtimeOrders(
   }, [includeServed]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Initial fetch + subscription setup pattern
     fetchOrders();
 
     const supabase = getSupabase();
