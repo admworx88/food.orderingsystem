@@ -32,7 +32,7 @@ const nextConfig: NextConfig = {
     ],
     // For local development, bypass Next.js image optimization
     // In production, Next.js will optimize images from Supabase
-    unoptimized: process.env.NODE_ENV === "development",
+    //unoptimized: process.env.NODE_ENV === "development",
   },
   experimental: {
     serverActions: {
