@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { createBrowserClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/supabase/types';
 import type { CashierOrder } from '@/types/payment';
+import { useRealtimeReconnection } from './use-realtime-reconnection';
 
 type Order = Database['public']['Tables']['orders']['Row'];
 
@@ -130,6 +131,17 @@ export function useRealtimeUnpaidBills(): UseRealtimeUnpaidBillsReturn {
 
     const supabase = getSupabase();
 
+    const reconnection = useRealtimeReconnection({
+      channelName: 'cashier-unpaid-bills',
+      onMaxRetriesReached: () => {
+        console.warn('[Cashier] Max reconnection attempts reached for unpaid bills, using polling fallback');
+      },
+      onReconnect: () => {
+        // Refetch orders after reconnection delay
+        fetchOrders();
+      },
+    });
+
     // Subscribe to all orders table changes, filter client-side
     const channel = supabase
       .channel('cashier-unpaid-bills')
@@ -142,9 +154,21 @@ export function useRealtimeUnpaidBills(): UseRealtimeUnpaidBillsReturn {
         },
         handleRealtimeChange
       )
-      .subscribe();
+      .subscribe((status) => {
+        reconnection.handleStatus(status);
+
+        if (status === 'SUBSCRIBED') {
+          console.log('[Cashier Realtime] Unpaid bills channel connected');
+          setError(null);
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[Cashier Realtime] Unpaid bills channel error - attempting reconnect');
+        } else if (status === 'TIMED_OUT') {
+          console.warn('[Cashier Realtime] Unpaid bills timed out - attempting reconnect');
+        }
+      });
 
     return () => {
+      reconnection.reset();
       supabase.removeChannel(channel);
     };
   }, [fetchOrders, handleRealtimeChange]);
