@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { createBrowserClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/supabase/types';
+import { useRealtimeReconnection } from './use-realtime-reconnection';
 
 type Order = Database['public']['Tables']['orders']['Row'];
 type OrderItem = Database['public']['Tables']['order_items']['Row'];
@@ -219,6 +220,17 @@ export function useRealtimeOrders(
 
     const supabase = getSupabase();
 
+    const reconnection = useRealtimeReconnection({
+      channelName: 'kitchen-orders',
+      onMaxRetriesReached: () => {
+        console.warn('[KDS] Max reconnection attempts reached, using polling fallback');
+      },
+      onReconnect: () => {
+        // Refetch orders after reconnection delay
+        fetchOrders();
+      },
+    });
+
     // Subscribe to realtime changes on orders table.
     // NOTE: Supabase Realtime postgres_changes does not support `in` filters
     // (e.g., status=in.(paid,preparing,ready)). Only single `eq` filters are
@@ -236,13 +248,16 @@ export function useRealtimeOrders(
         },
         handleRealtimeChange
       )
-      .subscribe((status, err) => {
+      .subscribe((status) => {
+        reconnection.handleStatus(status);
+
         if (status === 'SUBSCRIBED') {
           console.log('[KDS Realtime] Orders channel connected');
+          setError(null);
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('[KDS Realtime] Orders channel error:', err);
+          console.error('[KDS Realtime] Orders channel error - attempting reconnect');
         } else if (status === 'TIMED_OUT') {
-          console.warn('[KDS Realtime] Orders connection timed out');
+          console.warn('[KDS Realtime] Orders connection timed out - attempting reconnect');
         } else {
           console.log('[KDS Realtime] Orders status:', status);
         }
@@ -264,11 +279,13 @@ export function useRealtimeOrders(
           fetchOrders();
         }
       )
-      .subscribe((status, err) => {
+      .subscribe((status) => {
+        reconnection.handleStatus(status);
+
         if (status === 'SUBSCRIBED') {
           console.log('[KDS Realtime] Items channel connected');
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('[KDS Realtime] Items channel error:', err);
+          console.error('[KDS Realtime] Items channel error - attempting reconnect');
         }
       });
 
@@ -276,6 +293,7 @@ export function useRealtimeOrders(
     const pollInterval = setInterval(fetchOrders, 10_000);
 
     return () => {
+      reconnection.reset();
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(itemsChannel);
       clearInterval(pollInterval);
