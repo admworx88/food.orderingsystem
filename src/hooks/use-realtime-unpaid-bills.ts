@@ -25,6 +25,7 @@ export function useRealtimeUnpaidBills(): UseRealtimeUnpaidBillsReturn {
   const [orders, setOrders] = useState<CashierOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reconnectTrigger, setReconnectTrigger] = useState(0);
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
 
   function getSupabase() {
@@ -63,6 +64,16 @@ export function useRealtimeUnpaidBills(): UseRealtimeUnpaidBillsReturn {
 
     setIsLoading(false);
   }, []);
+
+  const reconnection = useRealtimeReconnection({
+    channelName: 'cashier-unpaid-bills',
+    onMaxRetriesReached: () => {
+      console.warn('[Cashier] Max reconnection attempts reached for unpaid bills, using polling fallback');
+    },
+    onReconnect: () => {
+      setReconnectTrigger(prev => prev + 1);
+    },
+  });
 
   const handleRealtimeChange = useCallback(async (payload: {
     eventType: string;
@@ -131,17 +142,6 @@ export function useRealtimeUnpaidBills(): UseRealtimeUnpaidBillsReturn {
 
     const supabase = getSupabase();
 
-    const reconnection = useRealtimeReconnection({
-      channelName: 'cashier-unpaid-bills',
-      onMaxRetriesReached: () => {
-        console.warn('[Cashier] Max reconnection attempts reached for unpaid bills, using polling fallback');
-      },
-      onReconnect: () => {
-        // Refetch orders after reconnection delay
-        fetchOrders();
-      },
-    });
-
     // Subscribe to all orders table changes, filter client-side
     const channel = supabase
       .channel('cashier-unpaid-bills')
@@ -171,7 +171,7 @@ export function useRealtimeUnpaidBills(): UseRealtimeUnpaidBillsReturn {
       reconnection.reset();
       supabase.removeChannel(channel);
     };
-  }, [fetchOrders, handleRealtimeChange]);
+  }, [fetchOrders, handleRealtimeChange, reconnection, reconnectTrigger]);
 
   return { orders, isLoading, error, refetch: fetchOrders };
 }
