@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { createBrowserClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/supabase/types';
 import type { CashierOrder } from '@/types/payment';
+import { useRealtimeReconnection } from './use-realtime-reconnection';
 
 type Order = Database['public']['Tables']['orders']['Row'];
 
@@ -122,6 +123,17 @@ export function useRealtimePendingOrders(): UseRealtimePendingOrdersReturn {
 
     const supabase = getSupabase();
 
+    const reconnection = useRealtimeReconnection({
+      channelName: 'cashier-pending-orders',
+      onMaxRetriesReached: () => {
+        console.warn('[Cashier] Max reconnection attempts reached for pending orders, using polling fallback');
+      },
+      onReconnect: () => {
+        // Refetch orders after reconnection delay
+        fetchOrders();
+      },
+    });
+
     // Subscribe to all orders table changes, filter client-side
     const channel = supabase
       .channel('cashier-pending-orders')
@@ -134,7 +146,18 @@ export function useRealtimePendingOrders(): UseRealtimePendingOrdersReturn {
         },
         handleRealtimeChange
       )
-      .subscribe();
+      .subscribe((status) => {
+        reconnection.handleStatus(status);
+
+        if (status === 'SUBSCRIBED') {
+          console.log('[Cashier Realtime] Pending orders channel connected');
+          setError(null);
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[Cashier Realtime] Pending orders channel error - attempting reconnect');
+        } else if (status === 'TIMED_OUT') {
+          console.warn('[Cashier Realtime] Pending orders timed out - attempting reconnect');
+        }
+      });
 
     // Refresh expiration display every 30 seconds
     const refreshInterval = setInterval(() => {
@@ -142,6 +165,7 @@ export function useRealtimePendingOrders(): UseRealtimePendingOrdersReturn {
     }, 30_000);
 
     return () => {
+      reconnection.reset();
       supabase.removeChannel(channel);
       clearInterval(refreshInterval);
     };
