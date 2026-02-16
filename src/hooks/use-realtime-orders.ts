@@ -48,6 +48,19 @@ export function useRealtimeOrders(
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
   const prevNewOrderCountRef = useRef<number>(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [reconnectTrigger, setReconnectTrigger] = useState(0);
+
+  // Reconnection hook at top level
+  const reconnection = useRealtimeReconnection({
+    channelName: 'kitchen-orders',
+    onMaxRetriesReached: () => {
+      console.warn('[KDS] Max reconnection attempts reached, using polling fallback');
+    },
+    onReconnect: () => {
+      // Trigger a refetch by incrementing counter
+      setReconnectTrigger(prev => prev + 1);
+    },
+  });
 
   // Initialize audio element
   useEffect(() => {
@@ -220,17 +233,6 @@ export function useRealtimeOrders(
 
     const supabase = getSupabase();
 
-    const reconnection = useRealtimeReconnection({
-      channelName: 'kitchen-orders',
-      onMaxRetriesReached: () => {
-        console.warn('[KDS] Max reconnection attempts reached, using polling fallback');
-      },
-      onReconnect: () => {
-        // Refetch orders after reconnection delay
-        fetchOrders();
-      },
-    });
-
     // Subscribe to realtime changes on orders table.
     // NOTE: Supabase Realtime postgres_changes does not support `in` filters
     // (e.g., status=in.(paid,preparing,ready)). Only single `eq` filters are
@@ -298,7 +300,7 @@ export function useRealtimeOrders(
       supabase.removeChannel(itemsChannel);
       clearInterval(pollInterval);
     };
-  }, [fetchOrders, handleRealtimeChange]);
+  }, [fetchOrders, handleRealtimeChange, reconnection, reconnectTrigger]);
 
   return { orders, isLoading, error, refetch: fetchOrders, optimisticStatusUpdate };
 }
