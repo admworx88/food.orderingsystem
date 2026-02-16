@@ -5,6 +5,7 @@ import { createBrowserClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/supabase/types';
 import { calculateItemStatusCounts, hasReadyItems } from '@/lib/utils/item-status';
 import type { OrderItemStatus } from '@/lib/constants/item-status';
+import { useRealtimeReconnection } from './use-realtime-reconnection';
 
 type Order = Database['public']['Tables']['orders']['Row'];
 type OrderItem = Database['public']['Tables']['order_items']['Row'];
@@ -271,6 +272,17 @@ export function useRealtimeWaiterOrders(
 
     const supabase = getSupabase();
 
+    const reconnection = useRealtimeReconnection({
+      channelName: 'waiter-orders',
+      onMaxRetriesReached: () => {
+        console.warn('[Waiter] Max reconnection attempts reached, using polling fallback');
+      },
+      onReconnect: () => {
+        // Refetch orders after reconnection delay
+        fetchOrders();
+      },
+    });
+
     // Subscribe to realtime changes on orders table
     const ordersChannel = supabase
       .channel('waiter-orders')
@@ -283,11 +295,14 @@ export function useRealtimeWaiterOrders(
         },
         handleRealtimeChange
       )
-      .subscribe((status, err) => {
+      .subscribe((status) => {
+        reconnection.handleStatus(status);
+
         if (status === 'SUBSCRIBED') {
           console.log('[Waiter Realtime] Orders channel connected');
+          setError(null);
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('[Waiter Realtime] Orders channel error:', err);
+          console.error('[Waiter Realtime] Orders channel error - attempting reconnect');
         }
       });
 
@@ -307,11 +322,13 @@ export function useRealtimeWaiterOrders(
           fetchOrders();
         }
       )
-      .subscribe((status, err) => {
+      .subscribe((status) => {
+        reconnection.handleStatus(status);
+
         if (status === 'SUBSCRIBED') {
           console.log('[Waiter Realtime] Items channel connected');
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('[Waiter Realtime] Items channel error:', err);
+          console.error('[Waiter Realtime] Items channel error - attempting reconnect');
         }
       });
 
@@ -319,6 +336,7 @@ export function useRealtimeWaiterOrders(
     const pollInterval = setInterval(fetchOrders, 10_000);
 
     return () => {
+      reconnection.reset();
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(itemsChannel);
       clearInterval(pollInterval);
