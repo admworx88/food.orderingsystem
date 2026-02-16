@@ -55,6 +55,7 @@ export function useRealtimeWaiterOrders(
   const [orders, setOrders] = useState<WaiterOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reconnectTrigger, setReconnectTrigger] = useState(0);
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
   const prevReadyCountRef = useRef<number>(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -145,6 +146,18 @@ export function useRealtimeWaiterOrders(
 
     setIsLoading(false);
   }, [includeServed]);
+
+  // Reconnection handler - must be at top level (Rules of Hooks)
+  const reconnection = useRealtimeReconnection({
+    channelName: 'waiter-orders',
+    onMaxRetriesReached: () => {
+      console.warn('[Waiter] Max reconnection attempts reached, using polling fallback');
+    },
+    onReconnect: () => {
+      // Trigger refetch via state update
+      setReconnectTrigger((prev) => prev + 1);
+    },
+  });
 
   // Optimistic UI update for item status
   const optimisticItemUpdate = useCallback((
@@ -272,17 +285,6 @@ export function useRealtimeWaiterOrders(
 
     const supabase = getSupabase();
 
-    const reconnection = useRealtimeReconnection({
-      channelName: 'waiter-orders',
-      onMaxRetriesReached: () => {
-        console.warn('[Waiter] Max reconnection attempts reached, using polling fallback');
-      },
-      onReconnect: () => {
-        // Refetch orders after reconnection delay
-        fetchOrders();
-      },
-    });
-
     // Subscribe to realtime changes on orders table
     const ordersChannel = supabase
       .channel('waiter-orders')
@@ -341,7 +343,7 @@ export function useRealtimeWaiterOrders(
       supabase.removeChannel(itemsChannel);
       clearInterval(pollInterval);
     };
-  }, [fetchOrders, handleRealtimeChange]);
+  }, [fetchOrders, handleRealtimeChange, reconnection, reconnectTrigger]);
 
   return {
     orders,
