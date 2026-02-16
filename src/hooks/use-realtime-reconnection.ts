@@ -7,6 +7,7 @@ interface UseRealtimeReconnectionOptions {
   channelName: string;
   maxRetries?: number;
   onMaxRetriesReached?: () => void;
+  onReconnect?: () => void;
 }
 
 interface ReconnectionHandler {
@@ -22,7 +23,7 @@ const channelsWithErrorToast = new Set<string>();
 export function useRealtimeReconnection(
   options: UseRealtimeReconnectionOptions
 ): ReconnectionHandler {
-  const { channelName, maxRetries = 3, onMaxRetriesReached } = options;
+  const { channelName, maxRetries = 3, onMaxRetriesReached, onReconnect } = options;
 
   const retryCountRef = useRef(0);
   const isRetryingRef = useRef(false);
@@ -35,8 +36,10 @@ export function useRealtimeReconnection(
         clearTimeout(retryTimeoutRef.current);
         retryTimeoutRef.current = null;
       }
+      // Clean up toast tracking on unmount
+      channelsWithErrorToast.delete(channelName);
     };
-  }, []);
+  }, [channelName]);
 
   const reset = useCallback(() => {
     retryCountRef.current = 0;
@@ -53,7 +56,7 @@ export function useRealtimeReconnection(
       channelsWithErrorToast.add(channelName);
 
       toast.error('Realtime connection lost. Using backup polling mode.', {
-        duration: Infinity,
+        duration: 60000,
         action: {
           label: 'Refresh Page',
           onClick: () => {
@@ -91,14 +94,16 @@ export function useRealtimeReconnection(
     retryTimeoutRef.current = setTimeout(() => {
       isRetryingRef.current = false;
       retryTimeoutRef.current = null;
-      // The actual reconnection will be triggered by the calling hook
-      // This just manages the timing and state
+      // Trigger the actual reconnection
+      if (onReconnect) {
+        onReconnect();
+      }
     }, delay);
-  }, [channelName, maxRetries, onMaxRetriesReached, showErrorToast]);
+  }, [channelName, maxRetries, onMaxRetriesReached, onReconnect, showErrorToast]);
 
   const handleStatus = useCallback((status: string) => {
-    if (status === 'SUBSCRIBED') {
-      // Successful connection - reset retry state
+    if (status === 'SUBSCRIBED' || status === 'CLOSED') {
+      // Successful connection or intentional close - reset retry state
       reset();
       // Clear error toast if it was shown
       channelsWithErrorToast.delete(channelName);
