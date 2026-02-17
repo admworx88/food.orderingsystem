@@ -15,14 +15,21 @@ interface UseRealtimePendingOrdersReturn {
   refetch: () => Promise<void>;
 }
 
+interface UseRealtimePendingOrdersOptions {
+  initialData?: CashierOrder[];
+}
+
 /**
  * Realtime subscription for cashier pending orders queue.
  * Filters for payment_status = 'unpaid', status = 'pending_payment'.
  * Removes orders from list when paid, expired, or cancelled.
+ * Accepts initialData from server-side fetch to avoid redundant client fetch.
  */
-export function useRealtimePendingOrders(): UseRealtimePendingOrdersReturn {
-  const [orders, setOrders] = useState<CashierOrder[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export function useRealtimePendingOrders(
+  { initialData }: UseRealtimePendingOrdersOptions = {}
+): UseRealtimePendingOrdersReturn {
+  const [orders, setOrders] = useState<CashierOrder[]>(initialData ?? []);
+  const [isLoading, setIsLoading] = useState(!initialData);
   const [error, setError] = useState<string | null>(null);
   const [reconnectTrigger, setReconnectTrigger] = useState(0);
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
@@ -36,6 +43,15 @@ export function useRealtimePendingOrders(): UseRealtimePendingOrdersReturn {
 
   const fetchOrders = useCallback(async () => {
     const supabase = getSupabase();
+
+    // Guard: only fetch if there is a valid authenticated session.
+    // Without this, the browser client calls auth.uid() → null → RLS blocks query.
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      console.warn('[Cashier] fetchOrders skipped: no active session');
+      setIsLoading(false);
+      return;
+    }
 
     const { data, error: fetchError } = await supabase
       .from('orders')
@@ -72,6 +88,10 @@ export function useRealtimePendingOrders(): UseRealtimePendingOrdersReturn {
       setReconnectTrigger(prev => prev + 1);
     },
   });
+
+  // Stable ref so useEffect doesn't re-run when reconnection object changes identity
+  const reconnectionRef = useRef(reconnection);
+  reconnectionRef.current = reconnection;
 
   const handleRealtimeChange = useCallback(async (payload: {
     eventType: string;
@@ -130,7 +150,10 @@ export function useRealtimePendingOrders(): UseRealtimePendingOrdersReturn {
   }, []);
 
   useEffect(() => {
-    fetchOrders();
+    // Skip initial fetch if server already provided data
+    if (!initialData) {
+      fetchOrders();
+    }
 
     const supabase = getSupabase();
 
@@ -147,7 +170,7 @@ export function useRealtimePendingOrders(): UseRealtimePendingOrdersReturn {
         handleRealtimeChange
       )
       .subscribe((status) => {
-        reconnection.handleStatus(status);
+        reconnectionRef.current.handleStatus(status);
 
         if (status === 'SUBSCRIBED') {
           console.log('[Cashier Realtime] Pending orders channel connected');
@@ -165,11 +188,13 @@ export function useRealtimePendingOrders(): UseRealtimePendingOrdersReturn {
     }, 30_000);
 
     return () => {
-      reconnection.reset();
+      reconnectionRef.current.reset();
       supabase.removeChannel(channel);
       clearInterval(refreshInterval);
     };
-  }, [fetchOrders, handleRealtimeChange, reconnection, reconnectTrigger]);
+  // reconnectTrigger intentionally drives reconnection; reconnection object excluded (stable via ref)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchOrders, handleRealtimeChange, reconnectTrigger]);
 
   return { orders, isLoading, error, refetch: fetchOrders };
 }

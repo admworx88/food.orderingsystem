@@ -42,18 +42,14 @@ export function CashierPosClient({
   cashierName,
   isPayMongoEnabled,
 }: CashierPosClientProps) {
-  const { orders: realtimePendingOrders, isLoading: isPendingLoading } = useRealtimePendingOrders();
-  const { orders: realtimeUnpaidBills, isLoading: isUnpaidLoading } = useRealtimeUnpaidBills();
+  const { orders: pendingOrders } = useRealtimePendingOrders({ initialData: initialOrders });
+  const { orders: unpaidBills } = useRealtimeUnpaidBills({ initialData: initialUnpaidBills });
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [viewState, setViewState] = useState<ViewState>('payment');
   const [receiptData, setReceiptData] = useState<BIRReceiptData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeTab, setActiveTab] = useState<QueueTab>('pending');
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-
-  // Use realtime orders once loaded, otherwise initial server-fetched orders
-  const pendingOrders = isPendingLoading ? initialOrders : realtimePendingOrders;
-  const unpaidBills = isUnpaidLoading ? initialUnpaidBills : realtimeUnpaidBills;
 
   // Get the current list based on active tab
   const orders = activeTab === 'pending' ? pendingOrders : unpaidBills;

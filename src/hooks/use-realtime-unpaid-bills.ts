@@ -15,15 +15,22 @@ interface UseRealtimeUnpaidBillsReturn {
   refetch: () => Promise<void>;
 }
 
+interface UseRealtimeUnpaidBillsOptions {
+  initialData?: CashierOrder[];
+}
+
 /**
  * Realtime subscription for cashier unpaid bills queue.
  * Filters for payment_method = 'bill_later', payment_status = 'unpaid',
  * and status IN ('preparing', 'ready', 'served').
  * These are dine-in orders where customers chose "Pay After Meal".
+ * Accepts initialData from server-side fetch to avoid redundant client fetch.
  */
-export function useRealtimeUnpaidBills(): UseRealtimeUnpaidBillsReturn {
-  const [orders, setOrders] = useState<CashierOrder[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export function useRealtimeUnpaidBills(
+  { initialData }: UseRealtimeUnpaidBillsOptions = {}
+): UseRealtimeUnpaidBillsReturn {
+  const [orders, setOrders] = useState<CashierOrder[]>(initialData ?? []);
+  const [isLoading, setIsLoading] = useState(!initialData);
   const [error, setError] = useState<string | null>(null);
   const [reconnectTrigger, setReconnectTrigger] = useState(0);
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
@@ -37,6 +44,15 @@ export function useRealtimeUnpaidBills(): UseRealtimeUnpaidBillsReturn {
 
   const fetchOrders = useCallback(async () => {
     const supabase = getSupabase();
+
+    // Guard: only fetch if there is a valid authenticated session.
+    // Without this, the browser client calls auth.uid() → null → RLS blocks query.
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      console.warn('[Cashier] fetchOrders (unpaid bills) skipped: no active session');
+      setIsLoading(false);
+      return;
+    }
 
     const { data, error: fetchError } = await supabase
       .from('orders')
@@ -74,6 +90,10 @@ export function useRealtimeUnpaidBills(): UseRealtimeUnpaidBillsReturn {
       setReconnectTrigger(prev => prev + 1);
     },
   });
+
+  // Stable ref so useEffect doesn't re-run when reconnection object changes identity
+  const reconnectionRef = useRef(reconnection);
+  reconnectionRef.current = reconnection;
 
   const handleRealtimeChange = useCallback(async (payload: {
     eventType: string;
@@ -138,7 +158,10 @@ export function useRealtimeUnpaidBills(): UseRealtimeUnpaidBillsReturn {
   }, []);
 
   useEffect(() => {
-    fetchOrders();
+    // Skip initial fetch if server already provided data
+    if (!initialData) {
+      fetchOrders();
+    }
 
     const supabase = getSupabase();
 
@@ -155,7 +178,7 @@ export function useRealtimeUnpaidBills(): UseRealtimeUnpaidBillsReturn {
         handleRealtimeChange
       )
       .subscribe((status) => {
-        reconnection.handleStatus(status);
+        reconnectionRef.current.handleStatus(status);
 
         if (status === 'SUBSCRIBED') {
           console.log('[Cashier Realtime] Unpaid bills channel connected');
@@ -168,10 +191,12 @@ export function useRealtimeUnpaidBills(): UseRealtimeUnpaidBillsReturn {
       });
 
     return () => {
-      reconnection.reset();
+      reconnectionRef.current.reset();
       supabase.removeChannel(channel);
     };
-  }, [fetchOrders, handleRealtimeChange, reconnection, reconnectTrigger]);
+  // reconnectTrigger intentionally drives reconnection; reconnection object excluded (stable via ref)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchOrders, handleRealtimeChange, reconnectTrigger]);
 
   return { orders, isLoading, error, refetch: fetchOrders };
 }

@@ -11,8 +11,15 @@
       "env": {}
     },
     "supabase": {
-      "type": "http",
-      "url": "http://127.0.0.1:54321/mcp"
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--project-ref",
+        "ucoipcmzmdazqxvceyux",
+        "--read-only"
+      ]
     }
   }
 }
