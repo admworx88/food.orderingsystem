@@ -54,8 +54,8 @@ export default function OrderTypePage() {
       </div>
 
       {/* Main content */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 pb-6">
-        <div className="max-w-2xl w-full">
+      <div className="relative z-10 flex-1 flex flex-col items-center px-4 sm:px-6 pb-6 overflow-y-auto scrollbar-hide">
+        <div className="max-w-2xl w-full my-auto">
           {/* Title */}
           <div className="text-center mb-8 sm:mb-10 animate-scale-in">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-stone-800 mb-2 sm:mb-3 tracking-tight font-display">
