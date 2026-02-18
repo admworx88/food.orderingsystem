@@ -357,8 +357,8 @@ export function useRealtimeWaiterOrders(
       supabase.removeChannel(itemsChannel);
       clearInterval(pollInterval);
     };
-    // reconnectTrigger intentionally drives reconnection; reconnection objects excluded (stable via refs)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // reconnectTrigger intentionally drives reconnection; reconnection objects excluded (stable via refs)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchOrders, handleRealtimeChange, reconnectTrigger]);
 
   return {
