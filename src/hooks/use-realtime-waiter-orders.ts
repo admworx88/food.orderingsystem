@@ -147,17 +147,30 @@ export function useRealtimeWaiterOrders(
     setIsLoading(false);
   }, [includeServed]);
 
-  // Reconnection handler - must be at top level (Rules of Hooks)
-  const reconnection = useRealtimeReconnection({
+  // Separate reconnection instance per channel to track errors independently
+  const ordersReconnection = useRealtimeReconnection({
     channelName: 'waiter-orders',
     onMaxRetriesReached: () => {
-      console.warn('[Waiter] Max reconnection attempts reached, using polling fallback');
+      console.warn('[Waiter] Max reconnection attempts reached for orders, using polling fallback');
     },
     onReconnect: () => {
-      // Trigger refetch via state update
       setReconnectTrigger((prev) => prev + 1);
     },
   });
+  const ordersReconnectionRef = useRef(ordersReconnection);
+  ordersReconnectionRef.current = ordersReconnection;
+
+  const itemsReconnection = useRealtimeReconnection({
+    channelName: 'waiter-order-items',
+    onMaxRetriesReached: () => {
+      console.warn('[Waiter] Max reconnection attempts reached for items, using polling fallback');
+    },
+    onReconnect: () => {
+      setReconnectTrigger((prev) => prev + 1);
+    },
+  });
+  const itemsReconnectionRef = useRef(itemsReconnection);
+  itemsReconnectionRef.current = itemsReconnection;
 
   // Optimistic UI update for item status
   const optimisticItemUpdate = useCallback((
@@ -298,7 +311,7 @@ export function useRealtimeWaiterOrders(
         handleRealtimeChange
       )
       .subscribe((status) => {
-        reconnection.handleStatus(status);
+        ordersReconnectionRef.current.handleStatus(status);
 
         if (status === 'SUBSCRIBED') {
           console.log('[Waiter Realtime] Orders channel connected');
@@ -325,7 +338,7 @@ export function useRealtimeWaiterOrders(
         }
       )
       .subscribe((status) => {
-        reconnection.handleStatus(status);
+        itemsReconnectionRef.current.handleStatus(status);
 
         if (status === 'SUBSCRIBED') {
           console.log('[Waiter Realtime] Items channel connected');
@@ -338,12 +351,15 @@ export function useRealtimeWaiterOrders(
     const pollInterval = setInterval(fetchOrders, 10_000);
 
     return () => {
-      reconnection.reset();
+      ordersReconnectionRef.current.reset();
+      itemsReconnectionRef.current.reset();
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(itemsChannel);
       clearInterval(pollInterval);
     };
-  }, [fetchOrders, handleRealtimeChange, reconnection, reconnectTrigger]);
+    // reconnectTrigger intentionally drives reconnection; reconnection objects excluded (stable via refs)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchOrders, handleRealtimeChange, reconnectTrigger]);
 
   return {
     orders,
