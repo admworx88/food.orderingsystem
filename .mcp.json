@@ -17,8 +17,7 @@
         "-y",
         "@supabase/mcp-server-supabase@latest",
         "--project-ref",
-        "ucoipcmzmdazqxvceyux",
-        "--read-only"
+        "ucoipcmzmdazqxvceyux"
       ]
     }
   }

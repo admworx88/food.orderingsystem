@@ -171,7 +171,7 @@ export function MenuItemCard({ item, onAddToCart, onItemClick, compact = false }
       </div>
 
       {/* Content - responsive padding */}
-      <div className="flex flex-col flex-1 p-3 sm:p-4 lg:p-5">
+      <div className="flex flex-col flex-1 p-2 sm:p-3 lg:p-4">
         {/* Title */}
         <h3 className="text-xs sm:text-sm lg:text-base font-bold text-stone-900 line-clamp-2 sm:line-clamp-1 mb-1 sm:mb-2">
           {item.name}
@@ -207,7 +207,7 @@ export function MenuItemCard({ item, onAddToCart, onItemClick, compact = false }
 
         {/* Price & Add Button - responsive */}
         <div className="flex items-center justify-between mt-auto pt-2 sm:pt-3 lg:pt-4 border-t border-stone-100">
-          <span className="text-sm sm:text-base lg:text-xl font-black text-stone-900">
+          <span className="text-xs sm:text-sm lg:text-base font-black text-stone-900">
             {formatCurrency(Number(item.base_price))}
           </span>
 

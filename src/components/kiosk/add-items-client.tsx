@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Plus, Loader2, ShoppingBag } from 'lucide-react';
@@ -20,9 +20,10 @@ interface ExistingOrderInfo {
   id: string;
   orderNumber: string;
   tableNumber: string | null;
-  currentItems: Array<{ id: string; item_name: string; quantity: number; unit_price: number; total_price: number }>;
+  currentItems: Array<{ id: string; item_name: string; quantity: number; unit_price: number; total_price: number; status: string | null }>;
   subtotal: number;
   totalAmount: number;
+  paymentMethod: string | null;
 }
 
 interface AddItemsClientProps {
@@ -33,9 +34,14 @@ interface AddItemsClientProps {
 
 export function AddItemsClient({ order, categories, menuItems }: AddItemsClientProps) {
   const router = useRouter();
-  const { items: cartItems, getItemCount, getSubtotal, clearCart } = useCartStore();
+  const { items: cartItems, getItemCount, getSubtotal, clearCart, setAddToOrder } = useCartStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // Sync existing order items into the store so CartDrawer can display them
+  useEffect(() => {
+    setAddToOrder(order.id, order.orderNumber, order.currentItems);
+  }, [order.id, order.orderNumber, order.currentItems, setAddToOrder]);
 
   const newItemCount = getItemCount();
   const newItemsSubtotal = getSubtotal();
@@ -133,7 +139,7 @@ export function AddItemsClient({ order, categories, menuItems }: AddItemsClientP
               ) : (
                 <>
                   <Plus className="w-5 h-5 mr-2" />
-                  Add to Order
+                  {order.paymentMethod === 'bill_later' ? 'Place Order' : 'Add to Order'}
                 </>
               )}
             </Button>

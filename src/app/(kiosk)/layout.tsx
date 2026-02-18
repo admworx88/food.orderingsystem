@@ -54,6 +54,7 @@ export default function KioskLayout({ children }: KioskLayoutProps) {
     clearCart,
     getItemCount,
     getTotal,
+    isDetailSheetOpen,
   } = useCartStore();
 
   const cartItemCount = getItemCount();
@@ -86,9 +87,9 @@ export default function KioskLayout({ children }: KioskLayoutProps) {
 
     const idleChecker = setInterval(() => {
       const idleTime = Date.now() - lastInteraction;
-      if (idleTime > 60000 && idleTime < 90000) {
+      if (idleTime > 45000 && idleTime < 60000) {
         setShowIdleWarning(true);
-      } else if (idleTime >= 90000) {
+      } else if (idleTime >= 60000) {
         setShowIdleWarning(false);
         clearCart();
         router.push('/');
@@ -155,7 +156,7 @@ export default function KioskLayout({ children }: KioskLayoutProps) {
       </main>
 
       {/* Premium Floating Cart Button — only on menu page, responsive positioning */}
-      {showCartButton && (
+      {showCartButton && !isDetailSheetOpen && (
         <button
           onClick={() => setIsCartOpen(true)}
           className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex items-center gap-2 sm:gap-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white pl-3 pr-4 sm:pl-4 sm:pr-5 h-12 sm:h-14 rounded-full shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 active:scale-[0.98] transition-all safe-area-inset-bottom"

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { X, Minus, Plus, ShoppingBag, Trash2, Tag, ChevronRight, Sparkles } from 'lucide-react';
+import { useCartStore } from '@/stores/cart-store';
 import { formatCurrency } from '@/lib/utils/currency';
 import { cn } from '@/lib/utils';
 import {
@@ -52,6 +53,7 @@ export function CartDrawer({
   onCheckout,
 }: CartDrawerProps) {
   const [removingIndex, setRemovingIndex] = useState<number | null>(null);
+  const existingOrderItems = useCartStore((state) => state.existingOrderItems);
 
   // Calculate totals
   const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
@@ -113,10 +115,43 @@ export function CartDrawer({
 
         {/* Cart Items */}
         <div className="flex-1 overflow-y-auto px-4 py-4">
-          {items.length === 0 ? (
+          {/* Already Ordered section — shown when adding to existing order */}
+          {existingOrderItems.length > 0 && (
+            <div className="mb-4 rounded-2xl border border-stone-200 bg-stone-50 overflow-hidden">
+              <div className="px-4 py-2.5 bg-stone-100 border-b border-stone-200">
+                <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Already Ordered</p>
+              </div>
+              <div className="divide-y divide-stone-100">
+                {existingOrderItems.map((item) => {
+                  const isServed = item.status === 'served';
+                  return (
+                    <div
+                      key={item.id}
+                      className={cn('flex items-center justify-between px-4 py-2.5', isServed ? 'opacity-40' : '')}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-stone-700">{item.quantity}× {item.item_name}</span>
+                        {isServed && (
+                          <span className="text-[10px] font-bold text-stone-500 bg-stone-200 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                            SERVED
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-sm text-stone-500">{formatCurrency(item.total_price)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {items.length === 0 && existingOrderItems.length === 0 ? (
             <EmptyCartState />
-          ) : (
+          ) : items.length === 0 ? null : (
             <div className="space-y-3">
+              {existingOrderItems.length > 0 && (
+                <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1">New Items</p>
+              )}
               {items.map((item, index) => (
                 <CartItemCard
                   key={`${item.menuItemId}-${index}`}

@@ -13,7 +13,7 @@ export default async function AddItemsMenuPage({ params }: AddItemsMenuPageProps
   // Verify order exists and is active dine-in
   const { data: order, error: orderError } = await supabase
     .from('orders')
-    .select('id, order_number, table_number, status, order_type, subtotal, total_amount, order_items(id, item_name, quantity, unit_price, total_price)')
+    .select('id, order_number, table_number, status, order_type, subtotal, total_amount, payment_method, order_items(id, item_name, quantity, unit_price, total_price, status)')
     .eq('id', orderId)
     .is('deleted_at', null)
     .single();
@@ -45,6 +45,7 @@ export default async function AddItemsMenuPage({ params }: AddItemsMenuPageProps
         currentItems: order.order_items,
         subtotal: order.subtotal,
         totalAmount: order.total_amount,
+        paymentMethod: order.payment_method,
       }}
       categories={categories || []}
       menuItems={menuItems || []}
