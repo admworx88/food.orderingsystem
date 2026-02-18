@@ -50,17 +50,30 @@ export function useRealtimeOrders(
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [reconnectTrigger, setReconnectTrigger] = useState(0);
 
-  // Reconnection hook at top level
-  const reconnection = useRealtimeReconnection({
+  // Separate reconnection instance per channel to track errors independently
+  const ordersReconnection = useRealtimeReconnection({
     channelName: 'kitchen-orders',
     onMaxRetriesReached: () => {
-      console.warn('[KDS] Max reconnection attempts reached, using polling fallback');
+      console.warn('[KDS] Max reconnection attempts reached for orders, using polling fallback');
     },
     onReconnect: () => {
-      // Trigger a refetch by incrementing counter
       setReconnectTrigger(prev => prev + 1);
     },
   });
+  const ordersReconnectionRef = useRef(ordersReconnection);
+  ordersReconnectionRef.current = ordersReconnection;
+
+  const itemsReconnection = useRealtimeReconnection({
+    channelName: 'kitchen-order-items',
+    onMaxRetriesReached: () => {
+      console.warn('[KDS] Max reconnection attempts reached for items, using polling fallback');
+    },
+    onReconnect: () => {
+      setReconnectTrigger(prev => prev + 1);
+    },
+  });
+  const itemsReconnectionRef = useRef(itemsReconnection);
+  itemsReconnectionRef.current = itemsReconnection;
 
   // Initialize audio element
   useEffect(() => {
@@ -251,7 +264,7 @@ export function useRealtimeOrders(
         handleRealtimeChange
       )
       .subscribe((status) => {
-        reconnection.handleStatus(status);
+        ordersReconnectionRef.current.handleStatus(status);
 
         if (status === 'SUBSCRIBED') {
           console.log('[KDS Realtime] Orders channel connected');
@@ -282,7 +295,7 @@ export function useRealtimeOrders(
         }
       )
       .subscribe((status) => {
-        reconnection.handleStatus(status);
+        itemsReconnectionRef.current.handleStatus(status);
 
         if (status === 'SUBSCRIBED') {
           console.log('[KDS Realtime] Items channel connected');
@@ -295,12 +308,15 @@ export function useRealtimeOrders(
     const pollInterval = setInterval(fetchOrders, 10_000);
 
     return () => {
-      reconnection.reset();
+      ordersReconnectionRef.current.reset();
+      itemsReconnectionRef.current.reset();
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(itemsChannel);
       clearInterval(pollInterval);
     };
-  }, [fetchOrders, handleRealtimeChange, reconnection, reconnectTrigger]);
+  // reconnectTrigger intentionally drives reconnection; reconnection objects excluded (stable via refs)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchOrders, handleRealtimeChange, reconnectTrigger]);
 
   return { orders, isLoading, error, refetch: fetchOrders, optimisticStatusUpdate };
 }
