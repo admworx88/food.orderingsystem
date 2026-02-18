@@ -150,8 +150,8 @@ export function useRealtimePendingOrders(
   }, []);
 
   useEffect(() => {
-    // Skip initial fetch if server already provided data
-    if (!initialData) {
+    // Skip initial fetch if server already provided data, but always refetch on reconnect
+    if (!initialData || reconnectTrigger > 0) {
       fetchOrders();
     }
 
