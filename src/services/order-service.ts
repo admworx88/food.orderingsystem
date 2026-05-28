@@ -3,8 +3,10 @@
 import { createServerClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
 import type { Database } from '@/lib/supabase/types';
 import { orderInputSchema, promoCodeInputSchema, addItemsInputSchema, orderLookupSchema, type OrderInput } from '@/lib/validators/order';
+import { checkAndRecordOrderAttempt } from '@/lib/utils/rate-limiter';
 
 // Type definitions
 type Order = Database['public']['Tables']['orders']['Row'];
@@ -535,6 +537,21 @@ export async function createOrder(
   }
   const validated = parseResult.data;
 
+  // 2. Rate-limit by IP — 5 orders per IP per 5 minutes
+  const headerStore = await headers();
+  const ip =
+    headerStore.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    headerStore.get('x-real-ip') ||
+    'unknown';
+  const rateLimit = checkAndRecordOrderAttempt(ip);
+  if (!rateLimit.allowed) {
+    const wait = rateLimit.retryAfterSeconds ?? 300;
+    return serviceError(
+      'E2003',
+      `Too many orders from this device. Please try again in ${Math.ceil(wait / 60)} minute${Math.ceil(wait / 60) !== 1 ? 's' : ''}.`
+    );
+  }
+
   const supabase = await createServerClient();
 
   try {
@@ -686,6 +703,9 @@ export async function createOrder(
         expires_at: expiresAt,
         paid_at: paidAt,
         estimated_ready_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        kiosk_location: validated.kioskLocation || null,
+        ewallet_provider: validated.ewalletProvider || null,
+        ewallet_reference: validated.ewalletReference || null,
       })
       .select('id, order_number, total_amount, expires_at')
       .single();
@@ -1617,5 +1637,28 @@ export async function addItemsToOrder(
   } catch (error) {
     console.error('addItemsToOrder failed:', error);
     return { success: false, error: 'An unexpected error occurred. Please try again.' };
+  }
+}
+
+export async function updateOrderEwalletDetails(
+  orderId: string,
+  provider: string,
+  reference: string
+): Promise<ServiceResult<void>> {
+  const supabase = await createServerClient();
+  try {
+    const { error } = await supabase
+      .from('orders')
+      .update({ ewallet_provider: provider, ewallet_reference: reference })
+      .eq('id', orderId);
+
+    if (error) {
+      console.error('updateOrderEwalletDetails failed:', error);
+      return { success: false, error: 'Failed to save e-wallet details. Please try again.' };
+    }
+    return { success: true, data: undefined };
+  } catch (error) {
+    console.error('updateOrderEwalletDetails failed:', error);
+    return { success: false, error: 'An unexpected error occurred.' };
   }
 }
