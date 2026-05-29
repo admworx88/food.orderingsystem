@@ -7,6 +7,7 @@ import { z } from 'zod';
 import {
   createUserSchema,
   updateUserRoleSchema,
+  updatePinSchema,
   type CreateUserInput,
   type UpdateUserRoleInput,
 } from '@/lib/validators/user';
@@ -171,15 +172,8 @@ export async function createStaffUser(input: CreateUserInput): Promise<ServiceRe
       full_name: validated.full_name,
       role: validated.role as UserRole,
       is_active: true,
+      pin_hash: validated.pin ?? null,
     };
-
-    // If PIN provided, hash it (in a real app, you'd use bcrypt on the server)
-    // For now, we'll store the PIN hash placeholder - implement proper hashing
-    if (validated.pin) {
-      // TODO: Use bcrypt to hash the PIN
-      // For now, we'll just note that PIN was set
-      console.log('PIN provided for user - implement bcrypt hashing');
-    }
 
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -320,6 +314,46 @@ export async function reactivateUser(userId: string): Promise<ServiceResult<null
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to reactivate user',
+    };
+  }
+}
+
+/**
+ * Update (or clear) a staff user's PIN
+ * Pass null to remove the PIN entirely
+ */
+export async function updateStaffPin(
+  userId: string,
+  pin: string | null
+): Promise<ServiceResult<null>> {
+  try {
+    const idValidation = validateId(userId);
+    if (!idValidation.valid) {
+      return { success: false, error: idValidation.error };
+    }
+
+    if (pin !== null) {
+      const result = updatePinSchema.safeParse({ pin });
+      if (!result.success) {
+        return { success: false, error: result.error.issues[0]?.message || 'Invalid PIN' };
+      }
+    }
+
+    const supabase = await createServerClient();
+    const { error } = await supabase
+      .from('profiles')
+      .update({ pin_hash: pin })
+      .eq('id', userId);
+
+    if (error) throw error;
+
+    revalidatePath('/admin/users');
+    return { success: true, data: null };
+  } catch (error) {
+    console.error('updateStaffPin failed:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update PIN',
     };
   }
 }

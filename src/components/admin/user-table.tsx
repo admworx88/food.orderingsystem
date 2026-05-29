@@ -21,9 +21,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   MoreHorizontal,
-  Shield,
-  ShieldCheck,
-  ShieldX,
   UserCog,
   UserX,
   UserCheck,
@@ -32,35 +29,14 @@ import {
 import { toast } from 'sonner';
 import { deactivateUser, reactivateUser } from '@/services/user-service';
 import type { StaffUser } from '@/services/user-service';
+import { DataCard } from '@/components/admin/data-card';
+import { EmptyState } from '@/components/admin/empty-state';
+import { StatusBadge } from '@/components/admin/status-badge';
+import { ResetPinDialog } from '@/components/admin/reset-pin-dialog';
+import { cn } from '@/lib/utils';
 
 interface UserTableProps {
   users: StaffUser[];
-}
-
-function getRoleBadgeVariant(role: string): 'default' | 'secondary' | 'destructive' | 'outline' {
-  switch (role) {
-    case 'admin':
-      return 'destructive';
-    case 'cashier':
-      return 'default';
-    case 'kitchen':
-      return 'secondary';
-    default:
-      return 'outline';
-  }
-}
-
-function getRoleIcon(role: string) {
-  switch (role) {
-    case 'admin':
-      return <ShieldCheck className="h-3 w-3" />;
-    case 'cashier':
-      return <Shield className="h-3 w-3" />;
-    case 'kitchen':
-      return <ShieldX className="h-3 w-3" />;
-    default:
-      return null;
-  }
 }
 
 function getInitials(name: string): string {
@@ -74,6 +50,7 @@ function getInitials(name: string): string {
 
 export function UserTable({ users }: UserTableProps) {
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
+  const [pinDialogUser, setPinDialogUser] = useState<StaffUser | null>(null);
 
   const handleToggleActive = async (user: StaffUser) => {
     const action = user.is_active ? deactivateUser : reactivateUser;
@@ -97,33 +74,38 @@ export function UserTable({ users }: UserTableProps) {
 
   if (users.length === 0) {
     return (
-      <div className="text-center py-12 text-slate-500">
-        <UserCog className="h-12 w-12 mx-auto mb-4 text-slate-300" />
-        <p className="text-lg font-medium">No staff users yet</p>
-        <p className="text-sm">Create your first staff user to get started</p>
-      </div>
+      <DataCard padding="none">
+        <EmptyState
+          icon={UserCog}
+          title="No staff users yet"
+          description="Create your first staff user to get started."
+          className="py-14"
+        />
+      </DataCard>
     );
   }
 
   return (
-    <div className="rounded-lg border overflow-hidden">
-      <Table>
-        <TableHeader>
-          <TableRow className="bg-slate-50">
-            <TableHead>User</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead>Role</TableHead>
-            <TableHead className="text-center">PIN</TableHead>
-            <TableHead className="text-center">Status</TableHead>
-            <TableHead className="w-[70px]">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {users.map((user) => (
-            <TableRow
-              key={user.id}
-              className={`hover:bg-slate-50 ${!user.is_active ? 'opacity-60' : ''}`}
-            >
+    <>
+    <DataCard padding="none">
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-slate-50">
+              <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-400">User</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-400">Email</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-400">Role</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-400 text-center">PIN</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-400 text-center">Status</TableHead>
+              <TableHead className="w-[70px]">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {users.map((user) => (
+              <TableRow
+                key={user.id}
+                className={cn('hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0', !user.is_active ? 'opacity-60' : '')}
+              >
               <TableCell>
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10">
@@ -137,13 +119,7 @@ export function UserTable({ users }: UserTableProps) {
               </TableCell>
               <TableCell className="text-slate-500">{user.email || '-'}</TableCell>
               <TableCell>
-                <Badge
-                  variant={getRoleBadgeVariant(user.role)}
-                  className="gap-1 capitalize"
-                >
-                  {getRoleIcon(user.role)}
-                  {user.role}
-                </Badge>
+                <StatusBadge status={user.role} />
               </TableCell>
               <TableCell className="text-center">
                 {user.pin_hash ? (
@@ -156,9 +132,7 @@ export function UserTable({ users }: UserTableProps) {
                 )}
               </TableCell>
               <TableCell className="text-center">
-                <Badge variant={user.is_active ? 'default' : 'secondary'}>
-                  {user.is_active ? 'Active' : 'Inactive'}
-                </Badge>
+                <StatusBadge status={user.is_active ? 'active' : 'inactive'} dot />
               </TableCell>
               <TableCell>
                 <DropdownMenu>
@@ -178,7 +152,7 @@ export function UserTable({ users }: UserTableProps) {
                       <UserCog className="h-4 w-4 mr-2" />
                       Edit User
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setPinDialogUser(user)}>
                       <Key className="h-4 w-4 mr-2" />
                       Reset PIN
                     </DropdownMenuItem>
@@ -204,8 +178,20 @@ export function UserTable({ users }: UserTableProps) {
               </TableCell>
             </TableRow>
           ))}
-        </TableBody>
-      </Table>
-    </div>
+          </TableBody>
+        </Table>
+      </div>
+    </DataCard>
+
+    {pinDialogUser && (
+      <ResetPinDialog
+        open={!!pinDialogUser}
+        onOpenChange={(open) => { if (!open) setPinDialogUser(null); }}
+        userId={pinDialogUser.id}
+        userName={pinDialogUser.full_name}
+        hasPin={!!pinDialogUser.pin_hash}
+      />
+    )}
+    </>
   );
 }
