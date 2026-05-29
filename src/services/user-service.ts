@@ -385,3 +385,34 @@ export async function deleteUser(userId: string): Promise<ServiceResult<null>> {
     };
   }
 }
+
+/**
+ * Resolve a staff member by their PIN.
+ * Returns their id, full_name, and role if the PIN matches an active profile.
+ */
+export async function resolveStaffPin(
+  pin: string
+): Promise<ServiceResult<{ id: string; full_name: string; role: string }>> {
+  try {
+    if (!pin || !/^\d{4,6}$/.test(pin)) {
+      return { success: false, error: 'Invalid PIN format' };
+    }
+
+    const supabase = await createServerClient();
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, role')
+      .eq('pin_hash', pin)
+      .eq('is_active', true)
+      .single();
+
+    if (error || !data) {
+      return { success: false, error: 'Incorrect PIN. Please try again.' };
+    }
+
+    return { success: true, data };
+  } catch (error) {
+    console.error('resolveStaffPin failed:', error);
+    return { success: false, error: 'Failed to verify PIN' };
+  }
+}
