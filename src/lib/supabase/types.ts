@@ -7,30 +7,10 @@ export type Json =
   | Json[]
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
@@ -517,9 +497,12 @@ export type Database = {
           deleted_at: string | null
           discount_amount: number | null
           estimated_ready_at: string | null
+          ewallet_provider: string | null
+          ewallet_reference: string | null
           expires_at: string | null
           guest_phone: string | null
           id: string
+          kiosk_location: string | null
           order_number: string
           order_type: Database["public"]["Enums"]["order_type"]
           paid_at: string | null
@@ -534,6 +517,7 @@ export type Database = {
           status: Database["public"]["Enums"]["order_status"]
           subtotal: number
           table_number: string | null
+          taken_by: string | null
           tax_amount: number
           total_amount: number
           updated_at: string | null
@@ -545,9 +529,12 @@ export type Database = {
           deleted_at?: string | null
           discount_amount?: number | null
           estimated_ready_at?: string | null
+          ewallet_provider?: string | null
+          ewallet_reference?: string | null
           expires_at?: string | null
           guest_phone?: string | null
           id?: string
+          kiosk_location?: string | null
           order_number?: string
           order_type: Database["public"]["Enums"]["order_type"]
           paid_at?: string | null
@@ -562,6 +549,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
           table_number?: string | null
+          taken_by?: string | null
           tax_amount?: number
           total_amount?: number
           updated_at?: string | null
@@ -573,9 +561,12 @@ export type Database = {
           deleted_at?: string | null
           discount_amount?: number | null
           estimated_ready_at?: string | null
+          ewallet_provider?: string | null
+          ewallet_reference?: string | null
           expires_at?: string | null
           guest_phone?: string | null
           id?: string
+          kiosk_location?: string | null
           order_number?: string
           order_type?: Database["public"]["Enums"]["order_type"]
           paid_at?: string | null
@@ -590,6 +581,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
           table_number?: string | null
+          taken_by?: string | null
           tax_amount?: number
           total_amount?: number
           updated_at?: string | null
@@ -603,13 +595,19 @@ export type Database = {
             referencedRelation: "promo_codes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "orders_taken_by_fkey"
+            columns: ["taken_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       payments: {
         Row: {
           amount: number
           cash_received: number | null
-          cashier_name: string | null
           change_given: number | null
           completed_at: string | null
           created_at: string | null
@@ -623,7 +621,6 @@ export type Database = {
         Insert: {
           amount: number
           cash_received?: number | null
-          cashier_name?: string | null
           change_given?: number | null
           completed_at?: string | null
           created_at?: string | null
@@ -637,7 +634,6 @@ export type Database = {
         Update: {
           amount?: number
           cash_received?: number | null
-          cashier_name?: string | null
           change_given?: number | null
           completed_at?: string | null
           created_at?: string | null
@@ -792,7 +788,6 @@ export type Database = {
           p_amount: number
           p_cash_received: number
           p_cashier_id: string
-          p_cashier_name?: string
           p_change_given: number
           p_order_id: string
         }
@@ -814,7 +809,7 @@ export type Database = {
         | "served"
         | "cancelled"
       order_type: "dine_in" | "room_service" | "takeout" | "ocean_view"
-      payment_method: "cash" | "gcash" | "card" | "bill_later"
+      payment_method: "cash" | "gcash" | "card" | "bill_later" | "ewallet"
       payment_status: "unpaid" | "processing" | "paid" | "refunded" | "expired"
       user_role: "admin" | "cashier" | "kitchen" | "kiosk" | "waiter"
     }
@@ -942,9 +937,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       discount_type: ["percentage", "fixed_amount"],
@@ -958,10 +950,11 @@ export const Constants = {
         "cancelled",
       ],
       order_type: ["dine_in", "room_service", "takeout", "ocean_view"],
-      payment_method: ["cash", "gcash", "card", "bill_later"],
+      payment_method: ["cash", "gcash", "card", "bill_later", "ewallet"],
       payment_status: ["unpaid", "processing", "paid", "refunded", "expired"],
       user_role: ["admin", "cashier", "kitchen", "kiosk", "waiter"],
     },
   },
 } as const
-
+A new version of Supabase CLI is available: v2.101.0 (currently installed v2.72.7)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
