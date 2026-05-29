@@ -4,8 +4,10 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Plus, Minus, Trash2, ShoppingBag, ChevronRight } from 'lucide-react';
+import Image from 'next/image';
 import { useCartStore } from '@/stores/cart-store';
 import { formatCurrency } from '@/lib/utils/currency';
+import { normalizeImageUrl } from '@/lib/utils/image';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -81,9 +83,21 @@ export default function CartPage() {
             >
               <div className="p-3 sm:p-4 lg:p-5">
                 <div className="flex gap-3 sm:gap-4">
-                  {/* Item image placeholder */}
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 flex-shrink-0 rounded-lg sm:rounded-xl bg-gradient-to-br from-amber-100 to-amber-200 flex items-center justify-center">
-                    <span className="text-xl sm:text-2xl lg:text-3xl">🍽️</span>
+                  {/* Item image */}
+                  <div className="relative w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 flex-shrink-0 rounded-lg sm:rounded-xl bg-gradient-to-br from-amber-100 to-amber-200 overflow-hidden">
+                    {item.imageUrl ? (
+                      <Image
+                        src={normalizeImageUrl(item.imageUrl) || ''}
+                        alt={item.name}
+                        fill
+                        className="object-cover"
+                        sizes="96px"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-xl sm:text-2xl lg:text-3xl">🍽️</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Item details */}

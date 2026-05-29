@@ -52,6 +52,21 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
 
+  /* Admin dashboard semantic tokens */
+  --color-admin-accent: #F59E0B;
+  --color-admin-accent-hover: #D97706;
+  --color-admin-accent-subtle: #FEF3C7;
+  --color-admin-success: #10B981;
+  --color-admin-success-subtle: #D1FAE5;
+  --color-admin-danger: #EF4444;
+  --color-admin-danger-subtle: #FEE2E2;
+  --color-admin-info: #3B82F6;
+  --color-admin-info-subtle: #DBEAFE;
+  --color-admin-warning: #F59E0B;
+  --color-admin-warning-subtle: #FEF3C7;
+  --color-admin-violet: #8B5CF6;
+  --color-admin-violet-subtle: #EDE9FE;
+
   /* Brand accent color scale (warm amber for hospitality) */
   --color-brand-50: oklch(0.99 0.01 75);
   --color-brand-100: oklch(0.96 0.04 75);

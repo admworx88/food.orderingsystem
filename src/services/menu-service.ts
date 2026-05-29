@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { menuItemSchema, type MenuItemInput } from '@/lib/validators/menu-item';
 import { categorySchema, type CategoryInput } from '@/lib/validators/category';
 import type { Database } from '@/lib/supabase/types';
+import { logAuditEvent } from '@/services/analytics-service';
 
 type Category = Database['public']['Tables']['categories']['Row'];
 type MenuItem = Database['public']['Tables']['menu_items']['Row'];
@@ -95,6 +96,18 @@ export async function createMenuItem(input: MenuItemInput): Promise<ServiceResul
 
     if (error) throw error;
 
+    // Get current user for audit log
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Audit log
+    await logAuditEvent({
+      table_name: 'menu_items',
+      action: 'created',
+      record_id: data.id,
+      new_data: data as unknown as Record<string, unknown>,
+      user_id: user?.id ?? null,
+    });
+
     revalidatePath('/menu-management');
     revalidatePath('/menu');
     return { success: true, data };
@@ -140,6 +153,13 @@ export async function updateMenuItem(id: string, input: MenuItemInput): Promise<
       return { success: false, error: 'A menu item with this URL slug already exists' };
     }
 
+    // Fetch old data for audit diff
+    const { data: oldData } = await supabase
+      .from('menu_items')
+      .select('*')
+      .eq('id', id)
+      .single();
+
     const { data, error } = await supabase
       .from('menu_items')
       .update(validated)
@@ -148,6 +168,19 @@ export async function updateMenuItem(id: string, input: MenuItemInput): Promise<
       .single();
 
     if (error) throw error;
+
+    // Get current user for audit log
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Audit log
+    await logAuditEvent({
+      table_name: 'menu_items',
+      action: 'updated',
+      record_id: id,
+      old_data: oldData as unknown as Record<string, unknown>,
+      new_data: data as unknown as Record<string, unknown>,
+      user_id: user?.id ?? null,
+    });
 
     revalidatePath('/menu-management');
     revalidatePath('/menu');
@@ -180,6 +213,13 @@ export async function deleteMenuItem(id: string): Promise<ServiceResult<null>> {
 
     const supabase = await createServerClient();
 
+    // Fetch old data for audit log
+    const { data: oldData } = await supabase
+      .from('menu_items')
+      .select('*')
+      .eq('id', id)
+      .single();
+
     // Soft delete by setting deleted_at timestamp
     const { error } = await supabase
       .from('menu_items')
@@ -187,6 +227,18 @@ export async function deleteMenuItem(id: string): Promise<ServiceResult<null>> {
       .eq('id', id);
 
     if (error) throw error;
+
+    // Get current user for audit log
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Audit log
+    await logAuditEvent({
+      table_name: 'menu_items',
+      action: 'deleted',
+      record_id: id,
+      old_data: oldData as unknown as Record<string, unknown>,
+      user_id: user?.id ?? null,
+    });
 
     revalidatePath('/menu-management');
     revalidatePath('/menu');

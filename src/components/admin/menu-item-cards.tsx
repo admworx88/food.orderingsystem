@@ -19,6 +19,7 @@ import { toggleMenuItemAvailability } from '@/services/menu-service';
 import type { Database } from '@/lib/supabase/types';
 import { EditMenuItemDialog } from './edit-menu-item-dialog';
 import { DeleteMenuItemDialog } from './delete-menu-item-dialog';
+import { EmptyState } from '@/components/admin/empty-state';
 
 type Category = Database['public']['Tables']['categories']['Row'];
 type MenuItem = Database['public']['Tables']['menu_items']['Row'] & {
@@ -61,11 +62,11 @@ export function MenuItemCards({ items, categories }: MenuItemCardsProps) {
 
   if (items.length === 0) {
     return (
-      <div className="text-center py-12 text-slate-500">
-        <ImageIcon className="h-12 w-12 mx-auto mb-4 text-slate-300" />
-        <p className="text-lg font-medium">No menu items found</p>
-        <p className="text-sm">Add your first menu item to get started</p>
-      </div>
+      <EmptyState
+        icon={ImageIcon}
+        title="No menu items found"
+        description="Try adjusting your search or filters, or add a new menu item."
+      />
     );
   }
 
@@ -74,7 +75,7 @@ export function MenuItemCards({ items, categories }: MenuItemCardsProps) {
       {items.map((item) => (
         <Card
           key={item.id}
-          className={`overflow-hidden transition-all hover:shadow-md ${
+          className={`overflow-hidden transition-all duration-150 hover:shadow-md hover:scale-[1.01] ${
             !item.is_available ? 'opacity-60' : ''
           }`}
         >

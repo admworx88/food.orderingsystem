@@ -53,7 +53,7 @@ export const ORDER_TYPE_CONFIG: Record<OrderType, OrderTypeConfig> = {
     description: 'Dine at our floating restaurant over the sea',
     requiresTable: false,
     requiresRoom: false,
-    allowedPaymentMethods: ['card', 'gcash'],
+    allowedPaymentMethods: ['cash', 'ewallet'],
   },
 };
 

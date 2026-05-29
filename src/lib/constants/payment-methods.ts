@@ -13,6 +13,7 @@ export const PAYMENT_METHOD_CONFIG: Record<PaymentMethod, {
   gcash: { label: 'GCash', icon: 'Smartphone', description: 'Pay via GCash' },
   card: { label: 'Credit/Debit Card', icon: 'CreditCard', description: 'Pay with card' },
   bill_later: { label: 'Pay After Meal', icon: 'Utensils', description: 'Settle when ready to leave' },
+  ewallet: { label: 'eWallets / Banks', icon: 'Smartphone', description: 'GCash, Maya, GoTyme, and more' },
 };
 
 // Payment status display config

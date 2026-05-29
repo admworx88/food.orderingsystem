@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -76,9 +76,15 @@ function SortableRow({ category }: SortableRowProps) {
       </TableCell>
       <TableCell className="font-medium">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
-            <FolderOpen className="h-5 w-5 text-white" />
-          </div>
+          {category.image_url ? (
+            <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 shrink-0">
+              <img src={category.image_url} alt={category.name} className="w-full h-full object-cover" />
+            </div>
+          ) : (
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shrink-0">
+              <FolderOpen className="h-5 w-5 text-white" />
+            </div>
+          )}
           <span>{category.name}</span>
         </div>
       </TableCell>
@@ -126,6 +132,10 @@ function SortableRow({ category }: SortableRowProps) {
 export function CategoryList({ categories: initialCategories }: CategoryListProps) {
   const [categories, setCategories] = useState(initialCategories);
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    setCategories(initialCategories);
+  }, [initialCategories]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),

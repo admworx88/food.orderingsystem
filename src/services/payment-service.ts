@@ -518,11 +518,20 @@ export async function applySeniorPwdDiscount(
       return serviceError('E3007', 'Cannot apply discount — order is not pending payment');
     }
 
-    // Calculate 20% discount on subtotal (pre-tax)
-    const discountAmount = Math.round(order.subtotal * SENIOR_PWD_DISCOUNT_RATE * 100) / 100;
+    // Fetch configurable rates from settings, fall back to defaults
+    const { data: rateRows } = await supabase
+      .from('settings')
+      .select('key, value')
+      .in('key', ['pwd_sc_discount_rate', 'tax_rate', 'service_charge']);
+    const rateMap = Object.fromEntries((rateRows ?? []).map((r) => [r.key, r.value]));
+    const pwdRate = typeof rateMap.pwd_sc_discount_rate === 'number' ? rateMap.pwd_sc_discount_rate : SENIOR_PWD_DISCOUNT_RATE;
+    const taxRate = typeof rateMap.tax_rate === 'number' ? rateMap.tax_rate : 0.12;
+    const scRate = typeof rateMap.service_charge === 'number' ? rateMap.service_charge : 0.10;
+
+    const discountAmount = Math.round(order.subtotal * pwdRate * 100) / 100;
     const taxableAmount = order.subtotal - discountAmount;
-    const taxAmount = Math.round(taxableAmount * 0.12 * 100) / 100;
-    const serviceCharge = Math.round(taxableAmount * 0.10 * 100) / 100;
+    const taxAmount = Math.round(taxableAmount * taxRate * 100) / 100;
+    const serviceCharge = Math.round(taxableAmount * scRate * 100) / 100;
     const totalAmount = Math.round((taxableAmount + taxAmount + serviceCharge) * 100) / 100;
 
     // Update order with new discount and recalculated amounts
@@ -946,5 +955,31 @@ export async function getShiftSummary(
   } catch (error) {
     console.error('getShiftSummary unexpected error:', error);
     return serviceError('E9001', 'An unexpected error occurred');
+  }
+}
+
+// ============================================================
+// Verify Admin PIN (used by kiosk location reset)
+// ============================================================
+
+export async function verifyAdminPin(
+  pin: string
+): Promise<{ success: boolean }> {
+  try {
+    const supabase = await createServerClient();
+    const { data: admins, error } = await supabase
+      .from('profiles')
+      .select('id, pin_hash')
+      .in('role', ['admin'])
+      .eq('is_active', true);
+
+    if (error || !admins || admins.length === 0) {
+      return { success: false };
+    }
+
+    const match = admins.some((a) => a.pin_hash === pin);
+    return { success: match };
+  } catch {
+    return { success: false };
   }
 }

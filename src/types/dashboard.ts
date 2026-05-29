@@ -63,3 +63,34 @@ export interface DashboardData {
   topItems: TopSellingItem[];
   orderTypeBreakdown: OrderTypeData[];
 }
+
+// Sales Report Types
+export interface SalesReportSummary {
+  totalRevenue: number;
+  totalOrders: number;
+  avgOrderValue: number;
+  topCategory: string | null;
+}
+
+export interface SalesByCategoryItem {
+  categoryId: string;
+  categoryName: string;
+  revenue: number;
+  orderCount: number;
+}
+
+export interface SalesByMenuItem {
+  menuItemId: string;
+  name: string;
+  qtySold: number;
+  revenue: number;
+  avgPrice: number;
+}
+
+export interface SalesByPaymentMethodItem {
+  method: string;
+  label: string;
+  count: number;
+  revenue: number;
+  color: string;
+}

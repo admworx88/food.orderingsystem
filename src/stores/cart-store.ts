@@ -29,7 +29,7 @@ export interface ExistingOrderItem {
 }
 
 export type OrderType = 'dine_in' | 'room_service' | 'takeout' | 'ocean_view';
-export type PaymentMethod = 'cash' | 'gcash' | 'card' | 'bill_later';
+export type PaymentMethod = 'cash' | 'gcash' | 'card' | 'bill_later' | 'ewallet';
 
 interface CartStore {
   // Cart state

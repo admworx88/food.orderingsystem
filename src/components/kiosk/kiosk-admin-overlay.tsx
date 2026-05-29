@@ -94,8 +94,8 @@ export function KioskAdminOverlay({ isOpen, onClose }: KioskAdminOverlayProps) {
 
   function handleResetSession() {
     clearCart();
-    localStorage.clear();
-    router.push('/');
+    localStorage.removeItem('orderflow-cart');
+    router.push(location === 'ocean_view' ? '/ocean-view' : '/');
   }
 
   function handleClose() {

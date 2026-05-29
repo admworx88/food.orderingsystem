@@ -1,10 +1,8 @@
 import { Suspense } from 'react';
 import { getDashboardData } from '@/services/analytics-service';
-import { StatsCards } from '@/components/admin/stats-cards';
-import { SalesChart } from '@/components/admin/sales-chart';
-import { TopItemsChart } from '@/components/admin/top-items-chart';
-import { OrderTypeBreakdown } from '@/components/admin/order-type-breakdown';
+import { DashboardClient } from '@/components/admin/dashboard-client';
 import { DashboardSkeleton } from '@/components/admin/dashboard-skeleton';
+import { PageHeader } from '@/components/admin/page-header';
 import { AlertCircle } from 'lucide-react';
 
 async function DashboardContent() {
@@ -22,37 +20,16 @@ async function DashboardContent() {
     );
   }
 
-  const { stats, revenueChart, topItems, orderTypeBreakdown } = result.data;
-
-  return (
-    <div className="space-y-8">
-      {/* KPI Stats Cards */}
-      <StatsCards stats={stats} />
-
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <SalesChart data={revenueChart} />
-        <OrderTypeBreakdown data={orderTypeBreakdown} />
-      </div>
-
-      {/* Top Items */}
-      <TopItemsChart data={topItems} />
-    </div>
-  );
+  return <DashboardClient initialData={result.data} />;
 }
 
 export default function AdminDashboardPage() {
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
-          Dashboard
-        </h1>
-        <p className="text-slate-600 mt-1">
-          Welcome back! Here&apos;s what&apos;s happening today.
-        </p>
-      </div>
-
+      <PageHeader
+        title="Dashboard"
+        description="Real-time overview of today's restaurant operations."
+      />
       <Suspense fallback={<DashboardSkeleton />}>
         <DashboardContent />
       </Suspense>

@@ -67,20 +67,20 @@ export function MenuManagementTabs({
   return (
     <Tabs defaultValue="items" className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <TabsList className="grid w-full sm:w-auto grid-cols-3">
-          <TabsTrigger value="items" className="gap-2">
+        <TabsList className="bg-slate-100 rounded-xl p-1 h-auto">
+          <TabsTrigger value="items" className="rounded-lg px-4 py-2 text-sm font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-slate-900 text-slate-500 transition-all gap-2">
             <UtensilsCrossed className="h-4 w-4" />
             <span className="hidden sm:inline">Menu Items</span>
             <span className="sm:hidden">Items</span>
             <span className="text-xs text-slate-500">({menuItems.length})</span>
           </TabsTrigger>
-          <TabsTrigger value="categories" className="gap-2">
+          <TabsTrigger value="categories" className="rounded-lg px-4 py-2 text-sm font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-slate-900 text-slate-500 transition-all gap-2">
             <FolderTree className="h-4 w-4" />
             <span className="hidden sm:inline">Categories</span>
             <span className="sm:hidden">Cats</span>
             <span className="text-xs text-slate-500">({categories.length})</span>
           </TabsTrigger>
-          <TabsTrigger value="deleted" className="gap-2">
+          <TabsTrigger value="deleted" className="rounded-lg px-4 py-2 text-sm font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-slate-900 text-slate-500 transition-all gap-2">
             <Trash2 className="h-4 w-4" />
             <span className="hidden sm:inline">Deleted</span>
             <span className="sm:hidden">Del</span>
@@ -104,7 +104,7 @@ export function MenuManagementTabs({
             trigger={
               <Button
                 size="sm"
-                className="gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-lg shadow-blue-500/30"
+                className="gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-lg shadow-amber-500/20"
               >
                 <Plus className="h-4 w-4" />
                 <span className="hidden sm:inline">Add Item</span>

@@ -206,12 +206,12 @@ export function SettingsClient({ settings, birConfig, kioskPin }: SettingsClient
 
   return (
     <Tabs defaultValue="business">
-      <TabsList className="mb-6 bg-white border">
-        <TabsTrigger value="business">Business</TabsTrigger>
-        <TabsTrigger value="tax">Tax & Charges</TabsTrigger>
-        <TabsTrigger value="ordering">Ordering & Timers</TabsTrigger>
-        <TabsTrigger value="bir">BIR / Receipts</TabsTrigger>
-        <TabsTrigger value="kiosk">Kiosk</TabsTrigger>
+      <TabsList className="mb-6 bg-slate-100 rounded-xl p-1 h-auto gap-0.5 flex-wrap">
+        <TabsTrigger value="business" className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg text-sm font-medium">Business</TabsTrigger>
+        <TabsTrigger value="tax" className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg text-sm font-medium">Tax & Charges</TabsTrigger>
+        <TabsTrigger value="ordering" className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg text-sm font-medium">Ordering & Timers</TabsTrigger>
+        <TabsTrigger value="bir" className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg text-sm font-medium">BIR / Receipts</TabsTrigger>
+        <TabsTrigger value="kiosk" className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg text-sm font-medium">Kiosk</TabsTrigger>
       </TabsList>
 
       {/* Business */}

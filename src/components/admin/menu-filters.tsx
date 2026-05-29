@@ -41,13 +41,13 @@ export function MenuFilters({
           placeholder="Search menu items..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-10"
+          className="pl-10 h-9 text-sm"
         />
       </div>
 
       {/* Category Filter */}
       <Select value={selectedCategory} onValueChange={onCategoryChange}>
-        <SelectTrigger className="w-full sm:w-[180px]">
+        <SelectTrigger className="w-full sm:w-[180px] h-9 text-sm">
           <SelectValue placeholder="All Categories" />
         </SelectTrigger>
         <SelectContent>
@@ -65,7 +65,7 @@ export function MenuFilters({
         value={availabilityFilter}
         onValueChange={(v) => onAvailabilityChange(v as 'all' | 'available' | 'unavailable')}
       >
-        <SelectTrigger className="w-full sm:w-[160px]">
+        <SelectTrigger className="w-full sm:w-[160px] h-9 text-sm">
           <SelectValue placeholder="Availability" />
         </SelectTrigger>
         <SelectContent>

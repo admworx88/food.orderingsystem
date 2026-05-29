@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { X, Minus, Plus, Clock, Info, AlertTriangle, Check, Loader2, ShoppingBag } from 'lucide-react';
+import { X, Minus, Plus, Clock, Info, AlertTriangle, Check, Loader2, ShoppingBag, Star } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/currency';
 import { normalizeImageUrl } from '@/lib/utils/image';
 import { AllergenList } from './allergen-badge';
@@ -53,7 +53,6 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
     setDetailSheetOpen(isOpen);
   }, [isOpen, setDetailSheetOpen]);
 
-  // Reset state when a new item is opened
   const [prevItemId, setPrevItemId] = useState<string | null>(null);
   if (item && isOpen && item.id !== prevItemId) {
     setPrevItemId(item.id);
@@ -65,7 +64,6 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
     setAddonGroups([]);
   }
 
-  // Fetch addon groups when item changes
   useEffect(() => {
     if (!item || !isOpen || !loadingAddons) return;
 
@@ -91,14 +89,8 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
       if (groupSet.has(optionId)) {
         groupSet.delete(optionId);
       } else {
-        // Single-select (max_selections = 1): replace selection
-        if (maxSelections === 1) {
-          groupSet.clear();
-        }
-        // Multi-select with limit: check if at max
-        if (maxSelections !== null && maxSelections > 1 && groupSet.size >= maxSelections) {
-          return prev; // Don't add if at max
-        }
+        if (maxSelections === 1) groupSet.clear();
+        if (maxSelections !== null && maxSelections > 1 && groupSet.size >= maxSelections) return prev;
         groupSet.add(optionId);
       }
 
@@ -118,7 +110,6 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
   } | null;
   const prepTime = item.preparation_time_minutes;
 
-  // Calculate total with addons
   const selectedAddonItems: CartAddon[] = [];
   for (const group of addonGroups) {
     const groupSelections = selectedAddons.get(group.id);
@@ -126,11 +117,7 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
       for (const optionId of groupSelections) {
         const option = group.addon_options.find((o) => o.id === optionId);
         if (option) {
-          selectedAddonItems.push({
-            id: option.id,
-            name: option.name,
-            price: option.additional_price,
-          });
+          selectedAddonItems.push({ id: option.id, name: option.name, price: option.additional_price });
         }
       }
     }
@@ -139,7 +126,6 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
   const addonsTotal = selectedAddonItems.reduce((sum, a) => sum + a.price, 0);
   const totalPrice = (Number(item.base_price) + addonsTotal) * quantity;
 
-  // Check if all required addon groups have selections
   const allRequiredSelected = addonGroups.every((group) => {
     if (!group.is_required) return true;
     const minSelections = group.min_selections ?? 1;
@@ -155,11 +141,9 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
       quantity,
       addons: selectedAddonItems,
       specialInstructions: specialInstructions || undefined,
-      allergens: allergens,
+      allergens,
       imageUrl: item.image_url || undefined,
     });
-
-    // Reset state
     setQuantity(1);
     setSpecialInstructions('');
     setSelectedAddons(new Map());
@@ -174,7 +158,7 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
       {/* Backdrop */}
       <div
         className={cn(
-          'fixed inset-0 bg-black/60 backdrop-blur-[6px] z-[60] transition-opacity duration-300',
+          'fixed inset-0 bg-black/55 backdrop-blur-[4px] z-[60] transition-opacity duration-300',
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         )}
         onClick={onClose}
@@ -183,23 +167,25 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
       {/* Bottom Sheet */}
       <div
         className={cn(
-          'fixed inset-x-0 bottom-0 z-[60] bg-stone-50 rounded-t-[1.75rem] max-h-[92vh] overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]',
+          'fixed inset-x-0 bottom-0 z-[60] bg-[#FEF7EE] rounded-t-[2rem] max-h-[94vh] flex flex-col overflow-hidden',
+          'transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shadow-2xl',
           isOpen ? 'translate-y-0' : 'translate-y-full'
         )}
       >
-        {/* Drag indicator */}
-        <div className="flex justify-center pt-3 pb-1 relative z-20">
-          <div className="w-10 h-1 bg-stone-300/80 rounded-full" />
+        {/* Drag handle */}
+        <div className="flex justify-center pt-3 pb-0 flex-shrink-0">
+          <div className="w-10 h-1 bg-stone-300/70 rounded-full" />
         </div>
 
-        {/* Scrollable content */}
-        <div className="overflow-y-auto max-h-[calc(92vh-140px)] overscroll-contain">
-          {/* Hero Image — edge-to-edge with gradient fade */}
-          <div className="relative w-full h-48 sm:h-56 lg:h-64 bg-stone-200 overflow-hidden">
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto overscroll-contain">
+
+          {/* Hero image */}
+          <div className="relative w-full h-52 sm:h-60 lg:h-72 overflow-hidden bg-stone-200">
             {item.image_url ? (
               <>
                 {!imageLoaded && (
-                  <div className="absolute inset-0 bg-gradient-to-br from-stone-200 via-stone-100 to-stone-200 animate-pulse" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-orange-100 via-amber-50 to-orange-100 animate-pulse" />
                 )}
                 <Image
                   src={normalizeImageUrl(item.image_url) || ''}
@@ -212,23 +198,20 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
                   sizes="100vw"
                   priority
                   onLoad={() => setImageLoaded(true)}
-                  onError={() => {
-                    console.error('Image load error (detail sheet):', item.name, item.image_url);
-                  }}
                 />
-                {/* Bottom gradient for text legibility */}
-                <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-stone-50 via-stone-50/60 to-transparent pointer-events-none" />
+                {/* Deep gradient fade into cream background */}
+                <div className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-[#FEF7EE] via-[#FEF7EE]/70 to-transparent pointer-events-none" />
               </>
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-50">
-                <span className="text-7xl opacity-50">🍽️</span>
+              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-50">
+                <ShoppingBag className="w-16 h-16 text-orange-200" strokeWidth={1} />
               </div>
             )}
 
-            {/* Close button — floating over image */}
+            {/* Close button */}
             <button
               onClick={onClose}
-              className="absolute top-3 right-3 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white active:scale-90 transition-all shadow-sm z-10"
+              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white active:scale-90 transition-all shadow-md z-10"
               aria-label="Close"
             >
               <X className="w-5 h-5 text-stone-700" strokeWidth={2.5} />
@@ -236,51 +219,62 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
 
             {/* Featured badge */}
             {item.is_featured && (
-              <div className="absolute top-3 left-3 z-10">
-                <span className="px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-full shadow-lg shadow-amber-500/30">
+              <div className="absolute top-4 left-4 z-10">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 text-white text-xs font-bold rounded-full shadow-lg shadow-orange-500/30">
+                  <Star className="w-3 h-3 fill-white" />
                   Popular
                 </span>
               </div>
             )}
 
-            {/* Prep time badge — floating bottom-left over image */}
+            {/* Prep time — overlaps gradient area */}
             {prepTime && (
-              <div className="absolute bottom-12 left-4 z-10">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/95 backdrop-blur-sm text-stone-700 text-xs font-semibold rounded-full shadow-sm">
-                  <Clock className="w-3.5 h-3.5 text-stone-500" />
+              <div className="absolute bottom-4 left-5 z-10">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/90 backdrop-blur-sm text-stone-700 text-xs font-semibold rounded-full shadow-sm">
+                  <Clock className="w-3.5 h-3.5 text-orange-500" />
                   ~{prepTime} min
                 </span>
               </div>
             )}
           </div>
 
-          {/* Content body */}
-          <div className="px-5 sm:px-6 -mt-3 relative z-10 space-y-5 pb-4">
-            {/* Title + Price header */}
-            <div className="flex items-start justify-between gap-3">
+          {/* Content — starts over the gradient */}
+          <div className="px-5 sm:px-6 -mt-4 relative z-10 pb-4 space-y-5">
+
+            {/* Item name + price */}
+            <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
-                <h2 className="text-xl sm:text-2xl font-bold text-stone-900 leading-tight">
+                <h2
+                  className="text-2xl sm:text-3xl font-extrabold text-[#1C1412] leading-tight tracking-tight"
+                  style={{ fontFamily: "'Playfair Display', serif" }}
+                >
                   {item.name}
                 </h2>
                 {item.description && (
-                  <p className="text-sm text-stone-500 mt-1.5 leading-relaxed line-clamp-3">
+                  <p className="text-sm text-stone-500 mt-2 leading-relaxed line-clamp-3">
                     {item.description}
                   </p>
                 )}
               </div>
-              <div className="flex-shrink-0 text-right">
-                <span className="text-xl sm:text-2xl font-bold text-amber-600">
+              <div className="flex-shrink-0 text-right pt-1">
+                <span
+                  className="text-2xl sm:text-3xl font-extrabold text-orange-500 tabular-nums"
+                  style={{ fontFamily: "'Playfair Display', serif" }}
+                >
                   {formatCurrency(Number(item.base_price))}
                 </span>
               </div>
             </div>
 
-            {/* Allergen Warning — compact pill design */}
+            {/* Divider */}
+            <div className="w-full h-px bg-orange-100" />
+
+            {/* Allergen Warning */}
             {allergens.length > 0 && (
-              <div className="flex items-start gap-3 bg-amber-50/80 border border-amber-200/60 rounded-xl p-3.5">
+              <div className="flex items-start gap-3 bg-amber-50 border border-amber-200/70 rounded-2xl p-4">
                 <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-amber-800 mb-1.5">Contains allergens</p>
+                  <p className="text-xs font-bold text-amber-800 uppercase tracking-wide mb-2">Contains allergens</p>
                   <AllergenList allergens={allergens} showLabels size="md" />
                 </div>
               </div>
@@ -288,37 +282,37 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
 
             {/* Addon Groups */}
             {loadingAddons ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-5 h-5 animate-spin text-amber-500" />
-                <span className="ml-2 text-sm text-stone-400">Loading options...</span>
+              <div className="flex items-center justify-center py-10 gap-2">
+                <Loader2 className="w-5 h-5 animate-spin text-orange-400" />
+                <span className="text-sm text-stone-400">Loading options...</span>
               </div>
             ) : (
               addonGroups.map((group) => {
                 const groupSelections = selectedAddons.get(group.id) || new Set();
 
                 return (
-                  <div key={group.id}>
+                  <div key={group.id} className="bg-white rounded-2xl border border-orange-100/60 overflow-hidden">
                     {/* Group header */}
-                    <div className="flex items-center justify-between mb-2.5">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-orange-100/60 bg-orange-50/50">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-bold text-stone-800">
-                          {group.name}
-                        </h3>
-                        {group.is_required && (
-                          <span className="px-1.5 py-0.5 bg-red-100 text-red-600 text-[10px] font-bold rounded uppercase tracking-wide">
+                        <h3 className="text-sm font-bold text-stone-800">{group.name}</h3>
+                        {group.is_required ? (
+                          <span className="px-2 py-0.5 bg-orange-500 text-white text-[10px] font-bold rounded-full uppercase tracking-wide">
                             Required
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 bg-stone-100 text-stone-400 text-[10px] font-semibold rounded-full uppercase tracking-wide">
+                            Optional
                           </span>
                         )}
                       </div>
                       {group.max_selections && group.max_selections > 1 && (
-                        <span className="text-xs text-stone-400">
-                          Pick up to {group.max_selections}
-                        </span>
+                        <span className="text-xs text-stone-400">Pick up to {group.max_selections}</span>
                       )}
                     </div>
 
-                    {/* Options as compact, tappable cards */}
-                    <div className="space-y-1.5">
+                    {/* Options */}
+                    <div className="p-3 space-y-2">
                       {group.addon_options
                         .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
                         .map((option) => {
@@ -331,36 +325,32 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
                               onClick={() => !isDisabled && toggleAddon(group.id, option.id, group.max_selections ?? null)}
                               disabled={isDisabled}
                               className={cn(
-                                'w-full flex items-center justify-between gap-3 rounded-xl px-3.5 py-3 transition-all text-left',
+                                'w-full flex items-center justify-between gap-3 rounded-xl px-4 py-3 transition-all text-left min-h-[52px]',
                                 isDisabled
-                                  ? 'opacity-40 cursor-not-allowed bg-stone-50 text-stone-400'
+                                  ? 'opacity-40 cursor-not-allowed bg-stone-50'
                                   : isSelected
-                                    ? 'bg-amber-50 ring-2 ring-amber-400 text-stone-900'
-                                    : 'bg-white border border-stone-200 text-stone-700 hover:border-stone-300 active:scale-[0.99]'
+                                    ? 'bg-orange-500 shadow-md shadow-orange-500/20'
+                                    : 'bg-stone-50 hover:bg-orange-50 active:scale-[0.99] border border-transparent hover:border-orange-200'
                               )}
                             >
                               <div className="flex items-center gap-3 min-w-0">
-                                {/* Selection indicator */}
                                 <div className={cn(
-                                  'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all',
-                                  isSelected
-                                    ? 'bg-amber-500 border-amber-500'
-                                    : 'border-stone-300 bg-white'
+                                  'w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all',
+                                  isSelected ? 'bg-white border-white' : 'border-stone-300 bg-white'
                                 )}>
-                                  {isSelected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                                  {isSelected && <Check className="w-3.5 h-3.5 text-orange-500" strokeWidth={3} />}
                                 </div>
                                 <span className={cn(
                                   'text-sm truncate',
-                                  isSelected ? 'font-semibold' : 'font-medium'
+                                  isSelected ? 'font-bold text-white' : 'font-medium text-stone-700'
                                 )}>
                                   {option.name}
                                 </span>
                               </div>
-
                               {option.additional_price > 0 && (
                                 <span className={cn(
-                                  'text-sm flex-shrink-0',
-                                  isSelected ? 'text-amber-700 font-semibold' : 'text-stone-400'
+                                  'text-sm flex-shrink-0 font-semibold',
+                                  isSelected ? 'text-white/90' : 'text-stone-400'
                                 )}>
                                   +{formatCurrency(option.additional_price)}
                                 </span>
@@ -374,113 +364,115 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
               })
             )}
 
-            {/* Nutritional Info — collapsible */}
+            {/* Nutritional Info */}
             {nutritionalInfo && (
-              <details className="group rounded-xl bg-white border border-stone-200 overflow-hidden">
-                <summary className="flex items-center gap-2.5 cursor-pointer px-4 py-3 text-stone-600 font-medium text-sm hover:bg-stone-50 transition-colors select-none">
-                  <Info className="w-4 h-4 text-stone-400" />
+              <details className="group rounded-2xl bg-white border border-orange-100/60 overflow-hidden">
+                <summary className="flex items-center gap-2.5 cursor-pointer px-4 py-3.5 text-stone-600 font-semibold text-sm hover:bg-orange-50/50 transition-colors select-none">
+                  <Info className="w-4 h-4 text-orange-400" />
                   <span>Nutrition Facts</span>
                   <svg
                     className="w-4 h-4 ml-auto transition-transform duration-200 group-open:rotate-180 text-stone-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                   </svg>
                 </summary>
                 <div className="grid grid-cols-4 gap-2 px-4 pb-4">
                   {nutritionalInfo.calories !== undefined && (
-                    <div className="bg-stone-50 rounded-lg p-2.5 text-center">
-                      <p className="text-lg font-bold text-stone-900">{nutritionalInfo.calories}</p>
-                      <p className="text-[10px] text-stone-500 font-medium uppercase tracking-wide">Cal</p>
+                    <div className="bg-orange-50 rounded-xl p-3 text-center border border-orange-100/60">
+                      <p className="text-lg font-extrabold text-orange-500">{nutritionalInfo.calories}</p>
+                      <p className="text-[10px] text-stone-400 font-semibold uppercase tracking-wide">Cal</p>
                     </div>
                   )}
                   {nutritionalInfo.protein !== undefined && (
-                    <div className="bg-stone-50 rounded-lg p-2.5 text-center">
-                      <p className="text-lg font-bold text-stone-900">{nutritionalInfo.protein}g</p>
-                      <p className="text-[10px] text-stone-500 font-medium uppercase tracking-wide">Protein</p>
+                    <div className="bg-stone-50 rounded-xl p-3 text-center border border-stone-100">
+                      <p className="text-lg font-extrabold text-stone-800">{nutritionalInfo.protein}g</p>
+                      <p className="text-[10px] text-stone-400 font-semibold uppercase tracking-wide">Protein</p>
                     </div>
                   )}
                   {nutritionalInfo.carbs !== undefined && (
-                    <div className="bg-stone-50 rounded-lg p-2.5 text-center">
-                      <p className="text-lg font-bold text-stone-900">{nutritionalInfo.carbs}g</p>
-                      <p className="text-[10px] text-stone-500 font-medium uppercase tracking-wide">Carbs</p>
+                    <div className="bg-stone-50 rounded-xl p-3 text-center border border-stone-100">
+                      <p className="text-lg font-extrabold text-stone-800">{nutritionalInfo.carbs}g</p>
+                      <p className="text-[10px] text-stone-400 font-semibold uppercase tracking-wide">Carbs</p>
                     </div>
                   )}
                   {nutritionalInfo.fat !== undefined && (
-                    <div className="bg-stone-50 rounded-lg p-2.5 text-center">
-                      <p className="text-lg font-bold text-stone-900">{nutritionalInfo.fat}g</p>
-                      <p className="text-[10px] text-stone-500 font-medium uppercase tracking-wide">Fat</p>
+                    <div className="bg-stone-50 rounded-xl p-3 text-center border border-stone-100">
+                      <p className="text-lg font-extrabold text-stone-800">{nutritionalInfo.fat}g</p>
+                      <p className="text-[10px] text-stone-400 font-semibold uppercase tracking-wide">Fat</p>
                     </div>
                   )}
                 </div>
               </details>
             )}
 
-            {/* Special Instructions — minimal textarea */}
-            <div>
-              <label className="block text-sm font-bold text-stone-800 mb-2">
+            {/* Special Instructions */}
+            <div className="bg-white rounded-2xl border border-orange-100/60 p-4">
+              <label className="block text-sm font-bold text-stone-800 mb-3">
                 Special Instructions
-                <span className="text-stone-400 font-normal ml-1">(optional)</span>
+                <span className="text-stone-400 font-normal ml-1.5">(optional)</span>
               </label>
               <textarea
                 value={specialInstructions}
                 onChange={(e) => setSpecialInstructions(e.target.value.slice(0, 200))}
                 placeholder="Any allergies, preferences, or special requests..."
-                className="w-full px-4 py-3 rounded-xl border border-stone-200 bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 outline-none transition-all resize-none text-sm text-stone-700 placeholder:text-stone-400"
+                className="w-full px-4 py-3 rounded-xl border border-stone-200 bg-stone-50 focus:bg-white focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 outline-none transition-all resize-none text-sm text-stone-700 placeholder:text-stone-400"
                 rows={2}
                 maxLength={200}
               />
               {specialInstructions.length > 0 && (
-                <p className="text-[10px] text-stone-400 mt-1 text-right">{specialInstructions.length}/200</p>
+                <p className="text-[10px] text-stone-400 mt-1.5 text-right">{specialInstructions.length}/200</p>
               )}
             </div>
           </div>
         </div>
 
         {/* Fixed bottom action bar */}
-        <div className="bg-white border-t border-stone-100 px-5 sm:px-6 py-4 flex items-center gap-3 safe-area-inset-bottom">
-          {/* Quantity selector — compact */}
-          <div className="flex items-center bg-stone-100 rounded-xl overflow-hidden">
+        <div className="flex-shrink-0 bg-[#FEF7EE] border-t border-orange-100/60 px-5 sm:px-6 py-4 flex items-center gap-3 safe-area-inset-bottom">
+          {/* Quantity selector */}
+          <div className="flex items-center bg-white border border-orange-100 rounded-2xl overflow-hidden shadow-sm">
             <button
               onClick={decrementQuantity}
               disabled={quantity <= 1}
-              className="w-11 h-11 flex items-center justify-center hover:bg-stone-200 active:scale-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              className="w-12 h-12 flex items-center justify-center hover:bg-orange-50 active:scale-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
               aria-label="Decrease quantity"
             >
               <Minus className="w-4 h-4 text-stone-700" strokeWidth={2.5} />
             </button>
-            <span className="w-9 text-center text-base font-bold text-stone-900 tabular-nums">
+            <span className="w-10 text-center text-base font-extrabold text-stone-900 tabular-nums select-none">
               {quantity}
             </span>
             <button
               onClick={incrementQuantity}
               disabled={quantity >= 10}
-              className="w-11 h-11 flex items-center justify-center hover:bg-stone-200 active:scale-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              className="w-12 h-12 flex items-center justify-center hover:bg-orange-50 active:scale-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
               aria-label="Increase quantity"
             >
               <Plus className="w-4 h-4 text-stone-700" strokeWidth={2.5} />
             </button>
           </div>
 
-          {/* Add to cart button */}
+          {/* Add to cart CTA */}
           <button
             onClick={handleAddToCart}
             disabled={!allRequiredSelected}
             className={cn(
-              'flex-1 flex items-center justify-center gap-2.5 h-12 rounded-xl font-bold text-[15px] shadow-md active:scale-[0.98] transition-all',
+              'flex-1 flex items-center justify-between gap-2 h-14 pl-5 pr-2 py-2 rounded-2xl font-bold text-[15px] transition-all',
               allRequiredSelected
-                ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/25'
+                ? 'bg-orange-500 hover:bg-orange-600 active:scale-[0.98] text-white shadow-lg shadow-orange-500/30'
                 : 'bg-stone-200 text-stone-400 cursor-not-allowed shadow-none'
             )}
           >
-            <ShoppingBag className="w-4.5 h-4.5" strokeWidth={2.5} />
-            <span>{addToOrderId ? 'Add to Order' : 'Add to Cart'}</span>
-            <span className="text-amber-100/90 font-semibold">
+            <div className="flex items-center gap-2.5">
+              <ShoppingBag className="w-5 h-5" strokeWidth={2} />
+              <span>{addToOrderId ? 'Add to Order' : 'Add to Cart'}</span>
+            </div>
+            <div className={cn(
+              'px-3 py-1.5 rounded-xl text-sm font-extrabold',
+              allRequiredSelected ? 'bg-white/20 text-white' : 'bg-stone-300/50 text-stone-400'
+            )}>
               {formatCurrency(totalPrice)}
-            </span>
+            </div>
           </button>
         </div>
       </div>

@@ -16,6 +16,7 @@ import { X, Image as ImageIcon } from 'lucide-react';
 import { uploadMenuImage } from '@/services/menu-service';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { ALLERGEN_OPTIONS, NUTRITIONAL_FIELDS, type NutritionalInfo } from '@/lib/constants/allergens';
 import type { Database } from '@/lib/supabase/types';
 
 type Category = Database['public']['Tables']['categories']['Row'];
@@ -33,6 +34,8 @@ interface MenuItemFormProps {
     image_url: string | null;
     is_available: boolean;
     display_order: number;
+    allergens: string[] | null;
+    nutritional_info: NutritionalInfo | null;
   }) => Promise<void>;
   submitLabel?: string;
   isSubmitting?: boolean;
@@ -54,6 +57,8 @@ export function MenuItemForm({
     image_url: defaultValues?.image_url || null,
     is_available: defaultValues?.is_available ?? true,
     display_order: defaultValues?.display_order || 0,
+    allergens: (defaultValues?.allergens as string[] | null) || [],
+    nutritional_info: (defaultValues?.nutritional_info as NutritionalInfo | null) || {},
   });
 
   const [imagePreview, setImagePreview] = useState<string | null>(
@@ -142,11 +147,19 @@ export function MenuItemForm({
       return;
     }
 
+    // Clean up nutritional_info: remove keys with no value
+    const cleanedNutrition = Object.fromEntries(
+      Object.entries(formData.nutritional_info).filter(([, v]) => v != null && v !== '' && !isNaN(Number(v)))
+        .map(([k, v]) => [k, Number(v)])
+    );
+
     await onSubmit({
       ...formData,
       base_price: Number(formData.base_price),
       display_order: Number(formData.display_order),
       description: formData.description || null,
+      allergens: formData.allergens.length > 0 ? formData.allergens : null,
+      nutritional_info: Object.keys(cleanedNutrition).length > 0 ? cleanedNutrition : null,
     });
   };
 
@@ -363,6 +376,72 @@ export function MenuItemForm({
               <span className="text-sm">Unavailable</span>
             </label>
           </div>
+        </div>
+      </div>
+
+      {/* Allergens Section */}
+      <div className="space-y-3">
+        <Label className="text-sm font-medium">Allergens</Label>
+        <div className="grid grid-cols-3 gap-3">
+          {ALLERGEN_OPTIONS.map((option) => (
+            <label
+              key={option.value}
+              className={cn(
+                'flex items-center gap-2 px-3 py-2.5 rounded-lg border cursor-pointer transition-all',
+                formData.allergens.includes(option.value)
+                  ? 'border-amber-400 bg-amber-50 text-amber-800'
+                  : 'border-slate-200 hover:border-slate-300 text-slate-700'
+              )}
+            >
+              <input
+                type="checkbox"
+                checked={formData.allergens.includes(option.value)}
+                onChange={(e) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    allergens: e.target.checked
+                      ? [...prev.allergens, option.value]
+                      : prev.allergens.filter((a) => a !== option.value),
+                  }));
+                }}
+                className="w-4 h-4 accent-amber-600"
+              />
+              <span className="text-base">{option.icon}</span>
+              <span className="text-sm font-medium">{option.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Nutritional Info Section */}
+      <div className="space-y-3">
+        <Label className="text-sm font-medium">Nutritional Info (per serving)</Label>
+        <div className="grid grid-cols-3 gap-4">
+          {NUTRITIONAL_FIELDS.map((field) => (
+            <div key={field.key} className="space-y-1">
+              <label htmlFor={`nutrition-${field.key}`} className="text-xs text-slate-500">
+                {field.label} ({field.unit})
+              </label>
+              <Input
+                id={`nutrition-${field.key}`}
+                type="number"
+                min="0"
+                step={field.key === 'calories' ? '1' : '0.1'}
+                value={(formData.nutritional_info as Record<string, number | string>)[field.key] ?? ''}
+                onChange={(e) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    nutritional_info: {
+                      ...prev.nutritional_info,
+                      [field.key]: e.target.value === '' ? undefined : Number(e.target.value),
+                    },
+                  }));
+                }}
+                placeholder="0"
+                className="h-10"
+              />
+            </div>
+          ))}
         </div>
       </div>
 

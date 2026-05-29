@@ -142,7 +142,7 @@ export function clearRateLimit(identifier: string): void {
  * This prevents both IP-based and account-based brute force attacks
  */
 export function createRateLimitKey(
-  type: 'login' | 'signup',
+  type: 'login' | 'signup' | 'password-reset',
   ip: string,
   email?: string
 ): string {

@@ -16,7 +16,8 @@ import {
 } from 'lucide-react';
 import { useCartStore, type PaymentMethod } from '@/stores/cart-store';
 import { useStaffSessionStore } from '@/stores/staff-session-store';
-import { validatePromoCode, createOrder } from '@/services/order-service';
+import { useKioskLocation } from '@/hooks/use-kiosk-location';
+import { validatePromoCode, createOrder, updateOrderEwalletDetails } from '@/services/order-service';
 import { formatCurrency } from '@/lib/utils/currency';
 import { ORDER_TYPE_CONFIG, getAllowedPaymentMethods } from '@/lib/constants/order-types';
 import { Button } from '@/components/ui/button';
@@ -25,10 +26,13 @@ import { cn } from '@/lib/utils';
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string; icon: string; description: string }[] = [
   { value: 'cash', label: 'Cash', icon: '💵', description: 'Pay at counter/room' },
-  { value: 'gcash', label: 'GCash', icon: '📱', description: 'Digital wallet payment' },
+  { value: 'ewallet', label: 'eWallets / Banks', icon: '📱', description: 'GCash, Maya, GoTyme, and more' },
   { value: 'card', label: 'Credit/Debit Card', icon: '💳', description: 'Visa, Mastercard, etc.' },
   { value: 'bill_later', label: 'Pay After Meal', icon: '🍽️', description: 'Settle bill when ready to leave' },
 ];
+
+const EWALLET_PROVIDERS = ['GCash', 'Maya', 'GoTyme', 'Others'] as const;
+type EwalletProvider = typeof EWALLET_PROVIDERS[number];
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -54,12 +58,24 @@ export default function CheckoutPage() {
   } = useCartStore();
 
   const staffSessionId = useStaffSessionStore((s) => s.session?.id ?? null);
+  const { location } = useKioskLocation();
+  const isOceanView = location === 'ocean_view';
 
   const [promoInput, setPromoInput] = useState('');
   const [promoError, setPromoError] = useState('');
   const [isValidatingPromo, setIsValidatingPromo] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [orderError, setOrderError] = useState('');
+  const [showPromo, setShowPromo] = useState(false);
+  const [showPhone, setShowPhone] = useState(false);
+
+  // eWallet dialog state
+  const [ewalletDialogOpen, setEwalletDialogOpen] = useState(false);
+  const [pendingOrderResult, setPendingOrderResult] = useState<{ orderId: string; orderNumber: string; totalAmount: number; expiresAt: string | null } | null>(null);
+  const [ewalletProvider, setEwalletProvider] = useState<EwalletProvider | ''>('');
+  const [ewalletReference, setEwalletReference] = useState('');
+  const [ewalletError, setEwalletError] = useState('');
+  const [isSubmittingEwallet, setIsSubmittingEwallet] = useState(false);
 
   const subtotal = getSubtotal();
   const tax = getTaxAmount();
@@ -137,29 +153,65 @@ export default function CheckoutPage() {
       guestPhone: guestPhone || null,
       specialInstructions: specialInstructions || null,
       takenBy: staffSessionId,
+      kioskLocation: location || null,
     });
 
     if (result.success) {
-      const params = new URLSearchParams({
-        orderNumber: result.data.orderNumber,
-        total: result.data.totalAmount.toString(),
-        orderId: result.data.orderId,
-        paymentMethod: paymentMethod,
-      });
-      if (result.data.expiresAt) {
-        params.set('expiresAt', result.data.expiresAt);
+      if (paymentMethod === 'ewallet') {
+        setPendingOrderResult(result.data);
+        setIsPlacingOrder(false);
+        setEwalletDialogOpen(true);
+        return;
       }
-      if (tableNumber) {
-        params.set('tableNumber', tableNumber);
-      }
-      router.push(`/confirmation?${params.toString()}`);
+      navigateToConfirmation(result.data, paymentMethod);
     } else {
       setOrderError(result.error);
       setIsPlacingOrder(false);
     }
   };
 
+  const navigateToConfirmation = (
+    data: { orderId: string; orderNumber: string; totalAmount: number; expiresAt: string | null },
+    method: string
+  ) => {
+    const params = new URLSearchParams({
+      orderNumber: data.orderNumber,
+      total: data.totalAmount.toString(),
+      orderId: data.orderId,
+      paymentMethod: method,
+    });
+    if (data.expiresAt) params.set('expiresAt', data.expiresAt);
+    if (tableNumber) params.set('tableNumber', tableNumber);
+    router.push(`/confirmation?${params.toString()}`);
+  };
+
+  const handleEwalletSubmit = async () => {
+    if (!ewalletProvider || !ewalletReference.trim()) {
+      setEwalletError('Please select a provider and enter the reference number.');
+      return;
+    }
+    if (!pendingOrderResult) return;
+
+    setIsSubmittingEwallet(true);
+    setEwalletError('');
+
+    const result = await updateOrderEwalletDetails(
+      pendingOrderResult.orderId,
+      ewalletProvider,
+      ewalletReference.trim()
+    );
+
+    if (result.success) {
+      setEwalletDialogOpen(false);
+      navigateToConfirmation(pendingOrderResult, 'ewallet');
+    } else {
+      setEwalletError(result.error);
+      setIsSubmittingEwallet(false);
+    }
+  };
+
   return (
+    <>
     <div className="h-full flex flex-col lg:flex-row bg-[var(--kiosk-bg)]">
       {/* Left side - Checkout form */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
@@ -190,97 +242,18 @@ export default function CheckoutPage() {
                 <p className="text-sm sm:text-base font-semibold text-stone-800">{orderTypeConfig.label}</p>
               </div>
             </div>
-            <Link
-              href="/order-type"
-              className="flex items-center gap-1 text-xs sm:text-sm text-amber-600 hover:text-amber-700 font-medium transition-colors"
-            >
-              <Pencil className="w-3.5 h-3.5" strokeWidth={2} />
-              <span>Change</span>
-            </Link>
+            {!isOceanView && (
+              <Link
+                href="/order-type"
+                className="flex items-center gap-1 text-xs sm:text-sm text-amber-600 hover:text-amber-700 font-medium transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5" strokeWidth={2} />
+                <span>Change</span>
+              </Link>
+            )}
           </div>
 
-          {/* Step 1: Promo Code */}
-          <section className="bg-white rounded-xl sm:rounded-2xl border border-stone-200 p-4 sm:p-5 lg:p-6">
-            <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-amber-100 flex items-center justify-center">
-                <Tag className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" strokeWidth={2} />
-              </div>
-              <h2 className="text-base sm:text-lg font-bold text-stone-800">Promo Code (Optional)</h2>
-            </div>
-
-            {promoCode ? (
-              <div className="flex items-center justify-between p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg sm:rounded-xl">
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-md sm:rounded-lg bg-green-100 flex items-center justify-center">
-                    <Check className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" strokeWidth={2.5} />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-green-900 text-sm sm:text-base">{promoCode}</p>
-                    <p className="text-xs sm:text-sm text-green-700">
-                      Discount: {formatCurrency(discountAmount)}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={removePromoCode}
-                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg hover:bg-green-100 flex items-center justify-center active:scale-95 transition-all"
-                >
-                  <X className="w-4 h-4 sm:w-5 sm:h-5 text-green-700" strokeWidth={2} />
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2 sm:space-y-3">
-                <div className="flex gap-2 sm:gap-3">
-                  <Input
-                    type="text"
-                    value={promoInput}
-                    onChange={(e) => {
-                      setPromoInput(e.target.value.toUpperCase());
-                      setPromoError('');
-                    }}
-                    placeholder="Enter promo code"
-                    className="flex-1 h-11 sm:h-12 text-sm sm:text-base uppercase"
-                  />
-                  <Button
-                    onClick={handleApplyPromo}
-                    disabled={!promoInput.trim() || isValidatingPromo}
-                    className="h-11 sm:h-12 px-4 sm:px-6 bg-amber-500 hover:bg-amber-600 text-white font-semibold text-sm sm:text-base"
-                  >
-                    {isValidatingPromo ? 'Checking...' : 'Apply'}
-                  </Button>
-                </div>
-                {promoError && (
-                  <p className="text-xs sm:text-sm text-red-600 flex items-center gap-2">
-                    <X className="w-4 h-4" />
-                    {promoError}
-                  </p>
-                )}
-              </div>
-            )}
-          </section>
-
-          {/* Step 2: Guest Phone (Optional) */}
-          <section className="bg-white rounded-xl sm:rounded-2xl border border-stone-200 p-4 sm:p-5 lg:p-6">
-            <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-amber-100 flex items-center justify-center">
-                <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" strokeWidth={2} />
-              </div>
-              <div className="flex-1">
-                <h2 className="text-base sm:text-lg font-bold text-stone-800">Phone Number (Optional)</h2>
-                <p className="text-[10px] sm:text-xs text-stone-500 mt-0.5">For order updates and history</p>
-              </div>
-            </div>
-
-            <Input
-              type="tel"
-              value={guestPhone || ''}
-              onChange={(e) => setGuestPhone(e.target.value)}
-              placeholder="+63 XXX XXX XXXX"
-              className="h-11 sm:h-12 text-sm sm:text-base"
-            />
-          </section>
-
-          {/* Step 3: Payment Method */}
+          {/* Payment Method */}
           <section className="bg-white rounded-xl sm:rounded-2xl border border-stone-200 p-4 sm:p-5 lg:p-6">
             <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5">
               <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-amber-100 flex items-center justify-center">
@@ -334,6 +307,104 @@ export default function CheckoutPage() {
               })}
             </div>
           </section>
+
+          {/* Optional buttons: Promo Code & Phone Number */}
+          <div className="flex gap-2 sm:gap-3">
+            <button
+              onClick={() => setShowPromo(!showPromo)}
+              className={cn(
+                'flex-1 flex items-center justify-center gap-2 p-3 sm:p-4 rounded-xl sm:rounded-2xl border-2 transition-all text-sm sm:text-base font-semibold',
+                showPromo || promoCode
+                  ? 'border-amber-500 bg-amber-50 text-amber-900'
+                  : 'border-stone-200 bg-white text-stone-600 hover:border-stone-300 hover:bg-stone-50'
+              )}
+            >
+              <Tag className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2} />
+              <span>{promoCode ? promoCode : 'Promo Code'}</span>
+            </button>
+            <button
+              onClick={() => setShowPhone(!showPhone)}
+              className={cn(
+                'flex-1 flex items-center justify-center gap-2 p-3 sm:p-4 rounded-xl sm:rounded-2xl border-2 transition-all text-sm sm:text-base font-semibold',
+                showPhone || guestPhone
+                  ? 'border-amber-500 bg-amber-50 text-amber-900'
+                  : 'border-stone-200 bg-white text-stone-600 hover:border-stone-300 hover:bg-stone-50'
+              )}
+            >
+              <Phone className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2} />
+              <span>Phone</span>
+            </button>
+          </div>
+
+          {/* Expandable: Promo Code */}
+          {showPromo && (
+            <section className="bg-white rounded-xl sm:rounded-2xl border border-stone-200 p-4 sm:p-5 lg:p-6">
+              {promoCode ? (
+                <div className="flex items-center justify-between p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg sm:rounded-xl">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-md sm:rounded-lg bg-green-100 flex items-center justify-center">
+                      <Check className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" strokeWidth={2.5} />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-green-900 text-sm sm:text-base">{promoCode}</p>
+                      <p className="text-xs sm:text-sm text-green-700">
+                        Discount: {formatCurrency(discountAmount)}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={removePromoCode}
+                    className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg hover:bg-green-100 flex items-center justify-center active:scale-95 transition-all"
+                  >
+                    <X className="w-4 h-4 sm:w-5 sm:h-5 text-green-700" strokeWidth={2} />
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2 sm:space-y-3">
+                  <div className="flex gap-2 sm:gap-3">
+                    <Input
+                      type="text"
+                      value={promoInput}
+                      onChange={(e) => {
+                        setPromoInput(e.target.value.toUpperCase());
+                        setPromoError('');
+                      }}
+                      placeholder="Enter promo code"
+                      className="flex-1 h-11 sm:h-12 text-sm sm:text-base uppercase"
+                      autoFocus
+                    />
+                    <Button
+                      onClick={handleApplyPromo}
+                      disabled={!promoInput.trim() || isValidatingPromo}
+                      className="h-11 sm:h-12 px-4 sm:px-6 bg-amber-500 hover:bg-amber-600 text-white font-semibold text-sm sm:text-base"
+                    >
+                      {isValidatingPromo ? 'Checking...' : 'Apply'}
+                    </Button>
+                  </div>
+                  {promoError && (
+                    <p className="text-xs sm:text-sm text-red-600 flex items-center gap-2">
+                      <X className="w-4 h-4" />
+                      {promoError}
+                    </p>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Expandable: Phone Number */}
+          {showPhone && (
+            <section className="bg-white rounded-xl sm:rounded-2xl border border-stone-200 p-4 sm:p-5 lg:p-6">
+              <Input
+                type="tel"
+                value={guestPhone || ''}
+                onChange={(e) => setGuestPhone(e.target.value)}
+                placeholder="+63 XXX XXX XXXX"
+                className="h-11 sm:h-12 text-sm sm:text-base"
+                autoFocus
+              />
+            </section>
+          )}
 
           {/* Mobile spacing */}
           <div className="h-4 lg:h-0" />
@@ -431,5 +502,65 @@ export default function CheckoutPage() {
         </div>
       </div>
     </div>
+
+    {/* eWallet / Banks dialog */}
+    {ewalletDialogOpen && (
+      <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-sm w-full shadow-2xl">
+          <h2 className="text-xl font-bold text-stone-800 mb-1">eWallet / Bank Transfer</h2>
+          <p className="text-sm text-stone-500 mb-6">Provide your payment details to complete the order.</p>
+
+          {/* Provider dropdown */}
+          <div className="mb-4">
+            <label className="block text-xs font-semibold text-stone-600 uppercase tracking-wide mb-2">
+              Provider <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={ewalletProvider}
+              onChange={(e) => { setEwalletProvider(e.target.value as EwalletProvider); setEwalletError(''); }}
+              className="w-full h-12 px-3 rounded-xl border-2 border-stone-200 focus:border-amber-500 focus:outline-none text-stone-800 text-sm bg-white"
+            >
+              <option value="">Select provider</option>
+              {EWALLET_PROVIDERS.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Reference number */}
+          <div className="mb-5">
+            <label className="block text-xs font-semibold text-stone-600 uppercase tracking-wide mb-2">
+              Transaction Reference No. <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={ewalletReference}
+              onChange={(e) => { setEwalletReference(e.target.value); setEwalletError(''); }}
+              placeholder="Enter reference number"
+              rows={2}
+              className="w-full px-3 py-2.5 rounded-xl border-2 border-stone-200 focus:border-amber-500 focus:outline-none text-stone-800 text-sm resize-none"
+            />
+          </div>
+
+          {ewalletError && (
+            <p className="text-sm text-red-500 mb-4">{ewalletError}</p>
+          )}
+
+          <button
+            onClick={handleEwalletSubmit}
+            disabled={isSubmittingEwallet || !ewalletProvider || !ewalletReference.trim()}
+            className={cn(
+              'w-full h-13 py-3.5 rounded-xl font-bold text-base transition-all',
+              'bg-gradient-to-r from-amber-500 to-amber-600 text-white',
+              'shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40',
+              'hover:scale-[1.02] active:scale-[0.98]',
+              'disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:hover:scale-100'
+            )}
+          >
+            {isSubmittingEwallet ? 'Submitting...' : 'Submit'}
+          </button>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
