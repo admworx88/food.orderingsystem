@@ -15,6 +15,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { useCartStore, type PaymentMethod } from '@/stores/cart-store';
+import { useStaffSessionStore } from '@/stores/staff-session-store';
 import { validatePromoCode, createOrder } from '@/services/order-service';
 import { formatCurrency } from '@/lib/utils/currency';
 import { ORDER_TYPE_CONFIG, getAllowedPaymentMethods } from '@/lib/constants/order-types';
@@ -51,6 +52,8 @@ export default function CheckoutPage() {
     getServiceCharge,
     getTotal,
   } = useCartStore();
+
+  const staffSessionId = useStaffSessionStore((s) => s.session?.id ?? null);
 
   const [promoInput, setPromoInput] = useState('');
   const [promoError, setPromoError] = useState('');
@@ -133,6 +136,7 @@ export default function CheckoutPage() {
       promoCodeId: promoCodeId || null,
       guestPhone: guestPhone || null,
       specialInstructions: specialInstructions || null,
+      takenBy: staffSessionId,
     });
 
     if (result.success) {

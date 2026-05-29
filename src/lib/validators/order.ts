@@ -26,6 +26,7 @@ export const orderInputSchema = z.object({
   promoCodeId: z.string().uuid().optional().nullable(),
   guestPhone: z.string().max(20).optional().nullable(),
   specialInstructions: z.string().max(500).optional().nullable(),
+  takenBy: z.string().uuid().optional().nullable(),
 }).refine(
   (data) => {
     if (data.orderType === 'dine_in') {
