@@ -6,6 +6,8 @@ import { Pagination, PaginationInfo } from '@/components/shared/pagination';
 import { AlertCircle, ClipboardList, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
+export const dynamic = 'force-dynamic';
+
 interface OrderHistoryPageProps {
   searchParams: Promise<{
     search?: string;

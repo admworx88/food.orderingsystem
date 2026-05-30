@@ -3,6 +3,8 @@ import { SettingsClient } from '@/components/admin/settings-client';
 import { PageHeader } from '@/components/admin/page-header';
 import { AlertCircle } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export default async function SettingsPage() {
   const [settingsResult, birResult, kioskPinResult] = await Promise.all([
     getAllSettings(),

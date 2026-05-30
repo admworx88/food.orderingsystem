@@ -9,6 +9,8 @@ import {
   getSalesByPaymentMethod,
 } from '@/services/analytics-service';
 
+export const dynamic = 'force-dynamic';
+
 interface ReportsPageProps {
   searchParams: Promise<{ from?: string; to?: string }>;
 }

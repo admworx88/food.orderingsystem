@@ -3,6 +3,8 @@ import { PromoCodeTable } from '@/components/admin/promo-code-table';
 import { PageHeader } from '@/components/admin/page-header';
 import { AlertCircle } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export default async function PromoCodesPage() {
   const result = await getPromoCodes();
 

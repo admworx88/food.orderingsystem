@@ -2,6 +2,8 @@ import { createServerClient } from '@/lib/supabase/server';
 import { getPendingOrders, getUnpaidBills } from '@/services/payment-service';
 import { CashierPosClient } from '@/components/cashier/cashier-pos-client';
 
+export const dynamic = 'force-dynamic';
+
 export default async function PaymentsPage() {
   // Fetch initial data server-side (both pending orders and unpaid bills)
   const [pendingResult, unpaidResult] = await Promise.all([

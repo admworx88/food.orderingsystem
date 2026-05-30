@@ -2,6 +2,8 @@ import { getCategories, getMenuItems, getDeletedMenuItems } from '@/services/men
 import { MenuManagementTabs } from '@/components/admin/menu-management-tabs';
 import { AlertCircle } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export default async function MenuManagementPage() {
   const [categoriesResult, menuItemsResult, deletedItemsResult] = await Promise.all([
     getCategories(),

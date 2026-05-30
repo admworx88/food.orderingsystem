@@ -5,6 +5,8 @@ import { PageHeader } from '@/components/admin/page-header';
 import { AlertCircle, Users, ShieldCheck, UtensilsCrossed, CreditCard } from 'lucide-react';
 import { KpiCard } from '@/components/admin/kpi-card';
 
+export const dynamic = 'force-dynamic';
+
 export default async function UsersPage() {
   const result = await getStaffUsers();
 

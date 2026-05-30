@@ -12,6 +12,8 @@ import { PaginationInfo } from '@/components/shared/pagination';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
+export const dynamic = 'force-dynamic';
+
 interface AuditLogPageProps {
   searchParams: Promise<{
     action?: string;

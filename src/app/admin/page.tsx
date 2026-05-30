@@ -5,6 +5,8 @@ import { DashboardSkeleton } from '@/components/admin/dashboard-skeleton';
 import { PageHeader } from '@/components/admin/page-header';
 import { AlertCircle } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 async function DashboardContent() {
   const result = await getDashboardData();
 
