@@ -347,26 +347,21 @@ export async function getOrderTypeBreakdown(): Promise<
  */
 export async function getDashboardData(): Promise<ServiceResult<DashboardData>> {
   try {
-    const [statsResult, chartResult, topItemsResult, breakdownResult] =
+    const currentYear = new Date().getFullYear();
+    const [statsResult, chartResult, topItemsResult, breakdownResult, monthlyResult] =
       await Promise.all([
         getDashboardStats(),
         getRevenueChartData(7),
         getTopSellingItems(5),
         getOrderTypeBreakdown(),
+        getMonthlyRevenueData(currentYear),
       ]);
 
-    if (!statsResult.success) {
-      return { success: false, error: statsResult.error };
-    }
-    if (!chartResult.success) {
-      return { success: false, error: chartResult.error };
-    }
-    if (!topItemsResult.success) {
-      return { success: false, error: topItemsResult.error };
-    }
-    if (!breakdownResult.success) {
-      return { success: false, error: breakdownResult.error };
-    }
+    if (!statsResult.success) return { success: false, error: statsResult.error };
+    if (!chartResult.success) return { success: false, error: chartResult.error };
+    if (!topItemsResult.success) return { success: false, error: topItemsResult.error };
+    if (!breakdownResult.success) return { success: false, error: breakdownResult.error };
+    if (!monthlyResult.success) return { success: false, error: monthlyResult.error };
 
     return {
       success: true,
@@ -375,6 +370,7 @@ export async function getDashboardData(): Promise<ServiceResult<DashboardData>> 
         revenueChart: chartResult.data,
         topItems: topItemsResult.data,
         orderTypeBreakdown: breakdownResult.data,
+        monthlyRevenue: monthlyResult.data,
       },
     };
   } catch (error) {
@@ -388,6 +384,62 @@ export async function getDashboardData(): Promise<ServiceResult<DashboardData>> 
  */
 export async function refreshDashboardData(): Promise<ServiceResult<DashboardData>> {
   return getDashboardData();
+}
+
+/**
+ * Get monthly revenue for a given year (12 data points, Jan–Dec)
+ */
+export async function getMonthlyRevenueData(
+  year: number
+): Promise<ServiceResult<RevenueDataPoint[]>> {
+  try {
+    const supabase = await createServerClient();
+
+    const startDate = new Date(year, 0, 1).toISOString();
+    const endDate = new Date(year, 11, 31, 23, 59, 59, 999).toISOString();
+
+    const { data: orders, error } = await supabase
+      .from('orders')
+      .select('total_amount, created_at')
+      .gte('created_at', startDate)
+      .lte('created_at', endDate)
+      .in('payment_status', ['paid', 'refunded'])
+      .is('deleted_at', null);
+
+    if (error) throw error;
+
+    const monthMap = new Map<number, { revenue: number; count: number }>();
+    orders?.forEach((order) => {
+      const month = new Date(order.created_at!).getMonth();
+      const existing = monthMap.get(month);
+      if (existing) {
+        existing.revenue += order.total_amount || 0;
+        existing.count++;
+      } else {
+        monthMap.set(month, { revenue: order.total_amount || 0, count: 1 });
+      }
+    });
+
+    const MONTH_LABELS = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+
+    const dataPoints: RevenueDataPoint[] = MONTH_LABELS.map((label, i) => {
+      const data = monthMap.get(i);
+      return {
+        date: `${year}-${String(i + 1).padStart(2, '0')}`,
+        label,
+        revenue: data?.revenue || 0,
+        orders: data?.count || 0,
+      };
+    });
+
+    return { success: true, data: dataPoints };
+  } catch (error) {
+    console.error('getMonthlyRevenueData error:', error);
+    return { success: false, error: 'Failed to fetch monthly revenue data' };
+  }
 }
 
 // ============================================================

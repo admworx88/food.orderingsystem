@@ -452,7 +452,8 @@ export async function restoreMenuItem(id: string): Promise<ServiceResult<MenuIte
  */
 export async function toggleMenuItemAvailability(
   id: string,
-  isAvailable: boolean
+  isAvailable: boolean,
+  performedBy?: { id: string; name: string; role: string }
 ): Promise<ServiceResult<MenuItem>> {
   try {
     const idValidation = validateId(id);
@@ -461,6 +462,13 @@ export async function toggleMenuItemAvailability(
     }
 
     const supabase = await createServerClient();
+
+    // Fetch current state for audit diff
+    const { data: oldData } = await supabase
+      .from('menu_items')
+      .select('id, name, is_available')
+      .eq('id', id)
+      .single();
 
     const { data, error } = await supabase
       .from('menu_items')
@@ -471,6 +479,23 @@ export async function toggleMenuItemAvailability(
       .single();
 
     if (error) throw error;
+
+    await logAuditEvent({
+      table_name: 'menu_items',
+      action: 'updated',
+      record_id: id,
+      old_data: {
+        is_available: oldData?.is_available ?? null,
+        name: oldData?.name ?? id,
+      },
+      new_data: {
+        is_available: isAvailable,
+        name: oldData?.name ?? id,
+        changed_by: performedBy?.name ?? 'Unknown',
+        changed_by_role: performedBy?.role ?? 'unknown',
+      },
+      user_id: performedBy?.id ?? null,
+    });
 
     revalidatePath('/menu-management');
     revalidatePath('/menu');

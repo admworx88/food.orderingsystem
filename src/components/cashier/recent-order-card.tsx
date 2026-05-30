@@ -1,6 +1,6 @@
 'use client';
 
-import { UtensilsCrossed, Clock } from 'lucide-react';
+import { Banknote, Smartphone, CreditCard, UtensilsCrossed, Clock } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/currency';
 import { cn } from '@/lib/utils';
 import type { RecentOrder } from '@/types/payment';
@@ -18,91 +18,108 @@ const ORDER_TYPE_LABELS: Record<string, string> = {
   ocean_view: 'Ocean View',
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  paid: 'bg-emerald-500/20 text-emerald-400',
-  served: 'bg-blue-500/20 text-blue-400',
-  preparing: 'bg-amber-500/20 text-amber-400',
-  ready: 'bg-cyan-500/20 text-cyan-400',
-  cancelled: 'bg-red-500/20 text-red-400',
+const STATUS_CONFIG: Record<string, { label: string; badge: string; bar: string }> = {
+  paid:      { label: 'PAID',      badge: 'bg-emerald-100 text-emerald-700', bar: 'bg-emerald-500' },
+  served:    { label: 'SERVED',    badge: 'bg-blue-100 text-blue-700',       bar: 'bg-blue-500'    },
+  preparing: { label: 'PREPARING', badge: 'bg-amber-100 text-amber-700',     bar: 'bg-amber-500'   },
+  ready:     { label: 'READY',     badge: 'bg-cyan-100 text-cyan-700',       bar: 'bg-cyan-500'    },
+  cancelled: { label: 'CANCELLED', badge: 'bg-red-100 text-red-600',         bar: 'bg-red-500'     },
+};
+
+const PAYMENT_ICONS: Record<string, React.ReactNode> = {
+  cash:  <Banknote className="w-3 h-3" />,
+  gcash: <Smartphone className="w-3 h-3" />,
+  card:  <CreditCard className="w-3 h-3" />,
+};
+
+const PAYMENT_LABELS: Record<string, string> = {
+  cash: 'Cash', gcash: 'GCash', card: 'Card',
 };
 
 function formatTime(dateStr: string | null): string {
   if (!dateStr) return '--:--';
-  const date = new Date(dateStr);
-  return date.toLocaleTimeString('en-US', {
+  return new Date(dateStr).toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
   });
 }
 
-/**
- * Compact order card for the Recent Orders left panel
- */
 export function RecentOrderCard({ order, isSelected, onSelect }: RecentOrderCardProps) {
   const itemCount = order.order_items.reduce((sum, item) => sum + item.quantity, 0);
-  const isPaid = order.payment_status === 'paid';
   const isRefunded = order.payment_status === 'refunded';
+  const statusKey = isRefunded ? 'cancelled' : order.status;
+  const status = STATUS_CONFIG[statusKey] ?? { label: order.status.toUpperCase(), badge: 'bg-gray-100 text-gray-600', bar: 'bg-gray-400' };
+  const payment = order.payments[0];
+  const location = order.kiosk_location
+    ? ORDER_TYPE_LABELS[order.kiosk_location] ?? order.kiosk_location
+    : ORDER_TYPE_LABELS[order.order_type] ?? order.order_type;
 
   return (
     <button
       onClick={() => onSelect(order.id)}
       className={cn(
-        'w-full text-left p-3 rounded-lg transition-all',
-        'border border-transparent',
+        'w-full text-left rounded-xl border transition-all duration-150 overflow-hidden cursor-pointer',
+        'flex flex-col',
         isSelected
-          ? 'bg-[var(--pos-accent)]/10 border-[var(--pos-accent)]/40'
-          : 'hover:bg-[var(--pos-surface)]'
+          ? 'border-[var(--pos-accent)] shadow-md ring-1 ring-[var(--pos-accent)]/30 bg-white'
+          : 'border-[var(--pos-border)] bg-white hover:border-[var(--pos-accent)]/40 hover:shadow-sm'
       )}
     >
-      <div className="flex items-center justify-between mb-1.5">
-        <div className="flex items-center gap-2">
-          <span className="text-lg font-bold text-[var(--pos-text)] tabular-nums">
+      {/* Status color bar */}
+      <div className={cn('h-1 w-full flex-shrink-0', status.bar)} />
+
+      <div className="p-3 flex flex-col gap-2">
+        {/* Top row: order number + status badge */}
+        <div className="flex items-start justify-between gap-1">
+          <span className="text-[13px] font-bold text-[var(--pos-text)] tabular-nums leading-tight">
             #{order.order_number}
           </span>
-          <span className={cn(
-            'text-[10px] font-semibold px-1.5 py-0.5 rounded',
-            STATUS_COLORS[order.status] || 'bg-gray-500/20 text-gray-400'
-          )}>
-            {isRefunded ? 'REFUNDED' : order.status.toUpperCase()}
+          <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0', status.badge)}>
+            {isRefunded ? 'REFUNDED' : status.label}
           </span>
         </div>
-        <span className="text-sm font-bold text-[var(--pos-text)] tabular-nums">
-          {formatCurrency(order.total_amount)}
-        </span>
-      </div>
 
-      <div className="flex items-center justify-between text-xs text-[var(--pos-text-muted)]">
-        <div className="flex items-center gap-2">
-          <span className="px-1.5 py-0.5 rounded bg-[var(--pos-surface)] text-[10px] font-medium">
-            {ORDER_TYPE_LABELS[order.order_type] || order.order_type}
+        {/* Amount — primary focal point */}
+        <div className="text-[15px] font-bold text-[var(--pos-text)] tabular-nums leading-none">
+          {formatCurrency(order.total_amount)}
+        </div>
+
+        {/* Meta row: type + table */}
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-[var(--pos-surface)] text-[var(--pos-text-muted)]">
+            {location}
           </span>
           {order.table_number && (
-            <span>T{order.table_number}</span>
+            <span className="text-[9px] font-medium text-[var(--pos-text-muted)]">
+              T{order.table_number}
+            </span>
           )}
-          <span className="flex items-center gap-0.5">
-            <UtensilsCrossed className="w-3 h-3" />
+          {order.room_number && (
+            <span className="text-[9px] font-medium text-[var(--pos-text-muted)]">
+              Rm {order.room_number}
+            </span>
+          )}
+          <span className="flex items-center gap-0.5 text-[9px] text-[var(--pos-text-muted)] ml-auto">
+            <UtensilsCrossed className="w-2.5 h-2.5" />
             {itemCount}
           </span>
         </div>
-        <span className="flex items-center gap-1">
-          <Clock className="w-3 h-3" />
-          {formatTime(order.paid_at)}
-        </span>
-      </div>
 
-      {/* Payment method badge */}
-      {isPaid && order.payments.length > 0 && (
-        <div className="mt-1.5 flex items-center gap-1 text-[10px] text-[var(--pos-text-muted)]">
-          <span>
-            {order.payments[0].method === 'cash' ? '💵' : order.payments[0].method === 'gcash' ? '📱' : '💳'}
+        {/* Footer row: time + payment */}
+        <div className="flex items-center justify-between border-t border-[var(--pos-border)] pt-2">
+          <span className="flex items-center gap-1 text-[9px] text-[var(--pos-text-muted)]">
+            <Clock className="w-2.5 h-2.5" />
+            {formatTime(order.paid_at)}
           </span>
-          <span className="capitalize">{order.payments[0].method}</span>
-          {order.payments[0].cashier_name && (
-            <span className="ml-1 opacity-60">by {order.payments[0].cashier_name}</span>
+          {payment && (
+            <span className="flex items-center gap-1 text-[9px] text-[var(--pos-text-muted)]">
+              {PAYMENT_ICONS[payment.method] ?? <Banknote className="w-3 h-3" />}
+              {PAYMENT_LABELS[payment.method] ?? payment.method}
+            </span>
           )}
         </div>
-      )}
+      </div>
     </button>
   );
 }

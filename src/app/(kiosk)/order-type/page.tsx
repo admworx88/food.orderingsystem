@@ -18,6 +18,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { BurgerLoader } from '@/components/shared/burger-loader';
 
 const ORDER_TYPE_IMAGES: Record<string, string> = {
   dine_in: '/dining.png',
@@ -28,7 +29,7 @@ const ORDER_TYPE_IMAGES: Record<string, string> = {
 const fadeUp = (delay: number = 0) => ({
   initial: { opacity: 0, y: 24 },
   animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1], delay },
+  transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] as [number, number, number, number], delay },
 });
 
 export default function OrderTypePage() {
@@ -44,6 +45,7 @@ export default function OrderTypePage() {
 
   const { location } = useKioskLocation();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   const handleOrderTypeSelect = useCallback((type: OrderType) => {
     setOrderType(type);
@@ -51,6 +53,7 @@ export default function OrderTypePage() {
     if (config.requiresTable || config.requiresRoom) {
       setDialogOpen(true);
     } else {
+      setIsNavigating(true);
       router.push('/menu');
     }
   }, [setOrderType, router]);
@@ -73,7 +76,7 @@ export default function OrderTypePage() {
   }, [needsTable, setTableNumber, setRoomNumber]);
 
   const handleContinue = useCallback(() => {
-    if (canContinue) { setDialogOpen(false); router.push('/menu'); }
+    if (canContinue) { setDialogOpen(false); setIsNavigating(true); router.push('/menu'); }
   }, [canContinue, router]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -85,6 +88,8 @@ export default function OrderTypePage() {
   );
 
   return (
+    <>
+    <BurgerLoader isLoading={isNavigating} message="Loading menu…" />
     <div className="h-full bg-[#FEF7EE] relative overflow-hidden flex flex-col">
 
       {/* ── Decorative background blobs ── */}
@@ -123,7 +128,7 @@ export default function OrderTypePage() {
       </motion.div>
 
       {/* ── Main content ── */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center pb-16 px-8 xl:px-12">
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center pb-12 px-4 sm:px-8 xl:px-12 overflow-y-auto scrollbar-hide">
 
         {/* Back button */}
         <motion.div
@@ -142,7 +147,7 @@ export default function OrderTypePage() {
         </motion.div>
 
         {/* Heading */}
-        <div className="text-center mb-8 xl:mb-10">
+        <div className="text-center mb-5 sm:mb-8 xl:mb-10">
           <motion.div
             className="flex items-center justify-center gap-3 mb-2"
             {...fadeUp(0.1)}
@@ -174,8 +179,10 @@ export default function OrderTypePage() {
 
         {/* Order type cards */}
         <div className={cn(
-          'grid gap-4 xl:gap-5 w-full',
-          visibleTypes.length === 3 ? 'grid-cols-3 max-w-3xl' : 'grid-cols-2 max-w-2xl'
+          'grid gap-3 sm:gap-4 xl:gap-5 w-full',
+          visibleTypes.length === 3
+            ? 'grid-cols-3 max-w-xl sm:max-w-2xl xl:max-w-3xl'
+            : 'grid-cols-2 max-w-lg sm:max-w-xl xl:max-w-2xl'
         )}>
           {visibleTypes.map((config, index) => {
             const imgSrc = ORDER_TYPE_IMAGES[config.value];
@@ -183,7 +190,7 @@ export default function OrderTypePage() {
               <motion.button
                 key={config.value}
                 onClick={() => handleOrderTypeSelect(config.value)}
-                className="group flex flex-col items-center bg-white/70 backdrop-blur-sm rounded-3xl pt-5 pb-6 px-4 border border-stone-200/60 shadow-sm hover:shadow-lg active:scale-[0.97] transition-all duration-200"
+                className="group flex flex-col items-center bg-white/70 backdrop-blur-sm rounded-2xl sm:rounded-3xl pt-4 pb-5 px-3 sm:pt-5 sm:pb-6 sm:px-4 border border-stone-200/60 shadow-sm hover:shadow-lg active:scale-[0.97] transition-all duration-200"
                 initial={{ opacity: 0, y: 36 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{
@@ -195,40 +202,40 @@ export default function OrderTypePage() {
                 whileTap={{ scale: 0.97 }}
               >
                 {/* Circular illustration */}
-                <div className="w-48 h-48 xl:w-52 xl:h-52 rounded-full bg-[#F8EDD8] flex items-center justify-center mb-4 flex-shrink-0">
+                <div className="w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 xl:w-48 xl:h-48 rounded-full bg-[#F8EDD8] flex items-center justify-center mb-3 sm:mb-4 flex-shrink-0">
                   {imgSrc ? (
                     <Image
                       src={imgSrc}
                       alt={config.label}
                       width={160}
                       height={160}
-                      className="object-contain w-40 h-40 xl:w-44 xl:h-44"
+                      className="object-contain w-24 h-24 sm:w-32 sm:h-32 md:w-36 md:h-36 xl:w-40 xl:h-40"
                     />
                   ) : (
-                    <span className="text-5xl">{config.icon}</span>
+                    <span className="text-3xl sm:text-4xl xl:text-5xl">{config.icon}</span>
                   )}
                 </div>
 
                 {/* Orange accent line */}
-                <div className="w-8 h-0.5 bg-orange-500 rounded-full mb-3" />
+                <div className="w-6 sm:w-8 h-0.5 bg-orange-500 rounded-full mb-2 sm:mb-3" />
 
                 {/* Label */}
-                <h3 className="text-xl xl:text-2xl font-bold text-[#1C1917] mb-2 leading-tight">
+                <h3 className="text-base sm:text-lg xl:text-2xl font-bold text-[#1C1917] mb-1.5 sm:mb-2 leading-tight">
                   {config.label}
                 </h3>
 
                 {/* Description */}
-                <p className="text-stone-400 text-sm text-center leading-relaxed mb-5 min-h-[2.5rem]">
+                <p className="text-stone-400 text-xs sm:text-sm text-center leading-relaxed mb-4 sm:mb-5 min-h-[2rem] sm:min-h-[2.5rem]">
                   {config.description}
                 </p>
 
                 {/* Arrow button */}
                 <div className={cn(
-                  'w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200',
+                  'w-11 h-11 sm:w-14 sm:h-14 xl:w-16 xl:h-16 rounded-full flex items-center justify-center transition-all duration-200',
                   'bg-[#F8EDD8] group-hover:bg-orange-500'
                 )}>
                   <ArrowRight
-                    className="w-8 h-8 text-orange-500 group-hover:text-white transition-colors duration-200"
+                    className="w-5 h-5 sm:w-7 sm:h-7 xl:w-8 xl:h-8 text-orange-500 group-hover:text-white transition-colors duration-200"
                     strokeWidth={2.5}
                   />
                 </div>
@@ -298,5 +305,6 @@ export default function OrderTypePage() {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 }

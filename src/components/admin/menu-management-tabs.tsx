@@ -101,6 +101,7 @@ export function MenuManagementTabs({
           />
           <CreateMenuItemDialog
             categories={categories}
+            nextDisplayOrder={menuItems.length + 1}
             trigger={
               <Button
                 size="sm"

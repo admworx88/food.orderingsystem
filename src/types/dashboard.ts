@@ -62,6 +62,7 @@ export interface DashboardData {
   revenueChart: RevenueDataPoint[];
   topItems: TopSellingItem[];
   orderTypeBreakdown: OrderTypeData[];
+  monthlyRevenue: RevenueDataPoint[];
 }
 
 // Sales Report Types

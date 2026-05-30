@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Receipt, Clock, CreditCard, X } from 'lucide-react';
+import { Receipt, Clock, CreditCard, Ban } from 'lucide-react';
 import { PendingOrdersList } from './pending-orders-list';
 import { UnpaidBillsList } from './unpaid-bills-list';
 import { OrderDetailPanel } from './order-detail-panel';
-import { PaymentForm } from './payment-form';
-import { DiscountSelector } from './discount-selector';
+import { PaymentDialog } from './payment-dialog';
 import { ReceiptPreview } from './receipt-preview';
+import { VoidBillDialog } from './void-bill-dialog';
 import { useRealtimePendingOrders } from '@/hooks/use-realtime-pending-orders';
 import { useRealtimeUnpaidBills } from '@/hooks/use-realtime-unpaid-bills';
 import {
@@ -27,34 +27,36 @@ interface CashierPosClientProps {
   cashierId: string;
   cashierName: string;
   isPayMongoEnabled: boolean;
+  kioskTheme?: boolean;
+  kioskLocation?: string | null;
+  initialSelectedOrderId?: string;
 }
 
 type ViewState = 'payment' | 'receipt';
 type QueueTab = 'pending' | 'unpaid';
 
-/**
- * Main cashier POS orchestrator - Terminal Command Center theme
- */
 export function CashierPosClient({
   initialOrders,
   initialUnpaidBills,
   cashierId,
   cashierName,
   isPayMongoEnabled,
+  kioskTheme,
+  kioskLocation,
+  initialSelectedOrderId,
 }: CashierPosClientProps) {
-  const { orders: pendingOrders } = useRealtimePendingOrders({ initialData: initialOrders });
-  const { orders: unpaidBills } = useRealtimeUnpaidBills({ initialData: initialUnpaidBills });
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const { orders: pendingOrders, refetch: refetchPending } = useRealtimePendingOrders({ initialData: initialOrders, kioskLocation });
+  const { orders: unpaidBills, refetch: refetchUnpaid } = useRealtimeUnpaidBills({ initialData: initialUnpaidBills, kioskLocation });
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(initialSelectedOrderId ?? null);
   const [viewState, setViewState] = useState<ViewState>('payment');
   const [receiptData, setReceiptData] = useState<BIRReceiptData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeTab, setActiveTab] = useState<QueueTab>('pending');
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isVoidDialogOpen, setIsVoidDialogOpen] = useState(false);
 
-  // Get the current list based on active tab
   const orders = activeTab === 'pending' ? pendingOrders : unpaidBills;
 
-  // Derive effective selected order: auto-fallback to first if selection is stale
   const effectiveSelectedId = useMemo(() => {
     if (selectedOrderId && orders.find((o) => o.id === selectedOrderId)) {
       return selectedOrderId;
@@ -66,7 +68,6 @@ export function CashierPosClient({
     ? orders.find((o) => o.id === effectiveSelectedId) || null
     : null;
 
-  // Poll for expired orders every 60 seconds
   useEffect(() => {
     const interval = setInterval(async () => {
       const result = await cancelExpiredOrders();
@@ -82,7 +83,6 @@ export function CashierPosClient({
     async (methodOrId: string, amountTenderedOrChange?: number) => {
       if (!selectedOrder) return;
 
-      // Cash payment
       if (methodOrId === 'cash' && amountTenderedOrChange !== undefined) {
         setIsProcessing(true);
         const result = await processCashPayment({
@@ -97,8 +97,10 @@ export function CashierPosClient({
           toast.success(
             `Payment received! Change: ${formatCurrency(result.data.changeGiven)}`
           );
+          // Immediately flush paid order from queue without waiting for realtime
+          if (activeTab === 'pending') refetchPending();
+          else refetchUnpaid();
 
-          // Generate receipt
           const receiptResult = await generateBIRReceipt(selectedOrder.id);
           if (receiptResult.success) {
             setReceiptData(receiptResult.data);
@@ -109,9 +111,11 @@ export function CashierPosClient({
         } else {
           toast.error(result.error);
         }
-      }
-      // Digital payment (webhook-confirmed — paymentId passed)
-      else {
+      } else {
+        // Digital / reference-number payment
+        if (activeTab === 'pending') refetchPending();
+        else refetchUnpaid();
+
         const receiptResult = await generateBIRReceipt(selectedOrder.id);
         if (receiptResult.success) {
           setReceiptData(receiptResult.data);
@@ -119,12 +123,13 @@ export function CashierPosClient({
         }
       }
     },
-    [selectedOrder, cashierId, cashierName]
+    [selectedOrder, cashierId, cashierName, activeTab, refetchPending, refetchUnpaid]
   );
 
   const handleNewTransaction = useCallback(() => {
     setViewState('payment');
     setReceiptData(null);
+    setIsDialogOpen(false);
     const currentOrders = activeTab === 'pending' ? pendingOrders : unpaidBills;
     setSelectedOrderId(currentOrders.length > 0 ? currentOrders[0].id : null);
   }, [activeTab, pendingOrders, unpaidBills]);
@@ -133,31 +138,26 @@ export function CashierPosClient({
     toast.success('Discount applied — order total updated');
   }, []);
 
+  const handleVoided = useCallback(() => {
+    setIsVoidDialogOpen(false);
+    setViewState('payment');
+    setReceiptData(null);
+    if (activeTab === 'pending') refetchPending();
+    else refetchUnpaid();
+  }, [activeTab, refetchPending, refetchUnpaid]);
+
   const handleTabChange = useCallback((tab: QueueTab) => {
     setActiveTab(tab);
     setSelectedOrderId(null);
     setViewState('payment');
     setReceiptData(null);
+    setIsDialogOpen(false);
   }, []);
 
-  // Payment form component (reused in panel and sheet)
-  const paymentContent = selectedOrder && viewState === 'payment' ? (
-    <PaymentForm
-      order={selectedOrder}
-      onPaymentComplete={(methodOrId, amountTendered) => {
-        handlePaymentComplete(methodOrId, amountTendered);
-        setIsSheetOpen(false);
-      }}
-      isPayMongoEnabled={isPayMongoEnabled}
-      cashierId={cashierId}
-    />
-  ) : null;
-
   return (
-    <div className="pos-three-panel">
-      {/* Left panel: Order queue with tab toggle */}
+    <div className="pos-two-panel">
+      {/* Left panel: Order queue */}
       <div className="pos-queue-panel">
-        {/* Tab toggle */}
         <div className="pos-queue-tabs">
           <button
             onClick={() => handleTabChange('pending')}
@@ -189,7 +189,6 @@ export function CashierPosClient({
           </button>
         </div>
 
-        {/* Order list based on active tab */}
         <div className="flex-1 overflow-hidden">
           {activeTab === 'pending' ? (
             <PendingOrdersList
@@ -199,7 +198,6 @@ export function CashierPosClient({
                 setSelectedOrderId(id);
                 setViewState('payment');
                 setReceiptData(null);
-                setIsSheetOpen(false);
               }}
             />
           ) : (
@@ -210,14 +208,13 @@ export function CashierPosClient({
                 setSelectedOrderId(id);
                 setViewState('payment');
                 setReceiptData(null);
-                setIsSheetOpen(false);
               }}
             />
           )}
         </div>
       </div>
 
-      {/* Center panel: Order details + Discount */}
+      {/* Center panel: Order detail */}
       <div className="pos-order-panel pos-scrollbar">
         {viewState === 'receipt' && receiptData ? (
           <div className="max-w-md mx-auto space-y-6">
@@ -233,20 +230,20 @@ export function CashierPosClient({
           <div className="space-y-4">
             <OrderDetailPanel order={selectedOrder} />
 
-            <DiscountSelector
-              orderId={selectedOrder.id}
-              subtotal={selectedOrder.subtotal}
-              currentDiscount={selectedOrder.discount_amount || 0}
-              onDiscountApplied={handleDiscountApplied}
-            />
-
-            {/* Mobile/Tablet: Button to open payment sheet */}
             <button
-              className="pos-payment-sheet-trigger"
-              onClick={() => setIsSheetOpen(true)}
+              className="pos-process-payment-btn"
+              onClick={() => setIsDialogOpen(true)}
             >
               <CreditCard className="w-5 h-5" />
               Process Payment
+            </button>
+
+            <button
+              onClick={() => setIsVoidDialogOpen(true)}
+              className="w-full h-11 rounded-xl border border-red-800/50 bg-red-900/20 hover:bg-red-900/35 text-red-400 text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+            >
+              <Ban className="w-4 h-4" strokeWidth={2} />
+              Void Bill
             </button>
           </div>
         ) : (
@@ -270,65 +267,27 @@ export function CashierPosClient({
         )}
       </div>
 
-      {/* Right panel: Payment calculator (desktop only) */}
-      <div className="pos-payment-panel pos-scrollbar">
-        <div className="pos-payment-panel-header">
-          <div className="pos-payment-panel-title">Payment</div>
-        </div>
-        <div className="pos-payment-panel-content">
-          {selectedOrder && viewState === 'payment' ? (
-            paymentContent
-          ) : viewState === 'receipt' ? (
-            <div className="p-6 text-center">
-              <div className="pos-empty-icon mx-auto mb-4">
-                <Receipt className="w-8 h-8" />
-              </div>
-              <p className="text-sm text-[var(--pos-text-muted)]">
-                Payment complete. View receipt in main panel.
-              </p>
-            </div>
-          ) : (
-            <div className="p-6 text-center">
-              <div className="pos-empty-icon mx-auto mb-4">
-                <CreditCard className="w-8 h-8" />
-              </div>
-              <p className="text-sm text-[var(--pos-text-muted)]">
-                Select an order to process payment.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Mobile/Tablet: Payment sheet overlay */}
-      <div
-        className={cn(
-          'pos-sheet-overlay',
-          isSheetOpen && 'pos-sheet-overlay-visible'
-        )}
-        onClick={() => setIsSheetOpen(false)}
+      {/* Payment + Discount dialog */}
+      <PaymentDialog
+        order={selectedOrder}
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        onPaymentComplete={handlePaymentComplete}
+        onDiscountApplied={handleDiscountApplied}
+        isPayMongoEnabled={isPayMongoEnabled}
+        cashierId={cashierId}
+        kioskTheme={kioskTheme}
       />
 
-      {/* Mobile/Tablet: Payment sheet panel */}
-      <div
-        className={cn(
-          'pos-sheet-panel',
-          isSheetOpen && 'pos-sheet-panel-visible'
-        )}
-      >
-        <div className="pos-sheet-header">
-          <span className="pos-sheet-title">Payment</span>
-          <button
-            className="pos-sheet-close"
-            onClick={() => setIsSheetOpen(false)}
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <div className="pos-sheet-content pos-scrollbar">
-          {paymentContent}
-        </div>
-      </div>
+      {/* Void Bill dialog */}
+      <VoidBillDialog
+        order={selectedOrder}
+        isOpen={isVoidDialogOpen}
+        onClose={() => setIsVoidDialogOpen(false)}
+        onVoided={handleVoided}
+        cashierId={cashierId}
+        cashierName={cashierName}
+      />
     </div>
   );
 }

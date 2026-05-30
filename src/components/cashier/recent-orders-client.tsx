@@ -71,7 +71,7 @@ export function RecentOrdersClient({ initialOrders }: RecentOrdersClientProps) {
               </p>
             </div>
           ) : (
-            <div className="p-2 space-y-1">
+            <div className="p-3 grid grid-cols-2 gap-2">
               {filteredOrders.map((order) => (
                 <RecentOrderCard
                   key={order.id}

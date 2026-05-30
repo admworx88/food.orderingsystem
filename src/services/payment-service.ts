@@ -1,6 +1,7 @@
 'use server';
 
 import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import type { Database } from '@/lib/supabase/types';
@@ -12,6 +13,7 @@ import {
 } from '@/lib/validators/payment';
 import type { CashierOrder, RecentOrder, ShiftSummary } from '@/types/payment';
 import { SENIOR_PWD_DISCOUNT_RATE } from '@/lib/constants/payment-methods';
+import { logAuditEvent } from '@/services/analytics-service';
 
 // Database row types
 type Order = Database['public']['Tables']['orders']['Row'];
@@ -49,15 +51,17 @@ function validateId(id: string): { valid: true } | { valid: false; error: string
 // ============================================================
 
 /**
- * Fetch all unpaid orders for the cashier pending queue.
- * Sorted by created_at ASC (oldest first).
- * These are orders where customers chose "Pay at Counter".
+ * Fetch unpaid orders for the cashier pending queue.
+ * When kioskLocation is 'ocean_view', only that location's orders are returned.
+ * When null/undefined (restaurant cashier), all orders are returned.
  */
-export async function getPendingOrders(): Promise<ServiceResult<CashierOrder[]>> {
+export async function getPendingOrders(kioskLocation?: string | null): Promise<ServiceResult<CashierOrder[]>> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
-    const { data, error } = await supabase
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    let query = supabase
       .from('orders')
       .select(`
         *,
@@ -70,7 +74,13 @@ export async function getPendingOrders(): Promise<ServiceResult<CashierOrder[]>>
       .eq('payment_status', 'unpaid')
       .eq('status', 'pending_payment')
       .is('deleted_at', null)
-      .order('created_at', { ascending: true });
+      .gte('created_at', since);
+
+    if (kioskLocation === 'ocean_view') {
+      query = query.eq('kiosk_location', 'ocean_view');
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: true });
 
     if (error) {
       console.error('getPendingOrders failed:', error);
@@ -89,15 +99,15 @@ export async function getPendingOrders(): Promise<ServiceResult<CashierOrder[]>>
 // ============================================================
 
 /**
- * Fetch all bill_later orders that have been served but not yet paid.
- * These are dine-in orders where customers chose "Pay After Meal".
- * Sorted by created_at ASC (oldest first).
+ * Fetch bill_later orders that have been served but not yet paid.
+ * When kioskLocation is 'ocean_view', only that location's orders are returned.
+ * When null/undefined (restaurant cashier), all orders are returned.
  */
-export async function getUnpaidBills(): Promise<ServiceResult<CashierOrder[]>> {
+export async function getUnpaidBills(kioskLocation?: string | null): Promise<ServiceResult<CashierOrder[]>> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('orders')
       .select(`
         *,
@@ -110,8 +120,13 @@ export async function getUnpaidBills(): Promise<ServiceResult<CashierOrder[]>> {
       .eq('payment_status', 'unpaid')
       .eq('payment_method', 'bill_later')
       .in('status', ['preparing', 'ready', 'served'])
-      .is('deleted_at', null)
-      .order('created_at', { ascending: true });
+      .is('deleted_at', null);
+
+    if (kioskLocation === 'ocean_view') {
+      query = query.eq('kiosk_location', 'ocean_view');
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: true });
 
     if (error) {
       console.error('getUnpaidBills failed:', error);
@@ -186,13 +201,13 @@ export async function processCashPayment(
     return serviceError('E3003', parseResult.error.issues[0]?.message || 'Invalid payment input');
   }
 
-  const { orderId, amountTendered, cashierId, cashierName } = parseResult.data;
+  const { orderId, amountTendered, cashierId } = parseResult.data;
 
   try {
-    const supabase = await createServerClient();
+    const admin = createAdminClient();
 
     // Fetch the order total to calculate change
-    const { data: order, error: orderError } = await supabase
+    const { data: order, error: orderError } = await admin
       .from('orders')
       .select('total_amount, status, payment_status, payment_method, expires_at')
       .eq('id', orderId)
@@ -233,13 +248,12 @@ export async function processCashPayment(
     const changeGiven = Math.round((amountTendered - order.total_amount) * 100) / 100;
 
     // Call atomic RPC function
-    const { data: paymentId, error: rpcError } = await supabase.rpc('process_cash_payment', {
+    const { data: paymentId, error: rpcError } = await admin.rpc('process_cash_payment', {
       p_order_id: orderId,
       p_amount: order.total_amount,
       p_cash_received: amountTendered,
       p_change_given: changeGiven,
       p_cashier_id: cashierId,
-      p_cashier_name: cashierName,
     });
 
     if (rpcError) {
@@ -272,6 +286,105 @@ export async function processCashPayment(
     };
   } catch (error) {
     console.error('processCashPayment unexpected error:', error);
+    return serviceError('E9001', 'An unexpected error occurred');
+  }
+}
+
+// ============================================================
+// F-C02b: Process Manual eWallet Payment (GoTyme, Maya, GCash manual)
+// ============================================================
+
+const manualEwalletSchema = z.object({
+  orderId: z.string().uuid('Invalid order ID'),
+  method: z.enum(['gcash', 'gotyme', 'maya', 'other_banks']),
+  referenceNumber: z.string().min(1, 'Reference number is required'),
+  cashierId: z.string().uuid('Invalid cashier ID'),
+});
+
+// Map UI method to DB payment_method enum value
+const DB_METHOD_MAP = {
+  gcash: 'gcash',
+  gotyme: 'ewallet',
+  maya: 'ewallet',
+  other_banks: 'ewallet',
+} as const;
+
+export async function processManualEwalletPayment(
+  input: unknown
+): Promise<ServiceResult<{ paymentId: string }>> {
+  const parseResult = manualEwalletSchema.safeParse(input);
+  if (!parseResult.success) {
+    return serviceError('E3003', parseResult.error.issues[0]?.message || 'Invalid input');
+  }
+
+  const { orderId, method, referenceNumber, cashierId } = parseResult.data;
+  const dbMethod = DB_METHOD_MAP[method];
+
+  try {
+    const admin = createAdminClient();
+
+    const { data: order, error: orderError } = await admin
+      .from('orders')
+      .select('id, total_amount, status, payment_status, payment_method, expires_at')
+      .eq('id', orderId)
+      .is('deleted_at', null)
+      .single();
+
+    if (orderError || !order) return serviceError('E2001', 'Order not found');
+
+    const isBillLater = order.payment_method === 'bill_later';
+    const validStatus = isBillLater
+      ? ['preparing', 'ready', 'served'].includes(order.status)
+      : order.status === 'pending_payment';
+
+    if (order.payment_status !== 'unpaid') return serviceError('E3007', 'Order is already paid');
+    if (!validStatus) return serviceError('E3007', 'Order is not pending payment');
+    if (!isBillLater && order.expires_at && new Date(order.expires_at) < new Date()) {
+      return serviceError('E2003', 'Order has expired');
+    }
+
+    const nextStatus = isBillLater ? order.status : 'preparing';
+
+    const { error: updateError } = await admin
+      .from('orders')
+      .update({
+        payment_status: 'paid',
+        payment_method: dbMethod,
+        status: nextStatus,
+        paid_at: new Date().toISOString(),
+      })
+      .eq('id', orderId);
+
+    if (updateError) {
+      console.error('processManualEwalletPayment order update failed:', updateError);
+      return serviceError('E3001', 'Payment processing failed. Please try again.');
+    }
+
+    // provider_reference stores "brand:refNumber" so analytics can distinguish GoTyme vs Maya
+    const { data: payment, error: paymentError } = await admin
+      .from('payments')
+      .insert({
+        order_id: orderId,
+        method: dbMethod,
+        amount: order.total_amount,
+        status: 'success',
+        provider_reference: `${method}:${referenceNumber}`,
+        processed_by: cashierId,
+      })
+      .select('id')
+      .single();
+
+    if (paymentError || !payment) {
+      console.error('processManualEwalletPayment payment record failed:', paymentError);
+      return serviceError('E3001', 'Payment recorded but failed to create payment record.');
+    }
+
+    revalidatePath('/(cashier)/payments', 'page');
+    revalidatePath('/(kitchen)/orders', 'page');
+
+    return { success: true, data: { paymentId: payment.id } };
+  } catch (error) {
+    console.error('processManualEwalletPayment unexpected error:', error);
     return serviceError('E9001', 'An unexpected error occurred');
   }
 }
@@ -575,6 +688,66 @@ export async function applySeniorPwdDiscount(
   }
 }
 
+/**
+ * Remove an applied discount and recalculate totals at full subtotal.
+ */
+export async function removeDiscount(
+  orderId: string
+): Promise<ServiceResult<{ newTotal: number }>> {
+  try {
+    const supabase = await createServerClient();
+
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('id, subtotal, status, payment_status')
+      .eq('id', orderId)
+      .is('deleted_at', null)
+      .single();
+
+    if (orderError || !order) {
+      return serviceError('E2001', 'Order not found');
+    }
+
+    if (order.status !== 'pending_payment' || order.payment_status !== 'unpaid') {
+      return serviceError('E3007', 'Cannot modify discount — order is not pending payment');
+    }
+
+    const { data: rateRows } = await supabase
+      .from('settings')
+      .select('key, value')
+      .in('key', ['tax_rate', 'service_charge']);
+    const rateMap = Object.fromEntries((rateRows ?? []).map((r) => [r.key, r.value]));
+    const taxRate = typeof rateMap.tax_rate === 'number' ? rateMap.tax_rate : 0.12;
+    const scRate = typeof rateMap.service_charge === 'number' ? rateMap.service_charge : 0.10;
+
+    const taxAmount = Math.round(order.subtotal * taxRate * 100) / 100;
+    const serviceCharge = Math.round(order.subtotal * scRate * 100) / 100;
+    const totalAmount = Math.round((order.subtotal + taxAmount + serviceCharge) * 100) / 100;
+
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update({
+        discount_amount: 0,
+        tax_amount: taxAmount,
+        service_charge: serviceCharge,
+        total_amount: totalAmount,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', orderId);
+
+    if (updateError) {
+      console.error('removeDiscount update failed:', updateError);
+      return serviceError('E9001', 'Failed to remove discount');
+    }
+
+    revalidatePath('/(cashier)/payments', 'page');
+    return { success: true, data: { newTotal: totalAmount } };
+  } catch (error) {
+    console.error('removeDiscount unexpected error:', error);
+    return serviceError('E9001', 'An unexpected error occurred');
+  }
+}
+
 // ============================================================
 // F-C07: Get Payment By Order ID
 // ============================================================
@@ -633,10 +806,10 @@ export async function processRefund(
   const { paymentId, reason, reasonText, managerPin, isPartial, itemIds } = parseResult.data;
 
   try {
-    const supabase = await createServerClient();
+    const admin = createAdminClient();
 
     // Fetch payment record
-    const { data: payment, error: paymentError } = await supabase
+    const { data: payment, error: paymentError } = await admin
       .from('payments')
       .select('*, orders(id, total_amount, status, payment_status)')
       .eq('id', paymentId)
@@ -652,7 +825,7 @@ export async function processRefund(
 
     // Verify manager PIN
     // Find any admin/manager user with matching pin_hash
-    const { data: managers, error: managerError } = await supabase
+    const { data: managers, error: managerError } = await admin
       .from('profiles')
       .select('id, pin_hash')
       .in('role', ['admin'])
@@ -677,7 +850,7 @@ export async function processRefund(
         return serviceError('E2001', 'Associated order not found');
       }
 
-      const { data: items } = await supabase
+      const { data: items } = await admin
         .from('order_items')
         .select('id, total_price')
         .eq('order_id', orderId)
@@ -692,7 +865,7 @@ export async function processRefund(
     }
 
     // Update payment status (atomic: only if still 'success' to prevent concurrent refund race)
-    const { data: updatedPayment, error: updateError } = await supabase
+    const { data: updatedPayment, error: updateError } = await admin
       .from('payments')
       .update({
         status: 'refunded',
@@ -710,7 +883,7 @@ export async function processRefund(
     // Update order payment_status
     const orderId = (payment as Payment & { orders: Order }).orders?.id;
     if (orderId) {
-      await supabase
+      await admin
         .from('orders')
         .update({
           payment_status: 'refunded',
@@ -721,7 +894,7 @@ export async function processRefund(
         .eq('id', orderId);
 
       // Log refund event
-      await supabase.from('order_events').insert({
+      await admin.from('order_events').insert({
         order_id: orderId,
         event_type: 'refund_processed',
         metadata: {
@@ -735,9 +908,9 @@ export async function processRefund(
       });
     }
 
-    // Log to audit trail
-    const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from('audit_log').insert({
+    // Log to audit trail — user context unavailable from kiosk (no Supabase auth session)
+    const { data: { user } } = await createServerClient().then(s => s.auth.getUser()).catch(() => ({ data: { user: null } }));
+    await admin.from('audit_log').insert({
       action: 'refund',
       table_name: 'payments',
       record_id: paymentId,
@@ -800,9 +973,9 @@ export async function processRefund(
  */
 export async function cancelExpiredOrders(): Promise<ServiceResult<{ cancelledCount: number }>> {
   try {
-    const supabase = await createServerClient();
+    const admin = createAdminClient();
 
-    const { data, error } = await supabase.rpc('cancel_expired_orders');
+    const { data, error } = await admin.rpc('cancel_expired_orders');
 
     if (error) {
       console.error('cancelExpiredOrders RPC failed:', error);
@@ -818,6 +991,99 @@ export async function cancelExpiredOrders(): Promise<ServiceResult<{ cancelledCo
     return { success: true, data: { cancelledCount } };
   } catch (error) {
     console.error('cancelExpiredOrders unexpected error:', error);
+    return serviceError('E9001', 'An unexpected error occurred');
+  }
+}
+
+// ============================================================
+// F-C11: Void Bill (Cashier PIN confirmation)
+// ============================================================
+
+export async function voidBill(input: {
+  orderId: string;
+  cashierPin: string;
+  voidReason: string;
+  cashierId: string;
+  cashierName: string;
+}): Promise<ServiceResult<{ orderId: string }>> {
+  const { orderId, cashierPin, voidReason, cashierId, cashierName } = input;
+
+  if (!orderId || !cashierPin || !voidReason.trim()) {
+    return serviceError('E3005', 'Order ID, PIN, and void reason are required');
+  }
+  if (!/^\d{4,6}$/.test(cashierPin)) {
+    return serviceError('E1001', 'Invalid PIN format');
+  }
+  if (voidReason.trim().length < 5) {
+    return serviceError('E3005', 'Void reason must be at least 5 characters');
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin = createAdminClient() as any;
+
+    // Verify PIN belongs to this cashier
+    const { data: profile, error: profileError } = await admin
+      .from('profiles')
+      .select('id, full_name, role')
+      .eq('pin_hash', cashierPin)
+      .eq('id', cashierId)
+      .eq('is_active', true)
+      .single();
+
+    if (profileError || !profile) {
+      return serviceError('E1001', 'Incorrect PIN. Please try again.');
+    }
+
+    // Fetch order to validate status and capture old_data
+    const { data: order, error: orderError } = await admin
+      .from('orders')
+      .select('id, order_number, status, total_amount, payment_status')
+      .eq('id', orderId)
+      .single();
+
+    if (orderError || !order) {
+      return serviceError('E2001', 'Order not found');
+    }
+
+    if (!['pending_payment', 'paid'].includes(order.status as string)) {
+      return serviceError('E3005', `Cannot void an order with status "${order.status}"`);
+    }
+
+    const { error: updateError } = await admin
+      .from('orders')
+      .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+      .eq('id', orderId);
+
+    if (updateError) {
+      console.error('voidBill update failed:', updateError);
+      return serviceError('E3005', 'Failed to void bill');
+    }
+
+    await logAuditEvent({
+      table_name: 'orders',
+      action: 'void_bill',
+      record_id: orderId,
+      old_data: {
+        status: order.status,
+        order_number: order.order_number,
+        total_amount: order.total_amount,
+      },
+      new_data: {
+        status: 'cancelled',
+        void_reason: voidReason.trim(),
+        voided_by: cashierName,
+        voided_by_id: cashierId,
+        voided_at: new Date().toISOString(),
+      },
+      user_id: cashierId,
+    });
+
+    revalidatePath('/(cashier)/payments', 'page');
+
+    return { success: true, data: { orderId } };
+  } catch (error) {
+    console.error('voidBill unexpected error:', error);
     return serviceError('E9001', 'An unexpected error occurred');
   }
 }
@@ -874,7 +1140,8 @@ export async function getRecentCompletedOrders(): Promise<ServiceResult<RecentOr
  * Generate a shift summary for the current day.
  */
 export async function getShiftSummary(
-  date?: string
+  date?: string,
+  staffName?: string | null
 ): Promise<ServiceResult<ShiftSummary>> {
   try {
     const supabase = await createServerClient();
@@ -883,16 +1150,18 @@ export async function getShiftSummary(
     const startOfDay = `${targetDate}T00:00:00.000Z`;
     const endOfDay = `${targetDate}T23:59:59.999Z`;
 
-    // Get current user info
-    const { data: { user } } = await supabase.auth.getUser();
-    let cashierName = 'Unknown';
-    if (user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', user.id)
-        .single();
-      cashierName = profile?.full_name || 'Unknown';
+    // Prefer staffName passed from kiosk session; fall back to Supabase auth user
+    let cashierName = staffName || 'Unknown';
+    if (!staffName) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+        cashierName = profile?.full_name || 'Unknown';
+      }
     }
 
     // Fetch all payments for the day
@@ -925,6 +1194,7 @@ export async function getShiftSummary(
 
     const cashPayments = successPayments.filter((p) => p.method === 'cash');
     const gcashPayments = successPayments.filter((p) => p.method === 'gcash');
+    const ewalletPayments = successPayments.filter((p) => p.method === 'ewallet');
     const cardPayments = successPayments.filter((p) => p.method === 'card');
 
     const sumAmount = (arr: typeof successPayments) =>
@@ -945,6 +1215,7 @@ export async function getShiftSummary(
       totalRevenue: sumAmount(successPayments),
       cashPayments: { count: cashPayments.length, total: sumAmount(cashPayments) },
       gcashPayments: { count: gcashPayments.length, total: sumAmount(gcashPayments) },
+      ewalletPayments: { count: ewalletPayments.length, total: sumAmount(ewalletPayments) },
       cardPayments: { count: cardPayments.length, total: sumAmount(cardPayments) },
       refunds: { count: refundedPayments.length, total: sumAmount(refundedPayments) },
       cancelledOrders,

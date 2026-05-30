@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Plus, Minus, Trash2, ShoppingBag, ChevronRight } from 'lucide-react';
+import { Plus, Minus, Trash2, ShoppingBag, ChevronRight } from 'lucide-react';
 import Image from 'next/image';
 import { useCartStore } from '@/stores/cart-store';
 import { formatCurrency } from '@/lib/utils/currency';
@@ -11,68 +11,71 @@ import { normalizeImageUrl } from '@/lib/utils/image';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { PageSubHeader } from '@/components/kiosk/page-sub-header';
+import { KioskNavSidebar } from '@/components/kiosk/kiosk-nav-sidebar';
 
 export default function CartPage() {
   const router = useRouter();
   const {
     items,
     specialInstructions,
+    promoCode,
+    discountAmount,
     setSpecialInstructions,
     updateQuantity,
     updateSpecialInstructions,
     removeItem,
     getSubtotal,
+    getTaxAmount,
+    getServiceCharge,
+    getTotal,
     getItemCount,
   } = useCartStore();
+
+  const subtotal = getSubtotal();
+  const tax = getTaxAmount();
+  const serviceCharge = getServiceCharge();
+  const total = getTotal();
 
   const [expandedItem, setExpandedItem] = useState<number | null>(null);
 
   if (items.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-[var(--kiosk-bg)] px-6">
-        <div className="max-w-md w-full text-center">
-          <div className="w-24 h-24 mx-auto mb-6 rounded-3xl bg-stone-100 flex items-center justify-center">
-            <ShoppingBag className="w-12 h-12 text-stone-300" strokeWidth={1.5} />
+      <div className="h-full flex overflow-hidden">
+        <KioskNavSidebar activeLabel="Menu" />
+        <div className="flex-1 flex flex-col items-center justify-center bg-[var(--kiosk-bg)] px-6">
+          <div className="max-w-md w-full text-center">
+            <div className="w-24 h-24 mx-auto mb-6 rounded-3xl bg-stone-100 flex items-center justify-center">
+              <ShoppingBag className="w-12 h-12 text-stone-300" strokeWidth={1.5} />
+            </div>
+            <h2 className="text-2xl font-bold text-stone-800 mb-3">Your cart is empty</h2>
+            <p className="text-stone-500 mb-8">
+              Start adding delicious items to your order
+            </p>
+            <Link
+              href="/menu"
+              className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-8 py-4 rounded-xl font-semibold active:scale-[0.98] transition-all"
+            >
+              Browse Menu
+              <ChevronRight className="w-5 h-5" />
+            </Link>
           </div>
-          <h2 className="text-2xl font-bold text-stone-800 mb-3">Your cart is empty</h2>
-          <p className="text-stone-500 mb-8">
-            Start adding delicious items to your order
-          </p>
-          <Link
-            href="/menu"
-            className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-8 py-4 rounded-xl font-semibold active:scale-[0.98] transition-all"
-          >
-            Browse Menu
-            <ChevronRight className="w-5 h-5" />
-          </Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col lg:flex-row bg-[var(--kiosk-bg)]">
+    <div className="h-full flex overflow-hidden">
+      <KioskNavSidebar activeLabel="Menu" />
+      <div className="flex-1 flex flex-col lg:flex-row bg-[var(--kiosk-bg)] min-w-0 overflow-hidden">
       {/* Left side - Cart items */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
-        {/* Header */}
-        <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 lg:py-5 bg-white border-b border-stone-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <Link
-                href="/menu"
-                className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-stone-100 hover:bg-stone-200 flex items-center justify-center active:scale-95 transition-all"
-              >
-                <ChevronLeft className="w-5 h-5 text-stone-600" strokeWidth={2} />
-              </Link>
-              <div>
-                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-stone-800">Review Your Order</h1>
-                <p className="text-xs sm:text-sm text-stone-500 mt-0.5">
-                  {getItemCount()} {getItemCount() === 1 ? 'item' : 'items'} in cart
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <PageSubHeader
+          title="Review Your Order"
+          subtitle={`${getItemCount()} ${getItemCount() === 1 ? 'item' : 'items'} in cart`}
+          backHref="/menu"
+        />
 
         {/* Cart items - Scrollable */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 space-y-3 sm:space-y-4">
@@ -212,26 +215,53 @@ export default function CartPage() {
           <h2 className="text-lg font-bold text-stone-800">Order Summary</h2>
         </div>
 
-        <div className="flex-1 p-4 lg:p-6 space-y-3 lg:space-y-4">
+        <div className="flex-1 p-4 lg:p-6 space-y-3 lg:space-y-4 overflow-y-auto">
+          {/* Items list */}
+          <div className="space-y-2">
+            {items.slice(0, 3).map((item, index) => (
+              <div key={index} className="flex justify-between text-xs sm:text-sm">
+                <p className="font-medium text-stone-700 truncate flex-1 min-w-0">
+                  {item.quantity}× {item.name}
+                </p>
+                <p className="font-semibold text-stone-700 ml-2 flex-shrink-0">{formatCurrency(item.totalPrice)}</p>
+              </div>
+            ))}
+            {items.length > 3 && (
+              <p className="text-xs text-stone-400">+{items.length - 3} more items</p>
+            )}
+          </div>
+
           {/* Price breakdown */}
-          <div className="space-y-2 lg:space-y-3">
-            <div className="flex justify-between text-stone-600 text-sm lg:text-base">
+          <div className="border-t border-stone-200 pt-3 space-y-2">
+            <div className="flex justify-between text-xs sm:text-sm text-stone-600">
               <span>Subtotal</span>
-              <span className="font-semibold">{formatCurrency(getSubtotal())}</span>
+              <span className="font-semibold">{formatCurrency(subtotal)}</span>
             </div>
-            <div className="text-xs lg:text-sm text-stone-500 lg:pl-4">
-              Tax and service charges at checkout
+
+            {discountAmount > 0 && (
+              <div className="flex justify-between text-xs sm:text-sm text-green-600">
+                <span>Discount {promoCode && `(${promoCode})`}</span>
+                <span className="font-semibold">-{formatCurrency(discountAmount)}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between text-xs sm:text-sm text-stone-600">
+              <span>Tax (12%)</span>
+              <span className="font-semibold">{formatCurrency(tax)}</span>
+            </div>
+
+            <div className="flex justify-between text-xs sm:text-sm text-stone-600">
+              <span>Service Charge (10%)</span>
+              <span className="font-semibold">{formatCurrency(serviceCharge)}</span>
             </div>
           </div>
 
-          {/* Promo code teaser - compact on mobile */}
-          <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg lg:rounded-xl p-3 lg:p-4 border border-amber-200">
-            <p className="text-xs sm:text-sm font-semibold text-amber-900 mb-0.5 lg:mb-1">
-              🎉 Have a promo code?
-            </p>
-            <p className="text-[10px] sm:text-xs text-amber-700">
-              Apply it at checkout for instant savings
-            </p>
+          {/* Total */}
+          <div className="border-t-2 border-stone-300 pt-3">
+            <div className="flex justify-between items-baseline">
+              <span className="text-sm sm:text-base font-semibold text-stone-800">Total</span>
+              <span className="text-xl sm:text-2xl font-bold text-stone-900">{formatCurrency(total)}</span>
+            </div>
           </div>
         </div>
 
@@ -246,11 +276,12 @@ export default function CartPage() {
           </Button>
           <Link
             href="/menu"
-            className="block text-center mt-3 lg:mt-4 text-xs sm:text-sm text-stone-500 hover:text-stone-700 font-medium"
+            className="block text-center mt-3 lg:mt-4 py-2 text-xs sm:text-sm text-stone-500 hover:text-stone-700 font-medium"
           >
             ← Add more items
           </Link>
         </div>
+      </div>
       </div>
     </div>
   );

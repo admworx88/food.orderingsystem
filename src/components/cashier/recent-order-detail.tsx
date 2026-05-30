@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Receipt, Printer, User } from 'lucide-react';
+import { Receipt, Printer } from 'lucide-react';
 import { ReceiptPreview } from './receipt-preview';
 import { generateBIRReceipt } from '@/services/bir-service';
 import { formatCurrency } from '@/lib/utils/currency';
@@ -107,15 +107,6 @@ export function RecentOrderDetail({ order }: RecentOrderDetailProps) {
             {payment?.method || 'N/A'}
           </p>
         </div>
-        {payment?.cashier_name && (
-          <div className="p-4 rounded-lg bg-[var(--pos-surface)] border border-[var(--pos-border)]">
-            <p className="text-xs text-[var(--pos-text-muted)] mb-1">Processed By</p>
-            <p className="text-sm font-semibold text-[var(--pos-text)] flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5" />
-              {payment.cashier_name}
-            </p>
-          </div>
-        )}
         {payment?.cash_received && (
           <div className="p-4 rounded-lg bg-[var(--pos-surface)] border border-[var(--pos-border)]">
             <p className="text-xs text-[var(--pos-text-muted)] mb-1">Cash / Change</p>

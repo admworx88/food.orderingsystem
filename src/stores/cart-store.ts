@@ -42,6 +42,7 @@ interface CartStore {
   promoCodeId: string | null;
   discountAmount: number;
   guestPhone: string | null;
+  guestName: string | null;
   paymentMethod: PaymentMethod | null;
   expiresAt: Date | null;
 
@@ -65,6 +66,7 @@ interface CartStore {
   applyPromoCode: (code: string, discount: number, promoId: string) => void;
   removePromoCode: () => void;
   setGuestPhone: (phone: string) => void;
+  setGuestName: (name: string) => void;
   setPaymentMethod: (method: PaymentMethod | null) => void;
   setExpiresAt: (date: Date | null) => void;
   setAddToOrder: (orderId: string, orderNumber: string, existingItems?: ExistingOrderItem[]) => void;
@@ -90,6 +92,7 @@ const initialState = {
   promoCodeId: null,
   discountAmount: 0,
   guestPhone: null,
+  guestName: null,
   paymentMethod: null,
   expiresAt: null,
   addToOrderId: null,
@@ -196,6 +199,8 @@ export const useCartStore = create<CartStore>()(
 
       setGuestPhone: (phone) => set({ guestPhone: phone }),
 
+      setGuestName: (name) => set({ guestName: name }),
+
       setPaymentMethod: (method) => set({ paymentMethod: method }),
 
       setExpiresAt: (date) => set({ expiresAt: date }),
@@ -249,6 +254,7 @@ export const useCartStore = create<CartStore>()(
         promoCodeId: state.promoCodeId,
         discountAmount: state.discountAmount,
         guestPhone: state.guestPhone,
+        guestName: state.guestName,
         addToOrderId: state.addToOrderId,
         addToOrderNumber: state.addToOrderNumber,
       }),

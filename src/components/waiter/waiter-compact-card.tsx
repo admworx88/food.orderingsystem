@@ -35,7 +35,9 @@ export function WaiterCompactCard({
       ? `Table ${order.table_number}`
       : order.order_type === 'room_service'
         ? `Room ${order.room_number}`
-        : 'Pickup';
+        : order.order_type === 'ocean_view' && order.table_number
+          ? order.table_number
+          : 'Pickup';
 
   // Calculate time ago
   const timeAgo = order.served_at

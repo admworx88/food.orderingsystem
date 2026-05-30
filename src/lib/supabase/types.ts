@@ -221,6 +221,32 @@ export type Database = {
         }
         Relationships: []
       }
+      kiosk_active_sessions: {
+        Row: {
+          kiosk_type: string
+          profile_id: string
+          signed_in_at: string
+        }
+        Insert: {
+          kiosk_type: string
+          profile_id: string
+          signed_in_at?: string
+        }
+        Update: {
+          kiosk_type?: string
+          profile_id?: string
+          signed_in_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kiosk_active_sessions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kitchen_stations: {
         Row: {
           created_at: string | null

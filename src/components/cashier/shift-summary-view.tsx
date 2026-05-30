@@ -86,6 +86,25 @@ export function ShiftSummaryView({ summary }: ShiftSummaryViewProps) {
 
           <div className="pos-report-breakdown-row">
             <div className="pos-report-breakdown-info">
+              <div className="pos-report-breakdown-icon pos-report-icon-gcash">
+                <Smartphone className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="pos-report-breakdown-name">eWallet</div>
+                <div className="pos-report-breakdown-count">
+                  {summary.ewalletPayments.count} transaction{summary.ewalletPayments.count !== 1 ? 's' : ''}
+                </div>
+              </div>
+            </div>
+            <div className="pos-report-breakdown-amount">
+              {formatCurrency(summary.ewalletPayments.total)}
+            </div>
+          </div>
+
+          <div className="pos-report-divider" />
+
+          <div className="pos-report-breakdown-row">
+            <div className="pos-report-breakdown-info">
               <div className="pos-report-breakdown-icon pos-report-icon-card">
                 <CreditCard className="w-4 h-4" />
               </div>

@@ -10,18 +10,20 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { resolveStaffPin } from '@/services/user-service';
+import { resolveStaffPin, type KioskType } from '@/services/user-service';
 import { useStaffSessionStore, type StaffRole } from '@/stores/staff-session-store';
 import { cn } from '@/lib/utils';
+import { BurgerLoader } from '@/components/shared/burger-loader';
 
 const MAX_ATTEMPTS = 3;
 
 interface EmployeePinDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  kioskType: KioskType;
 }
 
-export function EmployeePinDialog({ open, onOpenChange }: EmployeePinDialogProps) {
+export function EmployeePinDialog({ open, onOpenChange, kioskType }: EmployeePinDialogProps) {
   const router = useRouter();
   const setSession = useStaffSessionStore((s) => s.setSession);
 
@@ -37,22 +39,23 @@ export function EmployeePinDialog({ open, onOpenChange }: EmployeePinDialogProps
     onOpenChange(false);
   }, [onOpenChange]);
 
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = async () => {
     if (pin.length < 4 || loading) return;
     setLoading(true);
     setError('');
 
-    const result = await resolveStaffPin(pin);
+    const result = await resolveStaffPin(pin, kioskType);
 
     if (result.success) {
       setSession({
         id: result.data.id,
         full_name: result.data.full_name,
         role: result.data.role as StaffRole,
+        kioskType,
       });
       handleClose();
       if (result.data.role === 'kitchen') {
-        router.push('/kitchen/orders');
+        router.push('/orders');
       }
     } else {
       const next = attempts + 1;
@@ -66,7 +69,7 @@ export function EmployeePinDialog({ open, onOpenChange }: EmployeePinDialogProps
     }
 
     setLoading(false);
-  }, [pin, loading, attempts, setSession, handleClose, router]);
+  };
 
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     setError('');
@@ -78,6 +81,8 @@ export function EmployeePinDialog({ open, onOpenChange }: EmployeePinDialogProps
   };
 
   return (
+    <>
+    <BurgerLoader isLoading={loading} message="Signing in…" />
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-sm rounded-3xl border-orange-100/60 bg-[#FEF7EE] p-8">
         <DialogHeader className="items-center text-center">
@@ -128,5 +133,6 @@ export function EmployeePinDialog({ open, onOpenChange }: EmployeePinDialogProps
         </button>
       </DialogContent>
     </Dialog>
+    </>
   );
 }

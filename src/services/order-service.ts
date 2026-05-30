@@ -1,6 +1,7 @@
 'use server';
 
 import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
@@ -730,7 +731,8 @@ export async function createOrder(
       return serviceError('E2002', 'Failed to create order. Please try again.');
     }
 
-    // 10. Insert order items (batch insert for atomicity)
+    // 10. Insert order items via admin client (bypasses RLS — server action, no client exposure)
+    const admin = createAdminClient();
     const orderItemInserts = orderItemsData.map((item) => ({
       order_id: order.id,
       menu_item_id: item.menuItemId,
@@ -741,7 +743,7 @@ export async function createOrder(
       special_instructions: item.specialInstructions,
     }));
 
-    const { data: insertedItems, error: itemsError } = await supabase
+    const { data: insertedItems, error: itemsError } = await admin
       .from('order_items')
       .insert(orderItemInserts)
       .select('id');
@@ -749,11 +751,11 @@ export async function createOrder(
     if (itemsError || !insertedItems || insertedItems.length !== orderItemsData.length) {
       console.error('createOrder: Failed to insert order items:', itemsError);
       // Rollback: delete the order since items failed
-      await supabase.from('orders').delete().eq('id', order.id);
+      await admin.from('orders').delete().eq('id', order.id);
       return { success: false, error: 'Failed to create order items. Please try again.' };
     }
 
-    // 11. Insert order item addons (batch insert)
+    // 11. Insert order item addons via admin client
     const allAddonInserts: Array<{
       order_item_id: string;
       addon_option_id: string;
@@ -776,14 +778,14 @@ export async function createOrder(
     }
 
     if (allAddonInserts.length > 0) {
-      const { error: addonError } = await supabase
+      const { error: addonError } = await admin
         .from('order_item_addons')
         .insert(allAddonInserts);
 
       if (addonError) {
         console.error('createOrder: Failed to insert addons:', addonError);
         // Rollback: delete the order (cascade will delete items)
-        await supabase.from('orders').delete().eq('id', order.id);
+        await admin.from('orders').delete().eq('id', order.id);
         return { success: false, error: 'Failed to create order addons. Please try again.' };
       }
     }
@@ -1128,8 +1130,8 @@ export async function updateItemToReady(
 
   const orderAutoUpdated = orderAfter?.status === 'ready';
 
-  revalidatePath('/kitchen/orders');
-  revalidatePath('/waiter/orders');
+  revalidatePath('/orders');
+  revalidatePath('/service');
 
   return {
     success: true,
@@ -1195,8 +1197,8 @@ export async function updateItemToServed(
 
   const orderCompleted = orderAfter?.status === 'served';
 
-  revalidatePath('/kitchen/orders');
-  revalidatePath('/waiter/orders');
+  revalidatePath('/orders');
+  revalidatePath('/service');
 
   return {
     success: true,
@@ -1243,8 +1245,8 @@ export async function markAllItemsReady(
 
   const orderAutoUpdated = orderAfter?.status === 'ready';
 
-  revalidatePath('/kitchen/orders');
-  revalidatePath('/waiter/orders');
+  revalidatePath('/orders');
+  revalidatePath('/service');
 
   return {
     success: true,
@@ -1638,8 +1640,8 @@ export async function addItemsToOrder(
     });
 
     revalidatePath('/admin/order-history');
-    revalidatePath('/kitchen/orders');
-    revalidatePath('/waiter/service');
+    revalidatePath('/orders');
+    revalidatePath('/service');
 
     return {
       success: true,

@@ -22,6 +22,7 @@ export type CashierOrderItem = OrderItem & {
 export type CashierOrder = Order & {
   order_items: CashierOrderItem[];
   promo_codes: Pick<PromoCode, 'code' | 'discount_value' | 'discount_type'> | null;
+  kiosk_location: string | null;
 };
 
 // Recent completed order (with payment data for receipt viewing)
@@ -98,6 +99,7 @@ export interface BIRReceiptData {
 
   guestPhone: string | null;
   promoCode: string | null;
+  kioskLocation: string | null;
 }
 
 export interface BIRReceiptItem {
@@ -116,6 +118,7 @@ export interface ShiftSummary {
   totalRevenue: number;
   cashPayments: { count: number; total: number };
   gcashPayments: { count: number; total: number };
+  ewalletPayments: { count: number; total: number };
   cardPayments: { count: number; total: number };
   refunds: { count: number; total: number };
   cancelledOrders: number;

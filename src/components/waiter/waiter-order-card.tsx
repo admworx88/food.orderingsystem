@@ -149,7 +149,9 @@ export function WaiterOrderCard({ order, onItemServed, onClick, delayClass }: Wa
       ? `Table ${order.table_number}`
       : order.order_type === 'room_service'
         ? `Room ${order.room_number}`
-        : 'Pickup Counter';
+        : order.order_type === 'ocean_view' && order.table_number
+          ? order.table_number
+          : 'Pickup Counter';
 
   const hasReadyItems = order.readyCount > 0;
 
@@ -236,14 +238,14 @@ export function WaiterOrderCard({ order, onItemServed, onClick, delayClass }: Wa
               <div className="flex items-center gap-2">
                 {/* Quantity */}
                 <span className={cn(
-                  'flex-shrink-0 text-sm font-bold',
+                  'flex-shrink-0 text-[15px] font-bold tabular-nums',
                   item.status === 'served' ? 'text-[var(--waiter-text-muted)]' : 'text-[var(--waiter-text)]'
                 )}>
-                  {item.quantity}x
+                  {item.quantity}×
                 </span>
                 {/* Name */}
                 <span className={cn(
-                  'text-sm font-medium',
+                  'text-[15px] font-semibold leading-snug',
                   item.status === 'served'
                     ? 'text-[var(--waiter-text-muted)] line-through'
                     : 'text-[var(--waiter-text)]'

@@ -4,9 +4,10 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { createBrowserClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/supabase/types';
 import type { CashierOrder } from '@/types/payment';
+import { getUnpaidBills } from '@/services/payment-service';
 import { useRealtimeReconnection } from './use-realtime-reconnection';
 
-type Order = Database['public']['Tables']['orders']['Row'];
+type Order = Database['public']['Tables']['orders']['Row'] & { kiosk_location?: string | null };
 
 interface UseRealtimeUnpaidBillsReturn {
   orders: CashierOrder[];
@@ -17,17 +18,18 @@ interface UseRealtimeUnpaidBillsReturn {
 
 interface UseRealtimeUnpaidBillsOptions {
   initialData?: CashierOrder[];
+  kioskLocation?: string | null;
 }
 
 /**
  * Realtime subscription for cashier unpaid bills queue.
  * Filters for payment_method = 'bill_later', payment_status = 'unpaid',
  * and status IN ('preparing', 'ready', 'served').
- * These are dine-in orders where customers chose "Pay After Meal".
+ * When kioskLocation is 'ocean_view', only shows ocean_view orders.
  * Accepts initialData from server-side fetch to avoid redundant client fetch.
  */
 export function useRealtimeUnpaidBills(
-  { initialData }: UseRealtimeUnpaidBillsOptions = {}
+  { initialData, kioskLocation }: UseRealtimeUnpaidBillsOptions = {}
 ): UseRealtimeUnpaidBillsReturn {
   const [orders, setOrders] = useState<CashierOrder[]>(initialData ?? []);
   const [isLoading, setIsLoading] = useState(!initialData);
@@ -43,43 +45,16 @@ export function useRealtimeUnpaidBills(
   }
 
   const fetchOrders = useCallback(async () => {
-    const supabase = getSupabase();
-
-    // Guard: only fetch if there is a valid authenticated session.
-    // Without this, the browser client calls auth.uid() → null → RLS blocks query.
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData.session) {
-      console.warn('[Cashier] fetchOrders (unpaid bills) skipped: no active session');
-      setIsLoading(false);
-      return;
-    }
-
-    const { data, error: fetchError } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        order_items(
-          *,
-          order_item_addons(*)
-        ),
-        promo_codes(code, discount_value, discount_type)
-      `)
-      .eq('payment_status', 'unpaid')
-      .eq('payment_method', 'bill_later')
-      .in('status', ['preparing', 'ready', 'served'])
-      .is('deleted_at', null)
-      .order('created_at', { ascending: true });
-
-    if (fetchError) {
-      console.error('Failed to fetch unpaid bills:', fetchError);
-      setError(fetchError.message);
-    } else {
-      setOrders((data || []) as CashierOrder[]);
+    const result = await getUnpaidBills(kioskLocation);
+    if (result.success) {
+      setOrders(result.data);
       setError(null);
+    } else {
+      console.error('Failed to fetch unpaid bills:', result.error);
+      setError(result.error);
     }
-
     setIsLoading(false);
-  }, []);
+  }, [kioskLocation]);
 
   const reconnection = useRealtimeReconnection({
     channelName: 'cashier-unpaid-bills',
@@ -117,11 +92,13 @@ export function useRealtimeUnpaidBills(
     // - Payment method changed (not bill_later anymore)
     // - Status no longer eligible
     // - Order deleted
+    const locationMatch = kioskLocation !== 'ocean_view' || newOrder.kiosk_location === 'ocean_view';
     const isEligible =
       newOrder.payment_status === 'unpaid' &&
       newOrder.payment_method === 'bill_later' &&
       ['preparing', 'ready', 'served'].includes(newOrder.status) &&
-      newOrder.deleted_at === null;
+      newOrder.deleted_at === null &&
+      locationMatch;
 
     if (!isEligible) {
       setOrders((prev) => prev.filter((o) => o.id !== newOrder.id));

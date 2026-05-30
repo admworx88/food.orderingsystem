@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  ChevronLeft,
   Wallet,
   Tag,
   Phone,
@@ -14,25 +13,26 @@ import {
   Loader2,
   Pencil,
 } from 'lucide-react';
+import { PageSubHeader } from '@/components/kiosk/page-sub-header';
+import { KioskNavSidebar } from '@/components/kiosk/kiosk-nav-sidebar';
 import { useCartStore, type PaymentMethod } from '@/stores/cart-store';
 import { useStaffSessionStore } from '@/stores/staff-session-store';
 import { useKioskLocation } from '@/hooks/use-kiosk-location';
-import { validatePromoCode, createOrder, updateOrderEwalletDetails } from '@/services/order-service';
+import { validatePromoCode, createOrder } from '@/services/order-service';
 import { formatCurrency } from '@/lib/utils/currency';
 import { ORDER_TYPE_CONFIG, getAllowedPaymentMethods } from '@/lib/constants/order-types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { BurgerLoader } from '@/components/shared/burger-loader';
 
-const PAYMENT_METHODS: { value: PaymentMethod; label: string; icon: string; description: string }[] = [
+const PAYMENT_METHODS: { value: PaymentMethod; label: string; icon: string; description: string; disabled?: boolean }[] = [
   { value: 'cash', label: 'Cash', icon: '💵', description: 'Pay at counter/room' },
   { value: 'ewallet', label: 'eWallets / Banks', icon: '📱', description: 'GCash, Maya, GoTyme, and more' },
-  { value: 'card', label: 'Credit/Debit Card', icon: '💳', description: 'Visa, Mastercard, etc.' },
+  { value: 'card', label: 'Credit/Debit Card', icon: '💳', description: 'Visa, Mastercard, etc.', disabled: true },
   { value: 'bill_later', label: 'Pay After Meal', icon: '🍽️', description: 'Settle bill when ready to leave' },
 ];
 
-const EWALLET_PROVIDERS = ['GCash', 'Maya', 'GoTyme', 'Others'] as const;
-type EwalletProvider = typeof EWALLET_PROVIDERS[number];
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -41,6 +41,7 @@ export default function CheckoutPage() {
     orderType,
     tableNumber,
     roomNumber,
+    guestName,
     promoCode,
     promoCodeId,
     discountAmount,
@@ -55,12 +56,16 @@ export default function CheckoutPage() {
     getTaxAmount,
     getServiceCharge,
     getTotal,
+    clearCart,
   } = useCartStore();
 
-  const staffSessionId = useStaffSessionStore((s) => s.session?.id ?? null);
+  const staffSession = useStaffSessionStore((s) => s.session);
+  const staffSessionId = staffSession?.id ?? null;
+  const staffRole = staffSession?.role ?? null;
   const { location } = useKioskLocation();
   const isOceanView = location === 'ocean_view';
 
+  const orderPlacedRef = useRef(false);
   const [promoInput, setPromoInput] = useState('');
   const [promoError, setPromoError] = useState('');
   const [isValidatingPromo, setIsValidatingPromo] = useState(false);
@@ -69,13 +74,6 @@ export default function CheckoutPage() {
   const [showPromo, setShowPromo] = useState(false);
   const [showPhone, setShowPhone] = useState(false);
 
-  // eWallet dialog state
-  const [ewalletDialogOpen, setEwalletDialogOpen] = useState(false);
-  const [pendingOrderResult, setPendingOrderResult] = useState<{ orderId: string; orderNumber: string; totalAmount: number; expiresAt: string | null } | null>(null);
-  const [ewalletProvider, setEwalletProvider] = useState<EwalletProvider | ''>('');
-  const [ewalletReference, setEwalletReference] = useState('');
-  const [ewalletError, setEwalletError] = useState('');
-  const [isSubmittingEwallet, setIsSubmittingEwallet] = useState(false);
 
   const subtotal = getSubtotal();
   const tax = getTaxAmount();
@@ -90,8 +88,10 @@ export default function CheckoutPage() {
   }, []);
 
   // Redirect if no order type selected or cart is empty (only after hydration)
+  // orderPlacedRef prevents spurious redirect when clearCart() is called after successful order
   useEffect(() => {
     if (!hydrated) return;
+    if (orderPlacedRef.current) return;
     if (!orderType) {
       router.push('/order-type');
     } else if (items.length === 0) {
@@ -105,7 +105,9 @@ export default function CheckoutPage() {
 
   const orderTypeConfig = ORDER_TYPE_CONFIG[orderType];
   const allowedMethods = getAllowedPaymentMethods(orderType);
-  const filteredPaymentMethods = PAYMENT_METHODS.filter((m) => allowedMethods.includes(m.value));
+  const filteredPaymentMethods = PAYMENT_METHODS.filter(
+    (m) => allowedMethods.includes(m.value) && !(isOceanView && m.value === 'bill_later')
+  );
 
   const handleApplyPromo = async () => {
     if (!promoInput.trim()) return;
@@ -145,7 +147,7 @@ export default function CheckoutPage() {
         specialInstructions: item.specialInstructions,
       })),
       orderType,
-      tableNumber: tableNumber || null,
+      tableNumber: tableNumber || guestName || null,
       roomNumber: roomNumber || null,
       paymentMethod,
       promoCode: promoCode || null,
@@ -157,12 +159,6 @@ export default function CheckoutPage() {
     });
 
     if (result.success) {
-      if (paymentMethod === 'ewallet') {
-        setPendingOrderResult(result.data);
-        setIsPlacingOrder(false);
-        setEwalletDialogOpen(true);
-        return;
-      }
       navigateToConfirmation(result.data, paymentMethod);
     } else {
       setOrderError(result.error);
@@ -174,6 +170,12 @@ export default function CheckoutPage() {
     data: { orderId: string; orderNumber: string; totalAmount: number; expiresAt: string | null },
     method: string
   ) => {
+    orderPlacedRef.current = true;
+    if (staffRole === 'cashier') {
+      clearCart();
+      router.push(`/menu?view=payments&selectOrder=${data.orderId}`);
+      return;
+    }
     const params = new URLSearchParams({
       orderNumber: data.orderNumber,
       total: data.totalAmount.toString(),
@@ -182,54 +184,26 @@ export default function CheckoutPage() {
     });
     if (data.expiresAt) params.set('expiresAt', data.expiresAt);
     if (tableNumber) params.set('tableNumber', tableNumber);
+    if (location) params.set('kioskLocation', location);
     router.push(`/confirmation?${params.toString()}`);
   };
 
-  const handleEwalletSubmit = async () => {
-    if (!ewalletProvider || !ewalletReference.trim()) {
-      setEwalletError('Please select a provider and enter the reference number.');
-      return;
-    }
-    if (!pendingOrderResult) return;
-
-    setIsSubmittingEwallet(true);
-    setEwalletError('');
-
-    const result = await updateOrderEwalletDetails(
-      pendingOrderResult.orderId,
-      ewalletProvider,
-      ewalletReference.trim()
-    );
-
-    if (result.success) {
-      setEwalletDialogOpen(false);
-      navigateToConfirmation(pendingOrderResult, 'ewallet');
-    } else {
-      setEwalletError(result.error);
-      setIsSubmittingEwallet(false);
-    }
-  };
 
   return (
     <>
-    <div className="h-full flex flex-col lg:flex-row bg-[var(--kiosk-bg)]">
-      {/* Left side - Checkout form */}
+    <BurgerLoader isLoading={isPlacingOrder} message="Placing your order…" />
+    <div className="h-full flex flex-row bg-[var(--kiosk-bg)]">
+      {/* Left icon nav */}
+      <KioskNavSidebar />
+
+      {/* Checkout form */}
+      <div className="flex-1 flex flex-col lg:flex-row min-w-0 min-h-0 overflow-hidden">
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
-        {/* Header */}
-        <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 lg:py-5 bg-white border-b border-stone-200">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <Link
-              href="/cart"
-              className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-stone-100 hover:bg-stone-200 flex items-center justify-center active:scale-95 transition-all"
-            >
-              <ChevronLeft className="w-5 h-5 text-stone-600" strokeWidth={2} />
-            </Link>
-            <div className="flex-1">
-              <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-stone-800">Checkout</h1>
-              <p className="text-xs sm:text-sm text-stone-500 mt-0.5">Complete your order details</p>
-            </div>
-          </div>
-        </div>
+        <PageSubHeader
+          title="Checkout"
+          subtitle="Complete your order details"
+          backHref="/cart"
+        />
 
         {/* Scrollable form sections */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-5 lg:space-y-6">
@@ -265,39 +239,53 @@ export default function CheckoutPage() {
             <div className="space-y-2 sm:space-y-3">
               {filteredPaymentMethods.map((method) => {
                 const isSelected = paymentMethod === method.value;
+                const isDisabled = method.disabled === true;
                 return (
                   <button
                     key={method.value}
-                    onClick={() => setPaymentMethod(method.value)}
+                    onClick={() => !isDisabled && setPaymentMethod(method.value)}
+                    disabled={isDisabled}
                     className={cn(
                       'w-full flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg sm:rounded-xl border-2 transition-all text-left',
-                      isSelected
-                        ? 'border-amber-500 bg-amber-50'
-                        : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50'
+                      isDisabled
+                        ? 'border-stone-200 bg-stone-50 opacity-60 cursor-not-allowed'
+                        : isSelected
+                          ? 'border-amber-500 bg-amber-50'
+                          : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50'
                     )}
                   >
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-md sm:rounded-lg bg-white border border-stone-200 flex items-center justify-center text-xl sm:text-2xl flex-shrink-0">
+                    <div className={cn(
+                      'w-10 h-10 sm:w-12 sm:h-12 rounded-md sm:rounded-lg border flex items-center justify-center text-xl sm:text-2xl flex-shrink-0',
+                      isDisabled ? 'bg-stone-100 border-stone-200' : 'bg-white border-stone-200'
+                    )}>
                       {method.icon}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3
-                        className={cn(
-                          'text-sm sm:text-base font-semibold truncate',
-                          isSelected ? 'text-amber-900' : 'text-stone-700'
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3
+                          className={cn(
+                            'text-sm sm:text-base font-semibold truncate',
+                            isDisabled ? 'text-stone-400' : isSelected ? 'text-amber-900' : 'text-stone-700'
+                          )}
+                        >
+                          {method.label}
+                        </h3>
+                        {isDisabled && (
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-stone-200 text-stone-500 leading-none shrink-0">
+                            Not Yet Available
+                          </span>
                         )}
-                      >
-                        {method.label}
-                      </h3>
+                      </div>
                       <p
                         className={cn(
                           'text-xs sm:text-sm truncate',
-                          isSelected ? 'text-amber-700' : 'text-stone-500'
+                          isDisabled ? 'text-stone-400' : isSelected ? 'text-amber-700' : 'text-stone-500'
                         )}
                       >
                         {method.description}
                       </p>
                     </div>
-                    {isSelected && (
+                    {isSelected && !isDisabled && (
                       <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0">
                         <Check className="w-3 h-3 sm:w-4 sm:h-4 text-white" strokeWidth={3} />
                       </div>
@@ -501,66 +489,9 @@ export default function CheckoutPage() {
           </Button>
         </div>
       </div>
+      </div>
     </div>
 
-    {/* eWallet / Banks dialog */}
-    {ewalletDialogOpen && (
-      <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-sm w-full shadow-2xl">
-          <h2 className="text-xl font-bold text-stone-800 mb-1">eWallet / Bank Transfer</h2>
-          <p className="text-sm text-stone-500 mb-6">Provide your payment details to complete the order.</p>
-
-          {/* Provider dropdown */}
-          <div className="mb-4">
-            <label className="block text-xs font-semibold text-stone-600 uppercase tracking-wide mb-2">
-              Provider <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={ewalletProvider}
-              onChange={(e) => { setEwalletProvider(e.target.value as EwalletProvider); setEwalletError(''); }}
-              className="w-full h-12 px-3 rounded-xl border-2 border-stone-200 focus:border-amber-500 focus:outline-none text-stone-800 text-sm bg-white"
-            >
-              <option value="">Select provider</option>
-              {EWALLET_PROVIDERS.map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Reference number */}
-          <div className="mb-5">
-            <label className="block text-xs font-semibold text-stone-600 uppercase tracking-wide mb-2">
-              Transaction Reference No. <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              value={ewalletReference}
-              onChange={(e) => { setEwalletReference(e.target.value); setEwalletError(''); }}
-              placeholder="Enter reference number"
-              rows={2}
-              className="w-full px-3 py-2.5 rounded-xl border-2 border-stone-200 focus:border-amber-500 focus:outline-none text-stone-800 text-sm resize-none"
-            />
-          </div>
-
-          {ewalletError && (
-            <p className="text-sm text-red-500 mb-4">{ewalletError}</p>
-          )}
-
-          <button
-            onClick={handleEwalletSubmit}
-            disabled={isSubmittingEwallet || !ewalletProvider || !ewalletReference.trim()}
-            className={cn(
-              'w-full h-13 py-3.5 rounded-xl font-bold text-base transition-all',
-              'bg-gradient-to-r from-amber-500 to-amber-600 text-white',
-              'shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40',
-              'hover:scale-[1.02] active:scale-[0.98]',
-              'disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:hover:scale-100'
-            )}
-          >
-            {isSubmittingEwallet ? 'Submitting...' : 'Submit'}
-          </button>
-        </div>
-      </div>
-    )}
-    </>
+</>
   );
 }

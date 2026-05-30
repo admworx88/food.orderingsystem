@@ -1,4 +1,4 @@
-import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { redirect } from 'next/navigation';
 import { AddItemsClient } from '@/components/kiosk/add-items-client';
 
@@ -8,7 +8,7 @@ interface AddItemsMenuPageProps {
 
 export default async function AddItemsMenuPage({ params }: AddItemsMenuPageProps) {
   const { orderId } = await params;
-  const supabase = await createServerClient();
+  const supabase = createAdminClient();
 
   // Verify order exists and is active dine-in
   const { data: order, error: orderError } = await supabase

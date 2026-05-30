@@ -9,7 +9,7 @@ export const createUserSchema = z.object({
     .string()
     .min(2, 'Name must be at least 2 characters')
     .max(100, 'Name must be less than 100 characters'),
-  role: z.enum(['admin', 'cashier', 'kitchen'], {
+  role: z.enum(['admin', 'cashier', 'kitchen', 'waiter'], {
     message: 'Please select a valid role',
   }),
   pin: z
@@ -24,7 +24,7 @@ export type CreateUserInput = z.infer<typeof createUserSchema>;
  * Schema for updating a user's role
  */
 export const updateUserRoleSchema = z.object({
-  role: z.enum(['admin', 'cashier', 'kitchen'], {
+  role: z.enum(['admin', 'cashier', 'kitchen', 'waiter'], {
     message: 'Please select a valid role',
   }),
 });

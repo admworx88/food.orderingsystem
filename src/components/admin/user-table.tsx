@@ -33,6 +33,7 @@ import { DataCard } from '@/components/admin/data-card';
 import { EmptyState } from '@/components/admin/empty-state';
 import { StatusBadge } from '@/components/admin/status-badge';
 import { ResetPinDialog } from '@/components/admin/reset-pin-dialog';
+import { EditUserDialog } from '@/components/admin/edit-user-dialog';
 import { cn } from '@/lib/utils';
 
 interface UserTableProps {
@@ -51,6 +52,7 @@ function getInitials(name: string): string {
 export function UserTable({ users }: UserTableProps) {
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
   const [pinDialogUser, setPinDialogUser] = useState<StaffUser | null>(null);
+  const [editDialogUser, setEditDialogUser] = useState<StaffUser | null>(null);
 
   const handleToggleActive = async (user: StaffUser) => {
     const action = user.is_active ? deactivateUser : reactivateUser;
@@ -148,17 +150,18 @@ export function UserTable({ users }: UserTableProps) {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
+                    {/* onSelect fires after the dropdown starts closing — avoids Radix focus conflict with Dialog */}
+                    <DropdownMenuItem onSelect={() => setEditDialogUser(user)}>
                       <UserCog className="h-4 w-4 mr-2" />
                       Edit User
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setPinDialogUser(user)}>
+                    <DropdownMenuItem onSelect={() => setPinDialogUser(user)}>
                       <Key className="h-4 w-4 mr-2" />
                       Reset PIN
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
-                      onClick={() => handleToggleActive(user)}
+                      onSelect={() => handleToggleActive(user)}
                       className={user.is_active ? 'text-rose-600' : 'text-green-600'}
                     >
                       {user.is_active ? (
@@ -190,6 +193,14 @@ export function UserTable({ users }: UserTableProps) {
         userId={pinDialogUser.id}
         userName={pinDialogUser.full_name}
         hasPin={!!pinDialogUser.pin_hash}
+      />
+    )}
+
+    {editDialogUser && (
+      <EditUserDialog
+        open={!!editDialogUser}
+        onOpenChange={(open) => { if (!open) setEditDialogUser(null); }}
+        user={editDialogUser}
       />
     )}
     </>

@@ -31,11 +31,13 @@ Arena Blanca Resort — hotel restaurant ordering system with 5 isolated interfa
 
 | Module | Route | Auth | Purpose |
 |--------|-------|------|---------|
-| Kiosk | `/(kiosk)` | Public | Guest self-service ordering |
+| Kiosk | `/(kiosk)` | Public | Ordering UI shared by guests, cashiers, and waiters |
 | Kitchen | `/(kitchen)` | Staff (kitchen) | Real-time Kitchen Display System |
 | Waiter | `/(waiter)` | Staff (waiter) | Item-level service tracking |
 | Cashier | `/(cashier)` | Staff (cashier) | Payment processing & POS |
 | Admin | `/admin` | Admin only | Menu, analytics, settings |
+
+**Kiosk is the shared ordering UI.** Guests order anonymously. Cashiers and waiters sign in via staff PIN (top-right "Staff Sign-in" button on welcome screen) to take walk-in orders on behalf of guests. Kitchen staff who sign in are auto-redirected to `/orders`.
 
 **What's implemented (Phases 1–4):** Full kiosk ordering, KDS, waiter item tracking, cashier POS with cash/GCash/card payments, BIR receipts, refunds, admin dashboard, promo codes, audit log, sales reports, allergen/nutrition display, multi-language (EN/TL), realtime dashboard.
 
@@ -149,7 +151,8 @@ src/services/        → Server Actions (ALL DB mutations go here)
   promo-service.ts   → Promo code validation + CRUD
 
 src/stores/
-  cart-store.ts      → Cart state + localStorage persistence (Zustand)
+  cart-store.ts           → Cart state + localStorage persistence (Zustand)
+  staff-session-store.ts  → Active staff session on kiosk (name, role, id → takenBy on orders)
 
 src/hooks/
   use-realtime-orders.ts          → Kitchen realtime subscription
@@ -360,12 +363,24 @@ if (result.success) {
 
 ---
 
+## Staff Session (Kiosk)
+
+The kiosk welcome screen has a **Staff Sign-in** button (top-right). Staff enter a 4–6 digit PIN resolved via `resolveStaffPin()` in `user-service.ts`. On success, their session is stored in `staffSessionStore` and their name shows as a chip. The session ID is passed as `takenBy` when `createOrder()` is called — this tracks which cashier or waiter placed the order.
+
+- **Cashier / Waiter**: session set → proceed through kiosk flow normally
+- **Kitchen**: session set → auto-redirected to `/orders`
+- **Guest** (no sign-in): `takenBy` is `null`
+
+Components: `EmployeePinDialog` (sign-in), `KioskAdminOverlay` (5-tap logo → admin location change).
+
+---
+
 ## Order Lifecycle
 
 ```
-Kiosk → "Pay at Counter" → pending_payment (15 min timeout) → Cashier pays → paid → Kitchen
-Kiosk → GCash/Card      → PayMongo webhook → paid → Kitchen
-Kiosk → "Bill Later"    → paid (bill_later) → Kitchen → Cashier settles later
+Guest/Staff (kiosk) → "Pay at Counter" → pending_payment (15 min timeout) → Cashier pays → paid → Kitchen
+Guest/Staff (kiosk) → eWallet/Card     → reference number entered → paid → Kitchen
+Guest/Staff (kiosk) → "Bill Later"     → paid (bill_later) → Kitchen → Cashier settles later
 
 paid → preparing (kitchen) → ready (kitchen done) → served (waiter)
 ```

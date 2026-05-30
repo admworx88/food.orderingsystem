@@ -78,52 +78,56 @@ export function UnpaidBillsList({
               )}
               onClick={() => onSelectOrder(order.id)}
             >
-              {/* Top row: Order number + badges */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className={cn(
-                    'pos-order-number',
-                    isSelected && 'pos-order-number-selected'
-                  )}>
-                    #{order.order_number}
-                  </span>
-                  <span className="pos-order-badge">
-                    {ORDER_TYPE_LABELS[order.order_type] || order.order_type}
-                  </span>
-                  <span className="pos-order-badge pos-order-badge-served">
-                    <CheckCircle2 className="w-3 h-3 mr-1" />
-                    Served
-                  </span>
-                </div>
+              {/* Row 1: Order number + Served badge */}
+              <div className="flex items-center justify-between mb-2">
+                <span className={cn(
+                  'pos-order-number',
+                  isSelected && 'pos-order-number-selected'
+                )}>
+                  #{order.order_number}
+                </span>
+                <span className="pos-order-badge pos-order-badge-served">
+                  <CheckCircle2 className="w-3 h-3 mr-1" />
+                  Served
+                </span>
               </div>
 
-              {/* Middle row: Items + Amount */}
-              <div className="pos-order-meta">
-                <span>
+              {/* Row 2: Type · Location + Time ago */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1 text-[11px] text-[var(--pos-text-muted)]">
+                  <span>{ORDER_TYPE_LABELS[order.order_type] || order.order_type}</span>
+                  {(order.table_number || order.room_number) && (
+                    <>
+                      <span className="opacity-30">·</span>
+                      <MapPin className="w-2.5 h-2.5 shrink-0" />
+                      <span>
+                        {order.table_number ? `Table ${order.table_number}` : `Room ${order.room_number}`}
+                      </span>
+                    </>
+                  )}
+                </div>
+                {timeSince && (
+                  <div className="flex items-center gap-1 text-[10px] text-[var(--pos-text-muted)]">
+                    <Clock className="w-2.5 h-2.5" />
+                    <span>{timeSince}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div className="my-3 h-px bg-[var(--pos-border)]" />
+
+              {/* Row 3: Items + Amount */}
+              <div className="flex items-baseline justify-between">
+                <span className="text-[11px] text-[var(--pos-text-muted)]">
                   {order.order_items?.length || 0} item{(order.order_items?.length || 0) !== 1 ? 's' : ''}
                 </span>
                 <span className={cn(
-                  'pos-order-amount',
+                  'pos-order-amount text-[15px]',
                   isSelected && 'pos-order-amount-selected'
                 )}>
                   {formatCurrency(order.total_amount)}
                 </span>
-              </div>
-
-              {/* Bottom row: Location + Time */}
-              <div className="flex items-center justify-between mt-2 text-xs text-[var(--pos-text-muted)]">
-                <div className="flex items-center gap-1">
-                  <MapPin className="w-3 h-3" />
-                  {order.table_number && <span>Table {order.table_number}</span>}
-                  {order.room_number && <span>Room {order.room_number}</span>}
-                  {!order.table_number && !order.room_number && <span>Takeout</span>}
-                </div>
-                {timeSince && (
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    <span>Ordered {timeSince}</span>
-                  </div>
-                )}
               </div>
             </div>
           );

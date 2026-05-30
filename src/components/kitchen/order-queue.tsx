@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useRealtimeOrders } from '@/hooks/use-realtime-orders';
 import { useKitchenContext } from '@/app/(kitchen)/layout-client';
 import { OrderCard } from './order-card';
+import { KdsMenuStatus } from './kds-menu-status';
 
 type FilterStatus = 'all' | 'paid' | 'preparing' | 'ready' | 'served';
 type FilterOrderType = 'all' | 'dine_in' | 'room_service' | 'takeout' | 'ocean_view';
@@ -26,7 +27,8 @@ const ORDER_TYPE_FILTERS: { value: FilterOrderType; label: string }[] = [
 ];
 
 export function OrderQueue() {
-  const { isRecentMode, setIsRecentMode, soundEnabled } = useKitchenContext();
+  const { kdsView, setKdsView, isRecentMode, soundEnabled } = useKitchenContext();
+
   const { orders, isLoading, error, refetch, optimisticStatusUpdate } = useRealtimeOrders(soundEnabled, { includeServed: true });
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
   const [typeFilter, setTypeFilter] = useState<FilterOrderType>('all');
@@ -74,6 +76,8 @@ export function OrderQueue() {
     }
     return filteredOrders;
   }, [filteredOrders, statusFilter]);
+
+  if (kdsView === 'menu-status') return <KdsMenuStatus />;
 
   // Active orders count (exclude served)
   const activeOrders = orders.filter((o) => o.status !== 'served');
@@ -180,7 +184,7 @@ export function OrderQueue() {
           /* Recent mode: Show back button + served count */
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setIsRecentMode(false)}
+              onClick={() => setKdsView('orders')}
               className="flex items-center gap-2 px-3 py-2 lg:px-4 lg:py-2.5 rounded-lg bg-zinc-800/50 border border-white/[0.08] text-zinc-300 text-xs lg:text-sm font-semibold hover:bg-zinc-700/50 hover:border-white/[0.12] transition-all"
             >
               <ArrowLeft className="w-3.5 h-3.5 lg:w-4 lg:h-4" />

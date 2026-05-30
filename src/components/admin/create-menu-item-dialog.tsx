@@ -20,10 +20,11 @@ type Category = Database['public']['Tables']['categories']['Row'];
 
 interface CreateMenuItemDialogProps {
   categories: Category[];
+  nextDisplayOrder?: number;
   trigger?: React.ReactNode;
 }
 
-export function CreateMenuItemDialog({ categories, trigger }: CreateMenuItemDialogProps) {
+export function CreateMenuItemDialog({ categories, nextDisplayOrder, trigger }: CreateMenuItemDialogProps) {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -78,6 +79,7 @@ export function CreateMenuItemDialog({ categories, trigger }: CreateMenuItemDial
 
         <MenuItemForm
           categories={categories}
+          defaultValues={{ display_order: nextDisplayOrder ?? 0 }}
           onSubmit={handleSubmit}
           submitLabel="Create Menu Item"
           isSubmitting={isSubmitting}

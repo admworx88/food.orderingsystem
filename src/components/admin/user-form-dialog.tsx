@@ -49,6 +49,12 @@ const roleOptions = [
     description: 'Order preparation & KDS',
     icon: ShieldX,
   },
+  {
+    value: 'waiter',
+    label: 'Waiter',
+    description: 'Table service & order tracking',
+    icon: Shield,
+  },
 ] as const;
 
 export function UserFormDialog({ trigger }: UserFormDialogProps) {

@@ -7,6 +7,7 @@ export interface StaffSession {
   id: string;
   full_name: string;
   role: StaffRole;
+  kioskType: 'restaurant' | 'ocean_view';
 }
 
 interface StaffSessionStore {

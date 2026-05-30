@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { X, Image as ImageIcon } from 'lucide-react';
+import { X, Image as ImageIcon, ChevronDown } from 'lucide-react';
 import { uploadMenuImage } from '@/services/menu-service';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -56,10 +56,14 @@ export function MenuItemForm({
     base_price: defaultValues?.base_price || 0,
     image_url: defaultValues?.image_url || null,
     is_available: defaultValues?.is_available ?? true,
-    display_order: defaultValues?.display_order || 0,
+    display_order: defaultValues?.display_order ?? 0,
     allergens: (defaultValues?.allergens as string[] | null) || [],
     nutritional_info: (defaultValues?.nutritional_info as NutritionalInfo | null) || {},
   });
+
+  const [slugEdited, setSlugEdited] = useState(!!defaultValues?.slug);
+  const [allergensOpen, setAllergensOpen] = useState(false);
+  const [nutritionOpen, setNutritionOpen] = useState(false);
 
   const [imagePreview, setImagePreview] = useState<string | null>(
     defaultValues?.image_url || null
@@ -73,8 +77,7 @@ export function MenuItemForm({
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
 
-    // Auto-generate slug from name
-    if (name === 'name' && !defaultValues) {
+    if (name === 'name' && !slugEdited) {
       const slug = value
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
@@ -141,9 +144,13 @@ export function MenuItemForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Client-side validation for Select (required attribute doesn't work on Select)
     if (!formData.category_id) {
       toast.error('Please select a category');
+      return;
+    }
+
+    if (!formData.base_price || Number(formData.base_price) <= 0) {
+      toast.error('Price must be greater than ₱0');
       return;
     }
 
@@ -252,7 +259,10 @@ export function MenuItemForm({
             id="slug"
             name="slug"
             value={formData.slug}
-            onChange={handleInputChange}
+            onChange={(e) => {
+              setSlugEdited(true);
+              handleInputChange(e);
+            }}
             required
             maxLength={100}
             placeholder="chicken-adobo"
@@ -322,7 +332,7 @@ export function MenuItemForm({
             value={formData.base_price}
             onChange={handleInputChange}
             required
-            min="0"
+            min="0.01"
             step="0.01"
             placeholder="0.00"
             className="h-11"
@@ -379,70 +389,103 @@ export function MenuItemForm({
         </div>
       </div>
 
-      {/* Allergens Section */}
-      <div className="space-y-3">
-        <Label className="text-sm font-medium">Allergens</Label>
-        <div className="grid grid-cols-3 gap-3">
-          {ALLERGEN_OPTIONS.map((option) => (
-            <label
-              key={option.value}
-              className={cn(
-                'flex items-center gap-2 px-3 py-2.5 rounded-lg border cursor-pointer transition-all',
-                formData.allergens.includes(option.value)
-                  ? 'border-amber-400 bg-amber-50 text-amber-800'
-                  : 'border-slate-200 hover:border-slate-300 text-slate-700'
-              )}
-            >
-              <input
-                type="checkbox"
-                checked={formData.allergens.includes(option.value)}
-                onChange={(e) => {
-                  setFormData((prev) => ({
-                    ...prev,
-                    allergens: e.target.checked
-                      ? [...prev.allergens, option.value]
-                      : prev.allergens.filter((a) => a !== option.value),
-                  }));
-                }}
-                className="w-4 h-4 accent-amber-600"
-              />
-              <span className="text-base">{option.icon}</span>
-              <span className="text-sm font-medium">{option.label}</span>
-            </label>
-          ))}
-        </div>
+      {/* Allergens — collapsible */}
+      <div className="border border-slate-200 rounded-lg overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setAllergensOpen((o) => !o)}
+          className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+        >
+          <span>
+            Allergens
+            {formData.allergens.length > 0 && (
+              <span className="ml-2 text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                {formData.allergens.length} selected
+              </span>
+            )}
+          </span>
+          <ChevronDown
+            className={cn('h-4 w-4 text-slate-400 transition-transform duration-200', allergensOpen && 'rotate-180')}
+          />
+        </button>
+        {allergensOpen && (
+          <div className="px-4 pb-4 pt-1 border-t border-slate-100">
+            <div className="grid grid-cols-3 gap-3">
+              {ALLERGEN_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  className={cn(
+                    'flex items-center gap-2 px-3 py-2.5 rounded-lg border cursor-pointer transition-all',
+                    formData.allergens.includes(option.value)
+                      ? 'border-amber-400 bg-amber-50 text-amber-800'
+                      : 'border-slate-200 hover:border-slate-300 text-slate-700'
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={formData.allergens.includes(option.value)}
+                    onChange={(e) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        allergens: e.target.checked
+                          ? [...prev.allergens, option.value]
+                          : prev.allergens.filter((a) => a !== option.value),
+                      }));
+                    }}
+                    className="w-4 h-4 accent-amber-600"
+                  />
+                  <span className="text-base">{option.icon}</span>
+                  <span className="text-sm font-medium">{option.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Nutritional Info Section */}
-      <div className="space-y-3">
-        <Label className="text-sm font-medium">Nutritional Info (per serving)</Label>
-        <div className="grid grid-cols-3 gap-4">
-          {NUTRITIONAL_FIELDS.map((field) => (
-            <div key={field.key} className="space-y-1">
-              <label htmlFor={`nutrition-${field.key}`} className="text-xs text-slate-500">
-                {field.label} ({field.unit})
-              </label>
-              <Input
-                id={`nutrition-${field.key}`}
-                type="number"
-                min="0"
-                step={field.key === 'calories' ? '1' : '0.1'}
-                value={(formData.nutritional_info as Record<string, number | string>)[field.key] ?? ''}
-                onChange={(e) => {
-                  setFormData((prev) => ({
-                    ...prev,
-                    nutritional_info: {
-                      ...prev.nutritional_info,
-                      [field.key]: e.target.value === '' ? undefined : Number(e.target.value),
-                    },
-                  }));
-                }}
-                placeholder="0"
-                className="h-10"
-              />
+      {/* Nutritional Info — collapsible */}
+      <div className="border border-slate-200 rounded-lg overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setNutritionOpen((o) => !o)}
+          className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+        >
+          <span>Nutritional Info (per serving)</span>
+          <ChevronDown
+            className={cn('h-4 w-4 text-slate-400 transition-transform duration-200', nutritionOpen && 'rotate-180')}
+          />
+        </button>
+        {nutritionOpen && (
+          <div className="px-4 pb-4 pt-1 border-t border-slate-100">
+            <div className="grid grid-cols-3 gap-4">
+              {NUTRITIONAL_FIELDS.map((field) => (
+                <div key={field.key} className="space-y-1">
+                  <label htmlFor={`nutrition-${field.key}`} className="text-xs text-slate-500">
+                    {field.label} ({field.unit})
+                  </label>
+                  <Input
+                    id={`nutrition-${field.key}`}
+                    type="number"
+                    min="0"
+                    step={field.key === 'calories' ? '1' : '0.1'}
+                    value={(formData.nutritional_info as Record<string, number | string>)[field.key] ?? ''}
+                    onChange={(e) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        nutritional_info: {
+                          ...prev.nutritional_info,
+                          [field.key]: e.target.value === '' ? undefined : Number(e.target.value),
+                        },
+                      }));
+                    }}
+                    placeholder="0"
+                    className="h-10"
+                  />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Submit Button */}

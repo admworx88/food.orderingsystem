@@ -102,13 +102,13 @@ export function OrderDetailPanel({ order }: OrderDetailPanelProps) {
           <span>{formatCurrency(order.subtotal)}</span>
         </div>
 
-        {order.discount_amount && order.discount_amount > 0 && (
+        {(order.discount_amount ?? 0) > 0 && (
           <div className="pos-total-row pos-total-discount">
             <span>
               Discount
               {promo && ` (${(promo as { code: string }).code})`}
             </span>
-            <span>-{formatCurrency(order.discount_amount)}</span>
+            <span>-{formatCurrency(order.discount_amount ?? 0)}</span>
           </div>
         )}
 
