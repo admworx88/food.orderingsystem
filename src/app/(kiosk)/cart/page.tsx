@@ -269,7 +269,7 @@ export default function CartPage() {
         <div className="p-3 sm:p-4 lg:p-6 border-t border-stone-200 safe-area-inset-bottom">
           <Button
             onClick={() => router.push('/checkout')}
-            className="w-full h-12 sm:h-14 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-base sm:text-lg font-bold rounded-xl shadow-lg active:scale-[0.98] transition-all group"
+            className="w-full h-12 sm:h-14 bg-amber-500 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-base sm:text-lg font-bold rounded-xl shadow-lg active:scale-[0.98] transition-all group"
           >
             <span>Proceed to Checkout</span>
             <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 ml-2 group-hover:translate-x-1 transition-transform" strokeWidth={2.5} />

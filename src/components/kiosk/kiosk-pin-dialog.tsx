@@ -117,7 +117,7 @@ export function KioskPinDialog({
           disabled={!pin.trim() || isVerifying}
           className={cn(
             'mt-4 w-full h-14 rounded-xl font-bold text-base transition-all',
-            'bg-gradient-to-r from-amber-500 to-amber-600 text-white',
+            'bg-amber-500 bg-gradient-to-r from-amber-500 to-amber-600 text-white',
             'shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40',
             'hover:scale-[1.02] active:scale-[0.98]',
             'disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:hover:scale-100'

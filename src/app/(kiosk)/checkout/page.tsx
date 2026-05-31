@@ -470,7 +470,7 @@ export default function CheckoutPage() {
           <Button
             onClick={handlePlaceOrder}
             disabled={!paymentMethod || isPlacingOrder}
-            className="w-full h-12 sm:h-14 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-base sm:text-lg font-bold rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all group"
+            className="w-full h-12 sm:h-14 bg-amber-500 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-base sm:text-lg font-bold rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all group"
           >
             {isPlacingOrder ? (
               <>

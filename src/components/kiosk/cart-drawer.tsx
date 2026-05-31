@@ -221,7 +221,7 @@ export function CartDrawer({
                   onClick={onCheckout}
                   className={cn(
                     'w-full flex items-center justify-center gap-3 py-5 font-bold text-lg text-white',
-                    'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 bg-[length:200%_100%]',
+                    'bg-amber-500 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 bg-[length:200%_100%]',
                     'hover:bg-[position:100%_0] transition-all duration-500',
                     'active:scale-[0.99] min-h-[64px]'
                   )}

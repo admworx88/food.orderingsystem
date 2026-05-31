@@ -228,7 +228,7 @@ function AddItemsContent() {
                     'w-full h-14 flex items-center justify-center gap-2.5 font-bold text-base rounded-2xl transition-all active:scale-[0.98]',
                     isLooking || !orderNumber.trim() || !tableNum.trim()
                       ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-lg shadow-amber-500/25'
+                      : 'bg-amber-500 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-lg shadow-amber-500/25'
                   )}
                 >
                   {isLooking ? (

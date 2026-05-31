@@ -21,7 +21,7 @@ export function CartButton({ itemCount, total, onClick, className }: CartButtonP
         'fixed bottom-6 right-6 z-40 flex items-center gap-3 min-h-[64px] rounded-2xl transition-all duration-300',
         'shadow-2xl shadow-amber-500/30 active:scale-95',
         hasItems
-          ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 bg-[length:200%_100%] hover:bg-[position:100%_0] text-white pl-5 pr-6'
+          ? 'bg-amber-500 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 bg-[length:200%_100%] hover:bg-[position:100%_0] text-white pl-5 pr-6'
           : 'bg-white text-stone-600 border border-stone-200 px-5 hover:shadow-lg',
         className
       )}

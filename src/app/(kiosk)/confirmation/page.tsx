@@ -194,7 +194,7 @@ function ConfirmationContent() {
             <Link
               href={homeUrl}
               onClick={clearCart}
-              className="flex-1 flex items-center justify-center gap-2 h-12 sm:h-14 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-sm sm:text-base font-bold rounded-2xl shadow-lg active:scale-[0.98] transition-all"
+              className="flex-1 flex items-center justify-center gap-2 h-12 sm:h-14 bg-amber-500 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-sm sm:text-base font-bold rounded-2xl shadow-lg active:scale-[0.98] transition-all"
             >
               <Home className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2} />
               New Order

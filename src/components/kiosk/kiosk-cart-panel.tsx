@@ -362,7 +362,7 @@ export function KioskCartPanel({ addItemsContext }: { addItemsContext?: AddItems
                 disabled={items.length === 0 || isSubmitting}
                 className={cn(
                   'w-full py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2',
-                  'bg-gradient-to-r from-amber-500 to-amber-600 text-white',
+                  'bg-amber-500 bg-gradient-to-r from-amber-500 to-amber-600 text-white',
                   'shadow-lg shadow-amber-500/20',
                   'hover:from-amber-400 hover:to-amber-500 hover:shadow-amber-500/35',
                   'active:scale-[0.98]',
@@ -381,7 +381,7 @@ export function KioskCartPanel({ addItemsContext }: { addItemsContext?: AddItems
                 disabled={items.length === 0 || (!orderType && !isOceanView)}
                 className={cn(
                   'w-full py-3.5 rounded-xl font-bold text-sm transition-all',
-                  'bg-gradient-to-r from-amber-500 to-amber-600 text-white',
+                  'bg-amber-500 bg-gradient-to-r from-amber-500 to-amber-600 text-white',
                   'shadow-lg shadow-amber-500/20',
                   'hover:from-amber-400 hover:to-amber-500 hover:shadow-amber-500/35',
                   'active:scale-[0.98]',
