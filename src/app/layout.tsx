@@ -1,10 +1,17 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/sonner';
 
 export const metadata: Metadata = {
   title: 'Arena Blanca Resort - Restaurant',
   description: 'Arena Blanca Resort restaurant ordering and management system',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
