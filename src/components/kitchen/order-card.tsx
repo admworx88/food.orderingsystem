@@ -261,7 +261,8 @@ export function OrderCard({ order, onStatusUpdated, isHistorical = false, hideSt
         {order.order_items.map((item) => {
           // Kitchen tracks: preparing → ready (served status is waiter's domain)
           // Note: When order bumps to 'preparing', trigger sets all items to 'preparing'
-          const isItemReady = item.status === 'ready' || item.status === 'served';
+          const isItemServed = item.status === 'served';
+          const isItemReady = item.status === 'ready' || isItemServed;
           // No actions for historical orders
           const canMarkReady = !isHistorical && isPreparing && item.status === 'preparing';
           const isUpdatingThisItem = updatingItemId === item.id;
@@ -342,6 +343,11 @@ export function OrderCard({ order, onStatusUpdated, isHistorical = false, hideSt
                       </>
                     )}
                   </button>
+                ) : isItemServed ? (
+                  <span className="kds-item-ready-badge kds-item-ready-badge-responsive opacity-50">
+                    <Check className="w-2.5 h-2.5 lg:w-3 lg:h-3" />
+                    SERVED
+                  </span>
                 ) : isItemReady ? (
                   <span className="kds-item-ready-badge kds-item-ready-badge-responsive">
                     <Check className="w-2.5 h-2.5 lg:w-3 lg:h-3" />
