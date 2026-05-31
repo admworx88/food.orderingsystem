@@ -614,7 +614,9 @@ export async function applySeniorPwdDiscount(
   const { orderId, discountType, idNumber } = parseResult.data;
 
   try {
-    const supabase = await createServerClient();
+    // Use admin client: cashier staff authenticate via PIN (no Supabase Auth session),
+    // so createServerClient() runs as anon and RLS blocks UPDATE on orders.
+    const supabase = createAdminClient();
 
     const { data: order, error: orderError } = await supabase
       .from('orders')
@@ -627,8 +629,12 @@ export async function applySeniorPwdDiscount(
       return serviceError('E2001', 'Order not found');
     }
 
-    if (order.status !== 'pending_payment' || order.payment_status !== 'unpaid') {
-      return serviceError('E3007', 'Cannot apply discount — order is not pending payment');
+    // Allow discount on pending_payment orders AND bill_later (paid + unpaid) orders
+    const canApplyDiscount =
+      (order.status === 'pending_payment' && order.payment_status === 'unpaid') ||
+      (order.payment_status === 'unpaid');
+    if (!canApplyDiscount) {
+      return serviceError('E3007', 'Cannot apply discount — order is already paid');
     }
 
     // Fetch configurable rates from settings, fall back to defaults
@@ -695,7 +701,8 @@ export async function removeDiscount(
   orderId: string
 ): Promise<ServiceResult<{ newTotal: number }>> {
   try {
-    const supabase = await createServerClient();
+    // Use admin client: same reason as applySeniorPwdDiscount — PIN auth has no session
+    const supabase = createAdminClient();
 
     const { data: order, error: orderError } = await supabase
       .from('orders')
@@ -708,8 +715,8 @@ export async function removeDiscount(
       return serviceError('E2001', 'Order not found');
     }
 
-    if (order.status !== 'pending_payment' || order.payment_status !== 'unpaid') {
-      return serviceError('E3007', 'Cannot modify discount — order is not pending payment');
+    if (order.payment_status !== 'unpaid') {
+      return serviceError('E3007', 'Cannot modify discount — order is already paid');
     }
 
     const { data: rateRows } = await supabase
