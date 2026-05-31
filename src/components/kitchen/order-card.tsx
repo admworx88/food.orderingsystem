@@ -270,14 +270,14 @@ export function OrderCard({ order, onStatusUpdated, isHistorical = false, hideSt
           return (
             <div
               key={item.id}
-              className="space-y-1"
+              className={cn('space-y-1', isItemServed && 'opacity-40')}
             >
               <div className="flex items-start gap-2 lg:gap-3">
                 {/* Quantity badge - now purely informational - responsive */}
                 <span
                   className={cn(
                     'kds-item-qty kds-item-qty-responsive',
-                    isItemReady ? 'kds-item-qty-ready' : 'kds-item-qty-pending'
+                    isItemServed ? 'kds-item-qty-pending' : isItemReady ? 'kds-item-qty-ready' : 'kds-item-qty-pending'
                   )}
                 >
                   {isItemReady ? (
@@ -293,7 +293,7 @@ export function OrderCard({ order, onStatusUpdated, isHistorical = false, hideSt
                     <span
                       className={cn(
                         'text-xs lg:text-sm font-medium',
-                        isItemReady ? 'text-emerald-300' : 'text-zinc-200'
+                        isItemServed ? 'text-zinc-500 line-through' : isItemReady ? 'text-emerald-300' : 'text-zinc-200'
                       )}
                     >
                       {item.item_name}
@@ -344,7 +344,7 @@ export function OrderCard({ order, onStatusUpdated, isHistorical = false, hideSt
                     )}
                   </button>
                 ) : isItemServed ? (
-                  <span className="kds-item-ready-badge kds-item-ready-badge-responsive opacity-50">
+                  <span className="kds-item-ready-badge kds-item-ready-badge-responsive">
                     <Check className="w-2.5 h-2.5 lg:w-3 lg:h-3" />
                     SERVED
                   </span>
