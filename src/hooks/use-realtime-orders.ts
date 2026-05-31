@@ -146,7 +146,15 @@ export function useRealtimeOrders(
       console.error('Failed to fetch kitchen orders:', fetchError);
       setError(fetchError.message);
     } else {
-      setOrders((data || []) as KitchenOrder[]);
+      // Safety net: remove orders where all items are served even if the DB trigger
+      // hasn't updated the order status yet (e.g., trigger race condition or RLS issue).
+      const filtered = (data || []).filter((order) => {
+        if (includeServed) return true;
+        const items = order.order_items || [];
+        if (items.length === 0) return true;
+        return items.some((item) => item.status !== 'served');
+      });
+      setOrders(filtered as KitchenOrder[]);
       setError(null);
     }
 
