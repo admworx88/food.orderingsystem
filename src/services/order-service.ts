@@ -1141,6 +1141,13 @@ export async function updateItemToReady(
 
 /**
  * Mark an individual item as served (Waiter)
+ *
+ * Uses createAdminClient() for all DB operations because this action is
+ * triggered from the kiosk Orders view where staff sign in via PIN — not
+ * via Supabase Auth — so there is no authenticated session. The RLS UPDATE
+ * policies on order_items require TO authenticated, which the anon role
+ * cannot satisfy. The admin client bypasses RLS entirely; input is validated
+ * above and the status transition is enforced here in application logic.
  */
 export async function updateItemToServed(
   itemId: string
@@ -1150,10 +1157,10 @@ export async function updateItemToServed(
     return { success: false, error: idValidation.error };
   }
 
-  const supabase = await createServerClient();
-
-  // Get current user for audit trail
-  const { data: { user } } = await supabase.auth.getUser();
+  // Use admin client: kiosk staff authenticate via PIN (no Supabase auth
+  // session), so createServerClient() would run as anon and be blocked by
+  // the authenticated-only UPDATE RLS policy on order_items.
+  const supabase = createAdminClient();
 
   // Fetch item and its order
   const { data: item, error: fetchError } = await supabase
@@ -1177,7 +1184,7 @@ export async function updateItemToServed(
     .update({
       status: 'served' as Database['public']['Enums']['order_item_status'],
       served_at: new Date().toISOString(),
-      served_by: user?.id || null,
+      served_by: null,
     })
     .eq('id', itemId)
     .select('status')
