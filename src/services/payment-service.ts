@@ -343,7 +343,7 @@ export async function processManualEwalletPayment(
       return serviceError('E2003', 'Order has expired');
     }
 
-    const nextStatus = isBillLater ? order.status : 'preparing';
+    const nextStatus = isBillLater ? order.status : 'paid';
 
     const { error: updateError } = await admin
       .from('orders')

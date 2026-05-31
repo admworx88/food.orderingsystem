@@ -1611,7 +1611,10 @@ export async function addItemsToOrder(
     const serviceCharge = Math.round(discountedSubtotal * 0.10 * 100) / 100;
     const totalAmount = Math.round((discountedSubtotal + taxAmount + serviceCharge) * 100) / 100;
 
-    // 8. Update order totals and set status back to preparing (new items need cooking)
+    // 8. Update order totals. Only advance to 'preparing' if the order is still in 'paid'
+    // state (kitchen hasn't started yet). If it's already 'preparing' or 'ready', keep
+    // the current status so we don't regress it — new items will appear as 'pending'.
+    const statusForUpdate = order.status === 'paid' ? 'preparing' : order.status;
     const { error: updateError } = await supabase
       .from('orders')
       .update({
@@ -1620,7 +1623,7 @@ export async function addItemsToOrder(
         tax_amount: taxAmount,
         service_charge: serviceCharge,
         total_amount: totalAmount,
-        status: 'preparing',
+        status: statusForUpdate,
       })
       .eq('id', orderId);
 
