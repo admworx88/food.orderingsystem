@@ -1,25 +1,38 @@
 import { createServerClient } from '@/lib/supabase/server';
-import { MenuGrid } from '@/components/kiosk/menu-grid';
+import { getPendingOrders, getUnpaidBills } from '@/services/payment-service';
+import { KioskPosLayout } from '@/components/kiosk/kiosk-pos-layout';
 
-export default async function KioskMenuPage() {
+export default async function KioskMenuPage({ searchParams }: { searchParams: Promise<{ view?: string; selectOrder?: string }> }) {
   const supabase = await createServerClient();
+  const { view, selectOrder } = await searchParams;
 
-  const { data: categories } = await supabase
-    .from('categories')
-    .select('*')
-    .eq('is_active', true)
-    .order('display_order');
+  const [{ data: categories }, { data: menuItems }, pendingResult, unpaidResult] = await Promise.all([
+    supabase
+      .from('categories')
+      .select('*')
+      .eq('is_active', true)
+      .order('display_order'),
+    supabase
+      .from('menu_items')
+      .select('*, category:categories(id, name, requires_kitchen)')
+      .is('deleted_at', null)
+      .order('display_order'),
+    getPendingOrders(),
+    getUnpaidBills(),
+  ]);
 
-  const { data: menuItems } = await supabase
-    .from('menu_items')
-    .select('*, category:categories(id, name)')
-    .eq('is_available', true)
-    .is('deleted_at', null)
-    .order('display_order');
+  const initialView = view === 'payments' || view === 'orders' ? view : undefined;
 
   return (
     <div className="h-full">
-      <MenuGrid categories={categories || []} menuItems={menuItems || []} />
+      <KioskPosLayout
+        categories={categories || []}
+        menuItems={menuItems || []}
+        initialPendingOrders={pendingResult.success ? pendingResult.data : []}
+        initialUnpaidBills={unpaidResult.success ? unpaidResult.data : []}
+        initialView={initialView}
+        initialSelectedOrderId={selectOrder}
+      />
     </div>
   );
 }

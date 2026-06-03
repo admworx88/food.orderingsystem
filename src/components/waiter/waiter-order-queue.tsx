@@ -39,7 +39,7 @@ interface WaiterOrderQueueProps {
 type ViewFilter = 'ready' | 'preparing' | 'recent';
 
 export function WaiterOrderQueue({ initialOrders }: WaiterOrderQueueProps) {
-  const [viewFilter, setViewFilter] = useState<ViewFilter>('ready');
+  const [viewFilter, setViewFilter] = useState<ViewFilter>('preparing');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const soundEnabled = useWaiterSoundPreference();
 
@@ -138,21 +138,6 @@ export function WaiterOrderQueue({ initialOrders }: WaiterOrderQueueProps) {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         {/* Tabs */}
         <div className="waiter-tabs">
-          {/* Ready tab */}
-          <button
-            onClick={() => setViewFilter('ready')}
-            className={cn(
-              'waiter-tab',
-              viewFilter === 'ready' && 'waiter-tab-active waiter-tab-ready'
-            )}
-          >
-            <span className="waiter-tab-dot" />
-            <span>Ready</span>
-            {tabCounts.ready > 0 && (
-              <span className="waiter-tab-count">{tabCounts.ready}</span>
-            )}
-          </button>
-
           {/* Preparing tab */}
           <button
             onClick={() => setViewFilter('preparing')}
@@ -165,6 +150,21 @@ export function WaiterOrderQueue({ initialOrders }: WaiterOrderQueueProps) {
             <span>Preparing</span>
             {tabCounts.preparing > 0 && (
               <span className="waiter-tab-count">{tabCounts.preparing}</span>
+            )}
+          </button>
+
+          {/* Ready tab */}
+          <button
+            onClick={() => setViewFilter('ready')}
+            className={cn(
+              'waiter-tab',
+              viewFilter === 'ready' && 'waiter-tab-active waiter-tab-ready'
+            )}
+          >
+            <span className="waiter-tab-dot" />
+            <span>Ready</span>
+            {tabCounts.ready > 0 && (
+              <span className="waiter-tab-count">{tabCounts.ready}</span>
             )}
           </button>
 

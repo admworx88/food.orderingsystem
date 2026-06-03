@@ -10,6 +10,9 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { OrderDetailDialog } from './order-detail-dialog';
+import { StatusBadge } from '@/components/admin/status-badge';
+import { DataCard } from '@/components/admin/data-card';
+import { EmptyState } from '@/components/admin/empty-state';
 import { formatCurrency } from '@/lib/utils/currency';
 import { format } from 'date-fns';
 import { ClipboardList, Phone, MapPin, UtensilsCrossed, Waves } from 'lucide-react';
@@ -27,43 +30,6 @@ type OrderWithItems = Order & {
 
 interface OrderHistoryTableProps {
   orders: OrderWithItems[];
-}
-
-function getStatusBadgeVariant(
-  status: string
-): 'default' | 'secondary' | 'destructive' | 'outline' {
-  switch (status) {
-    case 'served':
-      return 'default';
-    case 'ready':
-      return 'secondary';
-    case 'preparing':
-      return 'outline';
-    case 'paid':
-      return 'outline';
-    case 'cancelled':
-      return 'destructive';
-    default:
-      return 'secondary';
-  }
-}
-
-function getPaymentStatusBadgeVariant(
-  status: string
-): 'default' | 'secondary' | 'destructive' | 'outline' {
-  switch (status) {
-    case 'paid':
-      return 'default';
-    case 'processing':
-      return 'outline';
-    case 'refunded':
-      return 'secondary';
-    case 'expired':
-    case 'unpaid':
-      return 'destructive';
-    default:
-      return 'secondary';
-  }
 }
 
 function formatOrderType(type: string): string {
@@ -106,107 +72,108 @@ function getOrderTypeIcon(type: string) {
 export function OrderHistoryTable({ orders }: OrderHistoryTableProps) {
   if (orders.length === 0) {
     return (
-      <div className="text-center py-12 text-slate-500">
-        <ClipboardList className="h-12 w-12 mx-auto mb-4 text-slate-300" />
-        <p className="text-lg font-medium">No orders found</p>
-        <p className="text-sm">Try adjusting your search or filter criteria</p>
-      </div>
+      <EmptyState
+        icon={ClipboardList}
+        title="No orders found"
+        description="Try adjusting your search or filter criteria."
+      />
     );
   }
 
   return (
-    <div className="rounded-lg border overflow-hidden">
-      <Table>
-        <TableHeader>
-          <TableRow className="bg-slate-50">
-            <TableHead>Order #</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Items</TableHead>
-            <TableHead>Contact</TableHead>
-            <TableHead>Total</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Payment</TableHead>
-            <TableHead>Date</TableHead>
-            <TableHead className="w-[80px]">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {orders.map((order) => (
-            <TableRow key={order.id} className="hover:bg-slate-50">
-              <TableCell>
-                <span className="font-mono font-semibold text-amber-600">
-                  {order.order_number}
-                </span>
-              </TableCell>
-              <TableCell>
-                <Badge variant="outline" className="gap-1 capitalize">
-                  {getOrderTypeIcon(order.order_type)}
-                  {formatOrderType(order.order_type)}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <span className="text-sm">
-                  {order.order_items.length} item
-                  {order.order_items.length !== 1 ? 's' : ''}
-                </span>
-              </TableCell>
-              <TableCell>
-                <div className="text-sm space-y-1">
-                  {order.guest_phone && (
-                    <div className="flex items-center gap-1 text-slate-600">
-                      <Phone className="h-3 w-3" />
-                      {order.guest_phone}
-                    </div>
-                  )}
-                  {order.table_number && (
-                    <div className="flex items-center gap-1 text-slate-500">
-                      Table {order.table_number}
-                    </div>
-                  )}
-                  {order.room_number && (
-                    <div className="flex items-center gap-1 text-slate-500">
-                      Room {order.room_number}
-                    </div>
-                  )}
-                  {!order.guest_phone && !order.table_number && !order.room_number && (
-                    <span className="text-slate-400">-</span>
-                  )}
-                </div>
-              </TableCell>
-              <TableCell>
-                <span className="font-semibold">
-                  {formatCurrency(order.total_amount)}
-                </span>
-              </TableCell>
-              <TableCell>
-                <Badge variant={getStatusBadgeVariant(order.status)}>
-                  {formatStatus(order.status)}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <Badge variant={getPaymentStatusBadgeVariant(order.payment_status)}>
-                  {formatStatus(order.payment_status)}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <div className="text-sm text-slate-500">
-                  {format(new Date(order.created_at!), 'MMM d, yyyy')}
-                  <br />
-                  <span className="text-xs">
-                    {format(new Date(order.created_at!), 'h:mm a')}
-                  </span>
-                </div>
-              </TableCell>
-              <TableCell>
-                <OrderDetailDialog
-                  orderId={order.id}
-                  orderNumber={order.order_number}
-                />
-              </TableCell>
+    <DataCard padding="none">
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-slate-50 border-b border-slate-200">
+              <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-400 py-3">Order #</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-400 py-3">Type</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-400 py-3">Items</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-400 py-3">Contact</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-400 py-3">Total</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-400 py-3">Status</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-400 py-3">Payment</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-400 py-3">Date</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-400 py-3 w-[80px]">Actions</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+          </TableHeader>
+          <TableBody>
+            {orders.map((order) => (
+              <TableRow
+                key={order.id}
+                className="hover:bg-slate-50 transition-colors cursor-pointer border-b border-slate-100 last:border-0"
+              >
+                <TableCell>
+                  <span className="font-mono font-semibold text-amber-600">
+                    {order.order_number}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="gap-1 capitalize">
+                    {getOrderTypeIcon(order.order_type)}
+                    {formatOrderType(order.order_type)}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <span className="text-sm">
+                    {order.order_items.length} item
+                    {order.order_items.length !== 1 ? 's' : ''}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <div className="text-sm space-y-1">
+                    {order.guest_phone && (
+                      <div className="flex items-center gap-1 text-slate-600">
+                        <Phone className="h-3 w-3" />
+                        {order.guest_phone}
+                      </div>
+                    )}
+                    {order.table_number && (
+                      <div className="flex items-center gap-1 text-slate-500">
+                        Table {order.table_number}
+                      </div>
+                    )}
+                    {order.room_number && (
+                      <div className="flex items-center gap-1 text-slate-500">
+                        Room {order.room_number}
+                      </div>
+                    )}
+                    {!order.guest_phone && !order.table_number && !order.room_number && (
+                      <span className="text-slate-400">-</span>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <span className="font-semibold">
+                    {formatCurrency(order.total_amount)}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <StatusBadge status={order.status} />
+                </TableCell>
+                <TableCell>
+                  <StatusBadge status={order.payment_status} />
+                </TableCell>
+                <TableCell>
+                  <div className="text-sm text-slate-500">
+                    {format(new Date(order.created_at!), 'MMM d, yyyy')}
+                    <br />
+                    <span className="text-xs">
+                      {format(new Date(order.created_at!), 'h:mm a')}
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <OrderDetailDialog
+                    orderId={order.id}
+                    orderNumber={order.order_number}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </DataCard>
   );
 }

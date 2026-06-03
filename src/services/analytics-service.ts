@@ -1,12 +1,17 @@
 'use server';
 
 import { createServerClient } from '@/lib/supabase/server';
+import type { Database } from '@/lib/supabase/types';
 import type {
   DashboardStats,
   TopSellingItem,
   RevenueDataPoint,
   OrderTypeData,
   DashboardData,
+  SalesReportSummary,
+  SalesByCategoryItem,
+  SalesByMenuItem,
+  SalesByPaymentMethodItem,
 } from '@/types/dashboard';
 import { startOfDay, endOfDay, subDays, format } from 'date-fns';
 
@@ -127,31 +132,44 @@ export async function getRevenueChartData(
   try {
     const supabase = await createServerClient();
 
+    const now = new Date();
+    const startDate = startOfDay(subDays(now, days - 1)).toISOString();
+    const endDate = endOfDay(now).toISOString();
+
+    const { data: orders, error } = await supabase
+      .from('orders')
+      .select('total_amount, created_at')
+      .gte('created_at', startDate)
+      .lte('created_at', endDate)
+      .in('payment_status', ['paid', 'refunded'])
+      .is('deleted_at', null);
+
+    if (error) throw error;
+
+    // Group orders by date
+    const dayMap = new Map<string, { revenue: number; count: number }>();
+    orders?.forEach((order) => {
+      const key = format(new Date(order.created_at!), 'yyyy-MM-dd');
+      const existing = dayMap.get(key);
+      if (existing) {
+        existing.revenue += order.total_amount || 0;
+        existing.count++;
+      } else {
+        dayMap.set(key, { revenue: order.total_amount || 0, count: 1 });
+      }
+    });
+
+    // Build data points for each day (including days with no orders)
     const dataPoints: RevenueDataPoint[] = [];
-
     for (let i = days - 1; i >= 0; i--) {
-      const date = subDays(new Date(), i);
-      const dayStart = startOfDay(date).toISOString();
-      const dayEnd = endOfDay(date).toISOString();
-
-      const { data: orders, error } = await supabase
-        .from('orders')
-        .select('total_amount')
-        .gte('created_at', dayStart)
-        .lte('created_at', dayEnd)
-        .in('payment_status', ['paid', 'refunded'])
-        .is('deleted_at', null);
-
-      if (error) throw error;
-
-      const revenue =
-        orders?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0;
-
+      const date = subDays(now, i);
+      const key = format(date, 'yyyy-MM-dd');
+      const dayData = dayMap.get(key);
       dataPoints.push({
-        date: format(date, 'yyyy-MM-dd'),
-        label: format(date, 'EEE'), // "Mon", "Tue", etc.
-        revenue,
-        orders: orders?.length || 0,
+        date: key,
+        label: format(date, 'EEE'),
+        revenue: dayData?.revenue || 0,
+        orders: dayData?.count || 0,
       });
     }
 
@@ -329,26 +347,21 @@ export async function getOrderTypeBreakdown(): Promise<
  */
 export async function getDashboardData(): Promise<ServiceResult<DashboardData>> {
   try {
-    const [statsResult, chartResult, topItemsResult, breakdownResult] =
+    const currentYear = new Date().getFullYear();
+    const [statsResult, chartResult, topItemsResult, breakdownResult, monthlyResult] =
       await Promise.all([
         getDashboardStats(),
         getRevenueChartData(7),
         getTopSellingItems(5),
         getOrderTypeBreakdown(),
+        getMonthlyRevenueData(currentYear),
       ]);
 
-    if (!statsResult.success) {
-      return { success: false, error: statsResult.error };
-    }
-    if (!chartResult.success) {
-      return { success: false, error: chartResult.error };
-    }
-    if (!topItemsResult.success) {
-      return { success: false, error: topItemsResult.error };
-    }
-    if (!breakdownResult.success) {
-      return { success: false, error: breakdownResult.error };
-    }
+    if (!statsResult.success) return { success: false, error: statsResult.error };
+    if (!chartResult.success) return { success: false, error: chartResult.error };
+    if (!topItemsResult.success) return { success: false, error: topItemsResult.error };
+    if (!breakdownResult.success) return { success: false, error: breakdownResult.error };
+    if (!monthlyResult.success) return { success: false, error: monthlyResult.error };
 
     return {
       success: true,
@@ -357,10 +370,508 @@ export async function getDashboardData(): Promise<ServiceResult<DashboardData>> 
         revenueChart: chartResult.data,
         topItems: topItemsResult.data,
         orderTypeBreakdown: breakdownResult.data,
+        monthlyRevenue: monthlyResult.data,
       },
     };
   } catch (error) {
     console.error('getDashboardData error:', error);
     return { success: false, error: 'Failed to fetch dashboard data' };
+  }
+}
+
+/**
+ * Refresh dashboard data — callable from client via Server Action
+ */
+export async function refreshDashboardData(): Promise<ServiceResult<DashboardData>> {
+  return getDashboardData();
+}
+
+/**
+ * Get monthly revenue for a given year (12 data points, Jan–Dec)
+ */
+export async function getMonthlyRevenueData(
+  year: number
+): Promise<ServiceResult<RevenueDataPoint[]>> {
+  try {
+    const supabase = await createServerClient();
+
+    const startDate = new Date(year, 0, 1).toISOString();
+    const endDate = new Date(year, 11, 31, 23, 59, 59, 999).toISOString();
+
+    const { data: orders, error } = await supabase
+      .from('orders')
+      .select('total_amount, created_at')
+      .gte('created_at', startDate)
+      .lte('created_at', endDate)
+      .in('payment_status', ['paid', 'refunded'])
+      .is('deleted_at', null);
+
+    if (error) throw error;
+
+    const monthMap = new Map<number, { revenue: number; count: number }>();
+    orders?.forEach((order) => {
+      const month = new Date(order.created_at!).getMonth();
+      const existing = monthMap.get(month);
+      if (existing) {
+        existing.revenue += order.total_amount || 0;
+        existing.count++;
+      } else {
+        monthMap.set(month, { revenue: order.total_amount || 0, count: 1 });
+      }
+    });
+
+    const MONTH_LABELS = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+
+    const dataPoints: RevenueDataPoint[] = MONTH_LABELS.map((label, i) => {
+      const data = monthMap.get(i);
+      return {
+        date: `${year}-${String(i + 1).padStart(2, '0')}`,
+        label,
+        revenue: data?.revenue || 0,
+        orders: data?.count || 0,
+      };
+    });
+
+    return { success: true, data: dataPoints };
+  } catch (error) {
+    console.error('getMonthlyRevenueData error:', error);
+    return { success: false, error: 'Failed to fetch monthly revenue data' };
+  }
+}
+
+// ============================================================
+// Audit Log Functions
+// ============================================================
+
+export interface AuditLogFilters {
+  action?: string;
+  table_name?: string;
+  user_id?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  table_name: string;
+  action: string;
+  record_id: string | null;
+  old_data: Record<string, unknown> | null;
+  new_data: Record<string, unknown> | null;
+  user_id: string | null;
+  created_at: string | null;
+  user_name: string | null;
+}
+
+export interface AuditLogResult {
+  logs: AuditLogEntry[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+/**
+ * Get paginated audit logs with optional filters
+ */
+export async function getAuditLogs(
+  filters: AuditLogFilters = {}
+): Promise<ServiceResult<AuditLogResult>> {
+  try {
+    const supabase = await createServerClient();
+    const page = filters.page || 1;
+    const limit = filters.limit || 20;
+    const offset = (page - 1) * limit;
+
+    // Build base query for count
+    let countQuery = supabase
+      .from('audit_log')
+      .select('*', { count: 'exact', head: true });
+
+    // Build data query — join profiles for user name
+    let dataQuery = supabase
+      .from('audit_log')
+      .select('*, profiles:user_id(full_name)')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    // Apply filters to both queries
+    if (filters.action && filters.action !== 'all') {
+      countQuery = countQuery.eq('action', filters.action);
+      dataQuery = dataQuery.eq('action', filters.action);
+    }
+    if (filters.table_name && filters.table_name !== 'all') {
+      countQuery = countQuery.eq('table_name', filters.table_name);
+      dataQuery = dataQuery.eq('table_name', filters.table_name);
+    }
+    if (filters.user_id) {
+      countQuery = countQuery.eq('user_id', filters.user_id);
+      dataQuery = dataQuery.eq('user_id', filters.user_id);
+    }
+    if (filters.dateFrom) {
+      countQuery = countQuery.gte('created_at', filters.dateFrom);
+      dataQuery = dataQuery.gte('created_at', filters.dateFrom);
+    }
+    if (filters.dateTo) {
+      const toDate = new Date(filters.dateTo);
+      toDate.setHours(23, 59, 59, 999);
+      const toISO = toDate.toISOString();
+      countQuery = countQuery.lte('created_at', toISO);
+      dataQuery = dataQuery.lte('created_at', toISO);
+    }
+
+    const [countResult, dataResult] = await Promise.all([
+      countQuery,
+      dataQuery,
+    ]);
+
+    if (countResult.error) throw countResult.error;
+    if (dataResult.error) throw dataResult.error;
+
+    const total = countResult.count || 0;
+    const logs: AuditLogEntry[] = (dataResult.data || []).map((row) => {
+      const profile = row.profiles as unknown as { full_name: string } | null;
+      return {
+        id: row.id,
+        table_name: row.table_name,
+        action: row.action,
+        record_id: row.record_id,
+        old_data: row.old_data as Record<string, unknown> | null,
+        new_data: row.new_data as Record<string, unknown> | null,
+        user_id: row.user_id,
+        created_at: row.created_at,
+        user_name: profile?.full_name || null,
+      };
+    });
+
+    return {
+      success: true,
+      data: {
+        logs,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  } catch (error) {
+    console.error('getAuditLogs error:', error);
+    return { success: false, error: 'Failed to fetch audit logs' };
+  }
+}
+
+/**
+ * Insert an audit log entry.
+ * Designed to never throw — audit logging should not break the main operation.
+ */
+export async function logAuditEvent(params: {
+  table_name: string;
+  action: string;
+  record_id: string;
+  old_data?: Record<string, unknown> | null;
+  new_data?: Record<string, unknown> | null;
+  user_id?: string | null;
+}): Promise<void> {
+  try {
+    const supabase = await createServerClient();
+    const insertData: Database['public']['Tables']['audit_log']['Insert'] = {
+      table_name: params.table_name,
+      action: params.action,
+      record_id: params.record_id,
+      old_data: (params.old_data || null) as Database['public']['Tables']['audit_log']['Insert']['old_data'],
+      new_data: (params.new_data || null) as Database['public']['Tables']['audit_log']['Insert']['new_data'],
+      user_id: params.user_id || null,
+    };
+    const { error } = await supabase.from('audit_log').insert(insertData);
+
+    if (error) {
+      console.error('logAuditEvent insert error:', error);
+    }
+  } catch (error) {
+    console.error('logAuditEvent error:', error);
+  }
+}
+
+/**
+ * Get distinct table names from audit log for filter dropdown
+ */
+export async function getAuditLogTableNames(): Promise<ServiceResult<string[]>> {
+  try {
+    const supabase = await createServerClient();
+    const { data, error } = await supabase
+      .from('audit_log')
+      .select('table_name')
+      .order('table_name');
+
+    if (error) throw error;
+
+    const uniqueNames = [...new Set((data || []).map((r) => r.table_name))];
+    return { success: true, data: uniqueNames };
+  } catch (error) {
+    console.error('getAuditLogTableNames error:', error);
+    return { success: false, error: 'Failed to fetch table names' };
+  }
+}
+
+// ============================================================
+// Sales Report Functions
+// ============================================================
+
+/**
+ * Get sales report summary KPIs for a date range
+ */
+export async function getSalesReport(
+  dateFrom: string,
+  dateTo: string
+): Promise<ServiceResult<SalesReportSummary>> {
+  try {
+    const supabase = await createServerClient();
+    const from = startOfDay(new Date(dateFrom)).toISOString();
+    const to = endOfDay(new Date(dateTo)).toISOString();
+
+    const { data: orders, error } = await supabase
+      .from('orders')
+      .select('id, total_amount, order_items(menu_item_id, quantity, unit_price, menu_items(category_id, categories(name)))')
+      .gte('created_at', from)
+      .lte('created_at', to)
+      .in('payment_status', ['paid', 'refunded'])
+      .is('deleted_at', null);
+
+    if (error) throw error;
+
+    const totalOrders = orders?.length || 0;
+    const totalRevenue = orders?.reduce((sum, o) => sum + (o.total_amount || 0), 0) || 0;
+    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+    // Find top category by revenue
+    const categoryRevenue = new Map<string, number>();
+    orders?.forEach((order) => {
+      const items = order.order_items as unknown as Array<{
+        quantity: number;
+        unit_price: number;
+        menu_items: { category_id: string; categories: { name: string } | null } | null;
+      }>;
+      items?.forEach((item) => {
+        const catName = item.menu_items?.categories?.name;
+        if (catName) {
+          categoryRevenue.set(catName, (categoryRevenue.get(catName) || 0) + (item.unit_price * item.quantity));
+        }
+      });
+    });
+
+    let topCategory: string | null = null;
+    let maxRevenue = 0;
+    categoryRevenue.forEach((revenue, name) => {
+      if (revenue > maxRevenue) {
+        maxRevenue = revenue;
+        topCategory = name;
+      }
+    });
+
+    return {
+      success: true,
+      data: { totalRevenue, totalOrders, avgOrderValue, topCategory },
+    };
+  } catch (error) {
+    console.error('getSalesReport error:', error);
+    return { success: false, error: 'Failed to fetch sales report' };
+  }
+}
+
+/**
+ * Get revenue grouped by category for a date range
+ */
+export async function getSalesByCategory(
+  dateFrom: string,
+  dateTo: string
+): Promise<ServiceResult<SalesByCategoryItem[]>> {
+  try {
+    const supabase = await createServerClient();
+    const from = startOfDay(new Date(dateFrom)).toISOString();
+    const to = endOfDay(new Date(dateTo)).toISOString();
+
+    const { data: items, error } = await supabase
+      .from('order_items')
+      .select(`
+        order_id,
+        quantity,
+        unit_price,
+        menu_items!inner(category_id, categories!inner(id, name)),
+        orders!inner(created_at, payment_status, deleted_at)
+      `)
+      .gte('orders.created_at', from)
+      .lte('orders.created_at', to)
+      .in('orders.payment_status', ['paid', 'refunded'])
+      .is('orders.deleted_at', null);
+
+    if (error) throw error;
+
+    const categoryMap = new Map<string, { name: string; revenue: number; orderIds: Set<string> }>();
+
+    items?.forEach((item) => {
+      const menuItem = item.menu_items as unknown as {
+        category_id: string;
+        categories: { id: string; name: string };
+      };
+      const catId = menuItem.categories.id;
+      const catName = menuItem.categories.name;
+      const revenue = item.unit_price * item.quantity;
+
+      const existing = categoryMap.get(catId);
+      if (existing) {
+        existing.revenue += revenue;
+        existing.orderIds.add(item.order_id);
+      } else {
+        categoryMap.set(catId, {
+          name: catName,
+          revenue,
+          orderIds: new Set([item.order_id]),
+        });
+      }
+    });
+
+    const result: SalesByCategoryItem[] = Array.from(categoryMap.entries())
+      .map(([categoryId, data]) => ({
+        categoryId,
+        categoryName: data.name,
+        revenue: data.revenue,
+        orderCount: data.orderIds.size,
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('getSalesByCategory error:', error);
+    return { success: false, error: 'Failed to fetch sales by category' };
+  }
+}
+
+/**
+ * Get item performance with quantity and revenue for a date range
+ */
+export async function getSalesByItem(
+  dateFrom: string,
+  dateTo: string
+): Promise<ServiceResult<SalesByMenuItem[]>> {
+  try {
+    const supabase = await createServerClient();
+    const from = startOfDay(new Date(dateFrom)).toISOString();
+    const to = endOfDay(new Date(dateTo)).toISOString();
+
+    const { data: items, error } = await supabase
+      .from('order_items')
+      .select(`
+        menu_item_id,
+        quantity,
+        unit_price,
+        menu_items!inner(id, name),
+        orders!inner(created_at, payment_status, deleted_at)
+      `)
+      .gte('orders.created_at', from)
+      .lte('orders.created_at', to)
+      .in('orders.payment_status', ['paid', 'refunded'])
+      .is('orders.deleted_at', null);
+
+    if (error) throw error;
+
+    const itemMap = new Map<string, { name: string; qtySold: number; revenue: number }>();
+
+    items?.forEach((item) => {
+      const menuItem = item.menu_items as unknown as { id: string; name: string };
+      const existing = itemMap.get(menuItem.id);
+      const revenue = item.unit_price * item.quantity;
+
+      if (existing) {
+        existing.qtySold += item.quantity;
+        existing.revenue += revenue;
+      } else {
+        itemMap.set(menuItem.id, {
+          name: menuItem.name,
+          qtySold: item.quantity,
+          revenue,
+        });
+      }
+    });
+
+    const result: SalesByMenuItem[] = Array.from(itemMap.entries())
+      .map(([menuItemId, data]) => ({
+        menuItemId,
+        name: data.name,
+        qtySold: data.qtySold,
+        revenue: data.revenue,
+        avgPrice: data.qtySold > 0 ? data.revenue / data.qtySold : 0,
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('getSalesByItem error:', error);
+    return { success: false, error: 'Failed to fetch sales by item' };
+  }
+}
+
+/**
+ * Get payment method breakdown for a date range
+ */
+export async function getSalesByPaymentMethod(
+  dateFrom: string,
+  dateTo: string
+): Promise<ServiceResult<SalesByPaymentMethodItem[]>> {
+  try {
+    const supabase = await createServerClient();
+    const from = startOfDay(new Date(dateFrom)).toISOString();
+    const to = endOfDay(new Date(dateTo)).toISOString();
+
+    const { data: orders, error } = await supabase
+      .from('orders')
+      .select('payment_method, total_amount')
+      .gte('created_at', from)
+      .lte('created_at', to)
+      .in('payment_status', ['paid', 'refunded'])
+      .is('deleted_at', null);
+
+    if (error) throw error;
+
+    const methodMap = new Map<string, { count: number; revenue: number }>();
+
+    orders?.forEach((order) => {
+      const method = order.payment_method || 'unknown';
+      const existing = methodMap.get(method);
+      if (existing) {
+        existing.count++;
+        existing.revenue += order.total_amount || 0;
+      } else {
+        methodMap.set(method, { count: 1, revenue: order.total_amount || 0 });
+      }
+    });
+
+    const METHOD_LABELS: Record<string, { label: string; color: string }> = {
+      cash: { label: 'Cash', color: '#f59e0b' },
+      gcash: { label: 'GCash', color: '#3b82f6' },
+      card: { label: 'Card', color: '#8b5cf6' },
+      maya: { label: 'Maya', color: '#10b981' },
+      bill_later: { label: 'Bill Later', color: '#64748b' },
+      unknown: { label: 'Unknown', color: '#94a3b8' },
+    };
+
+    const result: SalesByPaymentMethodItem[] = Array.from(methodMap.entries())
+      .map(([method, data]) => ({
+        method,
+        label: METHOD_LABELS[method]?.label || method,
+        count: data.count,
+        revenue: data.revenue,
+        color: METHOD_LABELS[method]?.color || '#94a3b8',
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('getSalesByPaymentMethod error:', error);
+    return { success: false, error: 'Failed to fetch sales by payment method' };
   }
 }

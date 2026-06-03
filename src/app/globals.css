@@ -52,6 +52,21 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
 
+  /* Admin dashboard semantic tokens */
+  --color-admin-accent: #F59E0B;
+  --color-admin-accent-hover: #D97706;
+  --color-admin-accent-subtle: #FEF3C7;
+  --color-admin-success: #10B981;
+  --color-admin-success-subtle: #D1FAE5;
+  --color-admin-danger: #EF4444;
+  --color-admin-danger-subtle: #FEE2E2;
+  --color-admin-info: #3B82F6;
+  --color-admin-info-subtle: #DBEAFE;
+  --color-admin-warning: #F59E0B;
+  --color-admin-warning-subtle: #FEF3C7;
+  --color-admin-violet: #8B5CF6;
+  --color-admin-violet-subtle: #EDE9FE;
+
   /* Brand accent color scale (warm amber for hospitality) */
   --color-brand-50: oklch(0.99 0.01 75);
   --color-brand-100: oklch(0.96 0.04 75);
@@ -137,9 +152,16 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply bg-background text-foreground;
+    -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;
+  }
+  img {
+    max-width: 100%;
+    height: auto;
   }
 }
 
@@ -326,6 +348,16 @@
   100% { transform: translateX(-50%) scaleY(1); }
 }
 
+@keyframes ocean-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-12px); }
+}
+
+@keyframes carousel-zoom-out {
+  from { transform: scale(1.12); }
+  to   { transform: scale(1.0); }
+}
+
 @keyframes welcome-food-appear {
   0% { opacity: 0; transform: translateY(20px) scale(0.8); }
   60% { transform: translateY(-4px) scale(1.05); }
@@ -491,11 +523,13 @@
     background-color: var(--kiosk-card);
     border: 1px solid var(--kiosk-border);
     border-radius: 0.75rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10), 0 6px 20px -4px rgba(0, 0, 0, 0.12);
     transition: all 0.2s ease;
   }
   .kiosk-card:hover {
     border-color: var(--kiosk-border-hover);
-    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15), 0 12px 32px -6px rgba(0, 0, 0, 0.14);
+    transform: translateY(-2px);
   }
 
   /* Subtle shadow for elevation */
@@ -1145,6 +1179,22 @@
     border-radius: 6px;
     background: rgba(74, 222, 128, 0.15);
     color: var(--kds-ready);
+    flex-shrink: 0;
+  }
+
+  /* Served state badge (item picked up by waiter) — grayed out */
+  .kds-item-served-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 6px;
+    background: rgba(113, 113, 122, 0.15);
+    color: #52525b;
     flex-shrink: 0;
   }
 
@@ -2921,6 +2971,30 @@
   --pos-accent-glow: rgba(139, 92, 246, 0.25);
 }
 
+/* Light theme override — used when dialog is rendered inside the kiosk context */
+.kiosk-payment-override {
+--pos-void: #ffffff;
+--pos-base: #faf7f2;
+--pos-surface: #ffffff;
+--pos-elevated: #f5f1eb;
+--pos-card: #eee9e3;
+--pos-card-hover: #e6e0d8;
+--pos-border: rgba(28, 25, 23, 0.09);
+--pos-border-bright: rgba(28, 25, 23, 0.18);
+--pos-text: #1c1917;
+--pos-text-secondary: #57534e;
+--pos-text-muted: #78716c;
+--pos-mint: #059669;
+--pos-mint-dim: #047857;
+--pos-mint-glow: rgba(5, 150, 105, 0.15);
+--pos-amber: #d97706;
+--pos-amber-dim: #b45309;
+--pos-amber-glow: rgba(217, 119, 6, 0.15);
+--pos-red: #dc2626;
+--pos-red-dim: #b91c1c;
+--pos-red-glow: rgba(220, 38, 38, 0.15);
+}
+
 /* Cashier Animations */
 @keyframes pos-pulse-mint {
   0%, 100% {
@@ -3200,7 +3274,7 @@
 /* Order card */
 .pos-order-card {
   margin: 8px;
-  padding: 14px;
+  padding: 14px 16px;
   background: var(--pos-card);
   border: 1px solid var(--pos-border);
   border-radius: 10px;
@@ -3345,6 +3419,7 @@
   border: 1px solid var(--pos-border);
   border-radius: 12px;
   overflow: hidden;
+  box-shadow: 0 4px 24px -8px rgba(0, 0, 0, 0.5);
 }
 
 .pos-detail-header {
@@ -3376,7 +3451,7 @@
 .pos-item-row {
   display: flex;
   justify-content: space-between;
-  padding: 10px 0;
+  padding: 12px 0;
   border-bottom: 1px solid var(--pos-border);
 }
 
@@ -3437,10 +3512,10 @@
 }
 
 .pos-total-row-final {
-  padding: 12px 0 0;
+  padding: 14px 0 0;
   margin-top: 8px;
-  border-top: 1px solid var(--pos-border);
-  font-size: 18px;
+  border-top: 2px dashed var(--pos-border-bright);
+  font-size: 20px;
   font-weight: 800;
   color: var(--pos-text);
 }
@@ -3528,7 +3603,8 @@
   font-family: 'JetBrains Mono', monospace;
   font-size: 2.5rem;
   font-weight: 800;
-  color: var(--pos-text);
+  color: var(--pos-mint);
+  text-shadow: 0 0 30px var(--pos-mint-glow);
   margin-top: 4px;
   letter-spacing: -0.02em;
 }
@@ -4222,6 +4298,209 @@
   color: var(--pos-text-muted);
 }
 
+/* Collection Submit Area */
+.pos-collection-submit-area {
+  padding: 20px;
+  border-top: 1px solid var(--pos-border);
+  background: var(--pos-elevated);
+  border-radius: 0 0 12px 12px;
+}
+
+.pos-collection-submit-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pos-collection-submit-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pos-text);
+  margin-bottom: 2px;
+}
+
+.pos-collection-submit-desc {
+  font-size: 12px;
+  color: var(--pos-text-muted);
+  line-height: 1.5;
+}
+
+.pos-collection-error {
+  font-size: 12px;
+  color: var(--pos-red);
+}
+
+.pos-collection-submit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--pos-mint);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  align-self: flex-start;
+}
+
+.pos-collection-submit-btn:hover {
+  opacity: 0.88;
+}
+
+.pos-collection-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pos-collection-submitted {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pos-collection-submitted-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pos-mint);
+}
+
+.pos-collection-submitted-time {
+  font-size: 11px;
+  color: var(--pos-text-muted);
+  margin-top: 1px;
+}
+
+/* Sign-out button */
+.pos-signout-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--pos-border-bright);
+  border-radius: 8px;
+  color: var(--pos-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.pos-signout-btn:hover {
+  border-color: var(--pos-red);
+  color: var(--pos-red);
+  background: var(--pos-red-glow);
+}
+
+.pos-signout-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Shift gate dialog */
+.pos-gate-dialog {
+  position: relative;
+  background: var(--pos-surface);
+  border: 1px solid var(--pos-border-bright);
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+}
+
+.pos-gate-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--pos-text-muted);
+  cursor: pointer;
+}
+
+.pos-gate-close:hover {
+  background: var(--pos-elevated);
+  color: var(--pos-text);
+}
+
+.pos-gate-icon-wrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: var(--pos-amber-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.pos-gate-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--pos-text);
+  margin-bottom: 10px;
+}
+
+.pos-gate-desc {
+  font-size: 13px;
+  color: var(--pos-text-secondary);
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.pos-gate-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.pos-gate-primary-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: var(--pos-mint);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.pos-gate-primary-btn:hover {
+  opacity: 0.88;
+}
+
+.pos-gate-secondary-btn {
+  padding: 10px 18px;
+  background: transparent;
+  border: 1px solid var(--pos-border-bright);
+  border-radius: 8px;
+  color: var(--pos-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.pos-gate-secondary-btn:hover {
+  border-color: var(--pos-text-muted);
+  color: var(--pos-text-secondary);
+}
+
 /* ============================================
    THREE-PANEL POS LAYOUT
    Desktop: Queue | Order Detail | Payment
@@ -4234,9 +4513,14 @@
   height: calc(100vh - 57px);
 }
 
+.pos-two-panel {
+  display: flex;
+  height: calc(100vh - 57px);
+}
+
 /* Left panel: Order queue */
 .pos-queue-panel {
-  width: 280px;
+  width: 300px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -4248,7 +4532,7 @@
 /* Center panel: Order detail + discount */
 .pos-order-panel {
   flex: 1;
-  min-width: 360px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -4276,19 +4560,20 @@
 
 /* Payment panel header - sticky at top */
 .pos-payment-panel-header {
-  padding: 16px 20px;
+  padding: 14px 20px;
   flex-shrink: 0;
   background: linear-gradient(135deg, var(--pos-elevated) 0%, var(--pos-surface) 100%);
   border-bottom: 1px solid var(--pos-border);
+  border-top: 2px solid var(--pos-mint);
   z-index: 10;
 }
 
 .pos-payment-panel-title {
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 700;
-  color: var(--pos-text);
+  color: var(--pos-mint);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.14em;
 }
 
 /* Payment panel content wrapper */
@@ -4328,6 +4613,36 @@
 
 .pos-payment-sheet-trigger:active {
   transform: translateY(0);
+}
+
+/* Process Payment CTA - always visible, triggers payment dialog */
+.pos-process-payment-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 18px 24px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--pos-void);
+  background: linear-gradient(135deg, var(--pos-mint) 0%, var(--pos-mint-dim) 100%);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 20px -4px var(--pos-mint-glow);
+}
+
+.pos-process-payment-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px -4px var(--pos-mint-glow);
+}
+
+.pos-process-payment-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 10px -4px var(--pos-mint-glow);
 }
 
 /* Sheet overlay (for tablet/mobile) */
@@ -4456,4 +4771,105 @@
   .pos-payment-panel {
     width: 440px;
   }
+}
+
+/* Utility: Hide scrollbar but keep scroll functionality */
+.scrollbar-hide {
+scrollbar-width: none; /* Firefox */
+-ms-overflow-style: none; /* IE and Edge */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+display: none; /* Chrome, Safari, Opera */
+}
+
+/* ============================================
+   KIOSK EMBEDDED PAYMENTS — Light Mode Override
+   Wraps CashierPosClient when rendered inside
+   the kiosk POS layout. Overrides --pos-* tokens
+   to match Arena Blanca warm/cream palette.
+   ============================================ */
+.kiosk-payments-embed {
+/* Surfaces */
+--pos-void: #F5F0E8;
+--pos-base: #FAF7F2;
+--pos-surface: #FFFFFF;
+--pos-elevated: #FFF7ED;
+--pos-card: #FFFFFF;
+--pos-card-hover: #FFF7ED;
+--pos-border: rgba(0, 0, 0, 0.07);
+--pos-border-bright: rgba(0, 0, 0, 0.13);
+
+/* Text */
+--pos-text: #1c1917;
+--pos-text-secondary: #57534e;
+--pos-text-muted: #a8a29e;
+
+/* Accent — orange to match kiosk menu CTA */
+--pos-mint: #16a34a;
+--pos-mint-dim: #15803d;
+--pos-mint-glow: rgba(22, 163, 74, 0.15);
+--pos-amber: #f97316;
+--pos-amber-dim: #ea580c;
+--pos-amber-glow: rgba(249, 115, 22, 0.15);
+--pos-red: #ef4444;
+--pos-red-dim: #dc2626;
+--pos-red-glow: rgba(239, 68, 68, 0.12);
+--pos-blue: #3b82f6;
+--pos-blue-dim: #2563eb;
+--pos-blue-glow: rgba(59, 130, 246, 0.12);
+--pos-accent: #f97316;
+--pos-accent-glow: rgba(249, 115, 22, 0.15);
+}
+
+/* Fix three-panel/two-panel height when embedded (no standalone header to subtract) */
+.kiosk-payments-embed .pos-three-panel,
+.kiosk-payments-embed .pos-two-panel {
+height: 100%;
+}
+
+/* Queue tab active indicator — amber instead of mint */
+.kiosk-payments-embed .pos-queue-tab-active::after {
+background: var(--pos-amber);
+box-shadow: 0 0 8px var(--pos-amber-glow);
+}
+
+.kiosk-payments-embed .pos-queue-tab-active .pos-queue-tab-count {
+background: var(--pos-amber);
+color: #ffffff;
+}
+
+/* Order card selected ring — amber */
+.kiosk-payments-embed .pos-order-card-selected {
+border-color: var(--pos-amber);
+box-shadow: 0 0 0 1px var(--pos-amber), 0 4px 16px -4px var(--pos-amber-glow);
+}
+
+.kiosk-payments-embed .pos-order-number-selected {
+color: var(--pos-amber);
+}
+
+/* Softer card shadows for light mode */
+.kiosk-payments-embed .pos-order-card {
+box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.kiosk-payments-embed .pos-order-card:hover {
+box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10);
+}
+
+/* Payment panel label */
+.kiosk-payments-embed .pos-payment-label {
+color: var(--pos-text);
+}
+
+/* Awaiting state icon bg */
+.kiosk-payments-embed .pos-awaiting-icon-bg {
+background: #FFF7ED;
+border-color: rgba(249, 115, 22, 0.15);
+}
+
+/* Receipt / success glow — use amber in light mode */
+.kiosk-payments-embed .pos-success-glow {
+box-shadow: 0 0 20px 2px var(--pos-amber-glow);
 }

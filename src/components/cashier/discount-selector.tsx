@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { UserCheck, Loader2 } from 'lucide-react';
-import { applySeniorPwdDiscount } from '@/services/payment-service';
+import { UserCheck, Loader2, X } from 'lucide-react';
+import { applySeniorPwdDiscount, removeDiscount } from '@/services/payment-service';
 import { formatCurrency } from '@/lib/utils/currency';
 import { SENIOR_PWD_DISCOUNT_RATE } from '@/lib/constants/payment-methods';
 import { cn } from '@/lib/utils';
@@ -28,9 +28,22 @@ export function DiscountSelector({
   const [discountType, setDiscountType] = useState<'senior' | 'pwd' | null>(null);
   const [idNumber, setIdNumber] = useState('');
   const [isApplying, setIsApplying] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
 
   const hasExistingDiscount = currentDiscount > 0;
   const previewDiscount = Math.round(subtotal * SENIOR_PWD_DISCOUNT_RATE * 100) / 100;
+
+  async function handleRemove() {
+    setIsRemoving(true);
+    const result = await removeDiscount(orderId);
+    setIsRemoving(false);
+    if (result.success) {
+      toast.success('Discount removed');
+      onDiscountApplied();
+    } else {
+      toast.error(result.error);
+    }
+  }
 
   async function handleApply() {
     if (!discountType || !idNumber.trim()) return;
@@ -60,9 +73,23 @@ export function DiscountSelector({
           <UserCheck className="w-4 h-4 text-[var(--pos-mint)]" />
           <span className="text-sm text-[var(--pos-text-muted)]">Discount Applied</span>
         </div>
-        <span className="pos-discount-badge">
-          -{formatCurrency(currentDiscount)}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="pos-discount-badge">
+            -{formatCurrency(currentDiscount)}
+          </span>
+          <button
+            onClick={handleRemove}
+            disabled={isRemoving}
+            className="flex items-center justify-center w-6 h-6 rounded-full bg-[var(--pos-card)] border border-[var(--pos-border)] text-[var(--pos-text-muted)] hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-all duration-150 disabled:opacity-50"
+            aria-label="Remove discount"
+          >
+            {isRemoving ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <X className="w-3 h-3" />
+            )}
+          </button>
+        </div>
       </div>
     );
   }

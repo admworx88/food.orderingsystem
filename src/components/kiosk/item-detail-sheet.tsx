@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { X, Minus, Plus, Clock, Info, AlertTriangle, Check, Loader2 } from 'lucide-react';
+import { X, Minus, Plus, Clock, Info, AlertTriangle, Check, Loader2, ShoppingBag, Star } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/currency';
 import { normalizeImageUrl } from '@/lib/utils/image';
 import { AllergenList } from './allergen-badge';
@@ -46,8 +46,13 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
   const [loadingAddons, setLoadingAddons] = useState(false);
 
   const addItem = useCartStore((state) => state.addItem);
+  const addToOrderId = useCartStore((state) => state.addToOrderId);
+  const setDetailSheetOpen = useCartStore((state) => state.setDetailSheetOpen);
 
-  // Reset state when a new item is opened
+  useEffect(() => {
+    setDetailSheetOpen(isOpen);
+  }, [isOpen, setDetailSheetOpen]);
+
   const [prevItemId, setPrevItemId] = useState<string | null>(null);
   if (item && isOpen && item.id !== prevItemId) {
     setPrevItemId(item.id);
@@ -59,7 +64,6 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
     setAddonGroups([]);
   }
 
-  // Fetch addon groups when item changes
   useEffect(() => {
     if (!item || !isOpen || !loadingAddons) return;
 
@@ -85,14 +89,8 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
       if (groupSet.has(optionId)) {
         groupSet.delete(optionId);
       } else {
-        // Single-select (max_selections = 1): replace selection
-        if (maxSelections === 1) {
-          groupSet.clear();
-        }
-        // Multi-select with limit: check if at max
-        if (maxSelections !== null && maxSelections > 1 && groupSet.size >= maxSelections) {
-          return prev; // Don't add if at max
-        }
+        if (maxSelections === 1) groupSet.clear();
+        if (maxSelections !== null && maxSelections > 1 && groupSet.size >= maxSelections) return prev;
         groupSet.add(optionId);
       }
 
@@ -112,7 +110,6 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
   } | null;
   const prepTime = item.preparation_time_minutes;
 
-  // Calculate total with addons
   const selectedAddonItems: CartAddon[] = [];
   for (const group of addonGroups) {
     const groupSelections = selectedAddons.get(group.id);
@@ -120,11 +117,7 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
       for (const optionId of groupSelections) {
         const option = group.addon_options.find((o) => o.id === optionId);
         if (option) {
-          selectedAddonItems.push({
-            id: option.id,
-            name: option.name,
-            price: option.additional_price,
-          });
+          selectedAddonItems.push({ id: option.id, name: option.name, price: option.additional_price });
         }
       }
     }
@@ -133,7 +126,6 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
   const addonsTotal = selectedAddonItems.reduce((sum, a) => sum + a.price, 0);
   const totalPrice = (Number(item.base_price) + addonsTotal) * quantity;
 
-  // Check if all required addon groups have selections
   const allRequiredSelected = addonGroups.every((group) => {
     if (!group.is_required) return true;
     const minSelections = group.min_selections ?? 1;
@@ -149,11 +141,9 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
       quantity,
       addons: selectedAddonItems,
       specialInstructions: specialInstructions || undefined,
-      allergens: allergens,
+      allergens,
       imageUrl: item.image_url || undefined,
     });
-
-    // Reset state
     setQuantity(1);
     setSpecialInstructions('');
     setSelectedAddons(new Map());
@@ -168,7 +158,7 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
       {/* Backdrop */}
       <div
         className={cn(
-          'fixed inset-0 bg-black/50 backdrop-blur-sm z-50 transition-opacity duration-300',
+          'fixed inset-0 bg-black/55 backdrop-blur-[4px] z-[60] transition-opacity duration-300',
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         )}
         onClick={onClose}
@@ -177,118 +167,152 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
       {/* Bottom Sheet */}
       <div
         className={cn(
-          'fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-[2rem] max-h-[90vh] overflow-hidden transition-transform duration-300 ease-out',
+          'fixed inset-x-0 bottom-0 z-[60] bg-[#FEF7EE] rounded-t-[2rem] max-h-[94vh] flex flex-col overflow-hidden',
+          'transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shadow-2xl',
           isOpen ? 'translate-y-0' : 'translate-y-full'
         )}
       >
         {/* Drag handle */}
-        <div className="flex justify-center py-3">
-          <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
+        <div className="flex justify-center pt-3 pb-0 flex-shrink-0">
+          <div className="w-10 h-1 bg-stone-300/70 rounded-full" />
         </div>
 
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all z-10"
-          aria-label="Close"
-        >
-          <X className="w-6 h-6 text-gray-600" />
-        </button>
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto overscroll-contain">
 
-        {/* Scrollable content */}
-        <div className="overflow-y-auto max-h-[calc(90vh-180px)] pb-4">
-          {/* Image */}
-          <div className="relative aspect-video bg-gradient-to-br from-amber-50 to-orange-50 mx-6 rounded-2xl overflow-hidden">
+          {/* Hero image */}
+          <div className="relative w-full h-52 sm:h-60 lg:h-72 overflow-hidden bg-stone-200">
             {item.image_url ? (
               <>
                 {!imageLoaded && (
-                  <div className="absolute inset-0 bg-gradient-to-r from-amber-100 via-orange-50 to-amber-100 animate-shimmer" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-orange-100 via-amber-50 to-orange-100 animate-pulse" />
                 )}
                 <Image
                   src={normalizeImageUrl(item.image_url) || ''}
                   alt={item.name}
                   fill
                   className={cn(
-                    'object-cover transition-opacity duration-300',
-                    imageLoaded ? 'opacity-100' : 'opacity-0'
+                    'object-cover object-center transition-all duration-500',
+                    imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
                   )}
-                  sizes="(max-width: 768px) 100vw, 50vw"
+                  sizes="100vw"
+                  priority
                   onLoad={() => setImageLoaded(true)}
-                  onError={(e) => {
-                    console.error('Image load error (detail sheet):', item.name, item.image_url);
-                  }}
                 />
+                {/* Deep gradient fade into cream background */}
+                <div className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-[#FEF7EE] via-[#FEF7EE]/70 to-transparent pointer-events-none" />
               </>
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-8xl opacity-60">🍽️</span>
+              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-50">
+                <ShoppingBag className="w-16 h-16 text-orange-200" strokeWidth={1} />
+              </div>
+            )}
+
+            {/* Close button */}
+            <button
+              onClick={onClose}
+              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white active:scale-90 transition-all shadow-md z-10"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5 text-stone-700" strokeWidth={2.5} />
+            </button>
+
+            {/* Featured badge */}
+            {item.is_featured && (
+              <div className="absolute top-4 left-4 z-10">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 text-white text-xs font-bold rounded-full shadow-lg shadow-orange-500/30">
+                  <Star className="w-3 h-3 fill-white" />
+                  Popular
+                </span>
+              </div>
+            )}
+
+            {/* Prep time — overlaps gradient area */}
+            {prepTime && (
+              <div className="absolute bottom-4 left-5 z-10">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/90 backdrop-blur-sm text-stone-700 text-xs font-semibold rounded-full shadow-sm">
+                  <Clock className="w-3.5 h-3.5 text-orange-500" />
+                  ~{prepTime} min
+                </span>
               </div>
             )}
           </div>
 
-          {/* Content */}
-          <div className="px-6 pt-6 space-y-6">
-            {/* Title and price */}
-            <div>
-              <div className="flex items-start justify-between gap-4">
-                <h2 className="text-2xl font-bold text-gray-900">{item.name}</h2>
-                <span className="text-2xl font-bold text-amber-600 whitespace-nowrap">
+          {/* Content — starts over the gradient */}
+          <div className="px-5 sm:px-6 -mt-4 relative z-10 pb-4 space-y-5">
+
+            {/* Item name + price */}
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <h2
+                  className="text-2xl sm:text-3xl font-extrabold text-[#1C1412] leading-tight tracking-tight"
+                  style={{ fontFamily: "'Playfair Display', serif" }}
+                >
+                  {item.name}
+                </h2>
+                {item.description && (
+                  <p className="text-sm text-stone-500 mt-2 leading-relaxed line-clamp-3">
+                    {item.description}
+                  </p>
+                )}
+              </div>
+              <div className="flex-shrink-0 text-right pt-1">
+                <span
+                  className="text-2xl sm:text-3xl font-extrabold text-orange-500 tabular-nums"
+                  style={{ fontFamily: "'Playfair Display', serif" }}
+                >
                   {formatCurrency(Number(item.base_price))}
                 </span>
               </div>
-
-              {/* Prep time */}
-              {prepTime && (
-                <div className="flex items-center gap-2 text-gray-500 mt-2">
-                  <Clock className="w-4 h-4" />
-                  <span className="text-sm">Ready in ~{prepTime} minutes</span>
-                </div>
-              )}
             </div>
 
-            {/* Description */}
-            {item.description && (
-              <p className="text-gray-600 leading-relaxed">{item.description}</p>
-            )}
+            {/* Divider */}
+            <div className="w-full h-px bg-orange-100" />
 
             {/* Allergen Warning */}
             {allergens.length > 0 && (
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <AlertTriangle className="w-5 h-5 text-amber-600" />
-                  <h3 className="font-semibold text-amber-900">Allergen Information</h3>
+              <div className="flex items-start gap-3 bg-amber-50 border border-amber-200/70 rounded-2xl p-4">
+                <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-amber-800 uppercase tracking-wide mb-2">Contains allergens</p>
+                  <AllergenList allergens={allergens} showLabels size="md" />
                 </div>
-                <AllergenList allergens={allergens} showLabels size="md" />
               </div>
             )}
 
             {/* Addon Groups */}
             {loadingAddons ? (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
-                <span className="ml-2 text-sm text-gray-500">Loading options...</span>
+              <div className="flex items-center justify-center py-10 gap-2">
+                <Loader2 className="w-5 h-5 animate-spin text-orange-400" />
+                <span className="text-sm text-stone-400">Loading options...</span>
               </div>
             ) : (
               addonGroups.map((group) => {
-                const isSingleSelect = group.max_selections === 1;
                 const groupSelections = selectedAddons.get(group.id) || new Set();
 
                 return (
-                  <div key={group.id} className="space-y-3">
-                    <div className="flex items-baseline justify-between">
-                      <h3 className="text-base font-bold text-gray-900">
-                        {group.name}
-                        {group.is_required && (
-                          <span className="text-red-500 ml-1">*</span>
+                  <div key={group.id} className="bg-white rounded-2xl border border-orange-100/60 overflow-hidden">
+                    {/* Group header */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-orange-100/60 bg-orange-50/50">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-bold text-stone-800">{group.name}</h3>
+                        {group.is_required ? (
+                          <span className="px-2 py-0.5 bg-orange-500 text-white text-[10px] font-bold rounded-full uppercase tracking-wide">
+                            Required
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 bg-stone-100 text-stone-400 text-[10px] font-semibold rounded-full uppercase tracking-wide">
+                            Optional
+                          </span>
                         )}
-                      </h3>
-                      <span className="text-xs text-gray-500">
-                        {group.is_required ? 'Required' : 'Optional'}
-                        {group.max_selections && group.max_selections > 1 && ` (max ${group.max_selections})`}
-                      </span>
+                      </div>
+                      {group.max_selections && group.max_selections > 1 && (
+                        <span className="text-xs text-stone-400">Pick up to {group.max_selections}</span>
+                      )}
                     </div>
 
-                    <div className="space-y-2">
+                    {/* Options */}
+                    <div className="p-3 space-y-2">
                       {group.addon_options
                         .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
                         .map((option) => {
@@ -301,41 +325,32 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
                               onClick={() => !isDisabled && toggleAddon(group.id, option.id, group.max_selections ?? null)}
                               disabled={isDisabled}
                               className={cn(
-                                'w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left min-h-[56px]',
+                                'w-full flex items-center justify-between gap-3 rounded-xl px-4 py-3 transition-all text-left min-h-[52px]',
                                 isDisabled
-                                  ? 'opacity-50 cursor-not-allowed border-gray-100 bg-gray-50'
+                                  ? 'opacity-40 cursor-not-allowed bg-stone-50'
                                   : isSelected
-                                    ? 'border-amber-500 bg-amber-50'
-                                    : 'border-gray-200 hover:border-gray-300 active:scale-[0.99]'
+                                    ? 'bg-orange-500 shadow-md shadow-orange-500/20'
+                                    : 'bg-stone-50 hover:bg-orange-50 active:scale-[0.99] border border-transparent hover:border-orange-200'
                               )}
                             >
-                              {/* Radio / Checkbox indicator */}
-                              <div
-                                className={cn(
-                                  'w-6 h-6 flex-shrink-0 flex items-center justify-center border-2 transition-all',
-                                  isSingleSelect ? 'rounded-full' : 'rounded-md',
-                                  isSelected
-                                    ? 'border-amber-500 bg-amber-500'
-                                    : 'border-gray-300'
-                                )}
-                              >
-                                {isSelected && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className={cn(
+                                  'w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all',
+                                  isSelected ? 'bg-white border-white' : 'border-stone-300 bg-white'
+                                )}>
+                                  {isSelected && <Check className="w-3.5 h-3.5 text-orange-500" strokeWidth={3} />}
+                                </div>
+                                <span className={cn(
+                                  'text-sm truncate',
+                                  isSelected ? 'font-bold text-white' : 'font-medium text-stone-700'
+                                )}>
+                                  {option.name}
+                                </span>
                               </div>
-
-                              <span className={cn(
-                                'flex-1 font-medium',
-                                isDisabled ? 'text-gray-400' : 'text-gray-900'
-                              )}>
-                                {option.name}
-                                {isDisabled && (
-                                  <span className="ml-2 text-xs text-gray-400">Unavailable</span>
-                                )}
-                              </span>
-
                               {option.additional_price > 0 && (
                                 <span className={cn(
-                                  'text-sm font-semibold',
-                                  isSelected ? 'text-amber-700' : 'text-gray-500'
+                                  'text-sm flex-shrink-0 font-semibold',
+                                  isSelected ? 'text-white/90' : 'text-stone-400'
                                 )}>
                                   +{formatCurrency(option.additional_price)}
                                 </span>
@@ -351,43 +366,40 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
 
             {/* Nutritional Info */}
             {nutritionalInfo && (
-              <details className="group">
-                <summary className="flex items-center gap-2 cursor-pointer text-gray-700 font-medium py-3 border-t border-gray-100">
-                  <Info className="w-5 h-5" />
+              <details className="group rounded-2xl bg-white border border-orange-100/60 overflow-hidden">
+                <summary className="flex items-center gap-2.5 cursor-pointer px-4 py-3.5 text-stone-600 font-semibold text-sm hover:bg-orange-50/50 transition-colors select-none">
+                  <Info className="w-4 h-4 text-orange-400" />
                   <span>Nutrition Facts</span>
                   <svg
-                    className="w-5 h-5 ml-auto transition-transform group-open:rotate-180"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
+                    className="w-4 h-4 ml-auto transition-transform duration-200 group-open:rotate-180 text-stone-400"
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                   </svg>
                 </summary>
-                <div className="grid grid-cols-2 gap-4 pt-4">
-                  {nutritionalInfo.calories && (
-                    <div className="bg-gray-50 rounded-xl p-4 text-center">
-                      <p className="text-2xl font-bold text-gray-900">{nutritionalInfo.calories}</p>
-                      <p className="text-sm text-gray-500">Calories</p>
+                <div className="grid grid-cols-4 gap-2 px-4 pb-4">
+                  {nutritionalInfo.calories !== undefined && (
+                    <div className="bg-orange-50 rounded-xl p-3 text-center border border-orange-100/60">
+                      <p className="text-lg font-extrabold text-orange-500">{nutritionalInfo.calories}</p>
+                      <p className="text-[10px] text-stone-400 font-semibold uppercase tracking-wide">Cal</p>
                     </div>
                   )}
-                  {nutritionalInfo.protein && (
-                    <div className="bg-gray-50 rounded-xl p-4 text-center">
-                      <p className="text-2xl font-bold text-gray-900">{nutritionalInfo.protein}g</p>
-                      <p className="text-sm text-gray-500">Protein</p>
+                  {nutritionalInfo.protein !== undefined && (
+                    <div className="bg-stone-50 rounded-xl p-3 text-center border border-stone-100">
+                      <p className="text-lg font-extrabold text-stone-800">{nutritionalInfo.protein}g</p>
+                      <p className="text-[10px] text-stone-400 font-semibold uppercase tracking-wide">Protein</p>
                     </div>
                   )}
-                  {nutritionalInfo.carbs && (
-                    <div className="bg-gray-50 rounded-xl p-4 text-center">
-                      <p className="text-2xl font-bold text-gray-900">{nutritionalInfo.carbs}g</p>
-                      <p className="text-sm text-gray-500">Carbs</p>
+                  {nutritionalInfo.carbs !== undefined && (
+                    <div className="bg-stone-50 rounded-xl p-3 text-center border border-stone-100">
+                      <p className="text-lg font-extrabold text-stone-800">{nutritionalInfo.carbs}g</p>
+                      <p className="text-[10px] text-stone-400 font-semibold uppercase tracking-wide">Carbs</p>
                     </div>
                   )}
-                  {nutritionalInfo.fat && (
-                    <div className="bg-gray-50 rounded-xl p-4 text-center">
-                      <p className="text-2xl font-bold text-gray-900">{nutritionalInfo.fat}g</p>
-                      <p className="text-sm text-gray-500">Fat</p>
+                  {nutritionalInfo.fat !== undefined && (
+                    <div className="bg-stone-50 rounded-xl p-3 text-center border border-stone-100">
+                      <p className="text-lg font-extrabold text-stone-800">{nutritionalInfo.fat}g</p>
+                      <p className="text-[10px] text-stone-400 font-semibold uppercase tracking-wide">Fat</p>
                     </div>
                   )}
                 </div>
@@ -395,66 +407,72 @@ export function ItemDetailSheet({ item, isOpen, onClose }: ItemDetailSheetProps)
             )}
 
             {/* Special Instructions */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Special Instructions (optional)
+            <div className="bg-white rounded-2xl border border-orange-100/60 p-4">
+              <label className="block text-sm font-bold text-stone-800 mb-3">
+                Special Instructions
+                <span className="text-stone-400 font-normal ml-1.5">(optional)</span>
               </label>
               <textarea
                 value={specialInstructions}
                 onChange={(e) => setSpecialInstructions(e.target.value.slice(0, 200))}
                 placeholder="Any allergies, preferences, or special requests..."
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all resize-none"
-                rows={3}
+                className="w-full px-4 py-3 rounded-xl border border-stone-200 bg-stone-50 focus:bg-white focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 outline-none transition-all resize-none text-sm text-stone-700 placeholder:text-stone-400"
+                rows={2}
                 maxLength={200}
               />
-              <p className="text-xs text-gray-400 mt-1 text-right">{specialInstructions.length}/200</p>
+              {specialInstructions.length > 0 && (
+                <p className="text-[10px] text-stone-400 mt-1.5 text-right">{specialInstructions.length}/200</p>
+              )}
             </div>
           </div>
         </div>
 
         {/* Fixed bottom action bar */}
-        <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-6 py-5 flex items-center gap-4">
+        <div className="flex-shrink-0 bg-[#FEF7EE] border-t border-orange-100/60 px-5 sm:px-6 py-4 flex items-center gap-3 safe-area-inset-bottom">
           {/* Quantity selector */}
-          <div className="flex items-center bg-gray-100 rounded-2xl">
+          <div className="flex items-center bg-white border border-orange-100 rounded-2xl overflow-hidden shadow-sm">
             <button
               onClick={decrementQuantity}
               disabled={quantity <= 1}
-              className="w-14 h-14 flex items-center justify-center rounded-l-2xl hover:bg-gray-200 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-12 h-12 flex items-center justify-center hover:bg-orange-50 active:scale-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
               aria-label="Decrease quantity"
             >
-              <Minus className="w-5 h-5 text-gray-700" />
+              <Minus className="w-4 h-4 text-stone-700" strokeWidth={2.5} />
             </button>
-            <span className="w-12 text-center text-xl font-bold text-gray-900">
+            <span className="w-10 text-center text-base font-extrabold text-stone-900 tabular-nums select-none">
               {quantity}
             </span>
             <button
               onClick={incrementQuantity}
               disabled={quantity >= 10}
-              className="w-14 h-14 flex items-center justify-center rounded-r-2xl hover:bg-gray-200 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-12 h-12 flex items-center justify-center hover:bg-orange-50 active:scale-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
               aria-label="Increase quantity"
             >
-              <Plus className="w-5 h-5 text-gray-700" />
+              <Plus className="w-4 h-4 text-stone-700" strokeWidth={2.5} />
             </button>
           </div>
 
-          {/* Add to cart button */}
+          {/* Add to cart CTA */}
           <button
             onClick={handleAddToCart}
             disabled={!allRequiredSelected}
             className={cn(
-              'flex-1 flex items-center justify-center gap-3 py-4 rounded-2xl font-semibold text-lg shadow-lg active:scale-[0.98] transition-all min-h-[56px]',
+              'flex-1 flex items-center justify-between gap-2 h-14 pl-5 pr-2 py-2 rounded-2xl font-bold text-[15px] transition-all',
               allRequiredSelected
-                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40'
-                : 'bg-gray-200 text-gray-500 cursor-not-allowed shadow-none'
+                ? 'bg-orange-500 hover:bg-orange-600 active:scale-[0.98] text-white shadow-lg shadow-orange-500/30'
+                : 'bg-stone-200 text-stone-400 cursor-not-allowed shadow-none'
             )}
           >
-            <span>Add to Cart</span>
-            <span className={cn(
-              'px-3 py-1 rounded-full',
-              allRequiredSelected ? 'bg-white/20' : 'bg-gray-300/50'
+            <div className="flex items-center gap-2.5">
+              <ShoppingBag className="w-5 h-5" strokeWidth={2} />
+              <span>{addToOrderId ? 'Add to Order' : 'Add to Cart'}</span>
+            </div>
+            <div className={cn(
+              'px-3 py-1.5 rounded-xl text-sm font-extrabold',
+              allRequiredSelected ? 'bg-white/20 text-white' : 'bg-stone-300/50 text-stone-400'
             )}>
               {formatCurrency(totalPrice)}
-            </span>
+            </div>
           </button>
         </div>
       </div>

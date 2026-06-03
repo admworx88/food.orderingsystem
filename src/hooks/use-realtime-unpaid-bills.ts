@@ -4,8 +4,10 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { createBrowserClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/supabase/types';
 import type { CashierOrder } from '@/types/payment';
+import { getUnpaidBills } from '@/services/payment-service';
+import { useRealtimeReconnection } from './use-realtime-reconnection';
 
-type Order = Database['public']['Tables']['orders']['Row'];
+type Order = Database['public']['Tables']['orders']['Row'] & { kiosk_location?: string | null };
 
 interface UseRealtimeUnpaidBillsReturn {
   orders: CashierOrder[];
@@ -14,16 +16,25 @@ interface UseRealtimeUnpaidBillsReturn {
   refetch: () => Promise<void>;
 }
 
+interface UseRealtimeUnpaidBillsOptions {
+  initialData?: CashierOrder[];
+  kioskLocation?: string | null;
+}
+
 /**
  * Realtime subscription for cashier unpaid bills queue.
  * Filters for payment_method = 'bill_later', payment_status = 'unpaid',
  * and status IN ('preparing', 'ready', 'served').
- * These are dine-in orders where customers chose "Pay After Meal".
+ * When kioskLocation is 'ocean_view', only shows ocean_view orders.
+ * Accepts initialData from server-side fetch to avoid redundant client fetch.
  */
-export function useRealtimeUnpaidBills(): UseRealtimeUnpaidBillsReturn {
-  const [orders, setOrders] = useState<CashierOrder[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export function useRealtimeUnpaidBills(
+  { initialData, kioskLocation }: UseRealtimeUnpaidBillsOptions = {}
+): UseRealtimeUnpaidBillsReturn {
+  const [orders, setOrders] = useState<CashierOrder[]>(initialData ?? []);
+  const [isLoading, setIsLoading] = useState(!initialData);
   const [error, setError] = useState<string | null>(null);
+  const [reconnectTrigger, setReconnectTrigger] = useState(0);
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
 
   function getSupabase() {
@@ -34,34 +45,30 @@ export function useRealtimeUnpaidBills(): UseRealtimeUnpaidBillsReturn {
   }
 
   const fetchOrders = useCallback(async () => {
-    const supabase = getSupabase();
-
-    const { data, error: fetchError } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        order_items(
-          *,
-          order_item_addons(*)
-        ),
-        promo_codes(code, discount_value, discount_type)
-      `)
-      .eq('payment_status', 'unpaid')
-      .eq('payment_method', 'bill_later')
-      .in('status', ['preparing', 'ready', 'served'])
-      .is('deleted_at', null)
-      .order('created_at', { ascending: true });
-
-    if (fetchError) {
-      console.error('Failed to fetch unpaid bills:', fetchError);
-      setError(fetchError.message);
-    } else {
-      setOrders((data || []) as CashierOrder[]);
+    const result = await getUnpaidBills(kioskLocation);
+    if (result.success) {
+      setOrders(result.data);
       setError(null);
+    } else {
+      console.warn('Failed to fetch unpaid bills:', result.error);
+      setError(result.error);
     }
-
     setIsLoading(false);
-  }, []);
+  }, [kioskLocation]);
+
+  const reconnection = useRealtimeReconnection({
+    channelName: 'cashier-unpaid-bills',
+    onMaxRetriesReached: () => {
+      console.warn('[Cashier] Max reconnection attempts reached for unpaid bills, using polling fallback');
+    },
+    onReconnect: () => {
+      setReconnectTrigger(prev => prev + 1);
+    },
+  });
+
+  // Stable ref so useEffect doesn't re-run when reconnection object changes identity
+  const reconnectionRef = useRef(reconnection);
+  reconnectionRef.current = reconnection;
 
   const handleRealtimeChange = useCallback(async (payload: {
     eventType: string;
@@ -85,11 +92,13 @@ export function useRealtimeUnpaidBills(): UseRealtimeUnpaidBillsReturn {
     // - Payment method changed (not bill_later anymore)
     // - Status no longer eligible
     // - Order deleted
+    const locationMatch = kioskLocation !== 'ocean_view' || newOrder.kiosk_location === 'ocean_view';
     const isEligible =
       newOrder.payment_status === 'unpaid' &&
       newOrder.payment_method === 'bill_later' &&
       ['preparing', 'ready', 'served'].includes(newOrder.status) &&
-      newOrder.deleted_at === null;
+      newOrder.deleted_at === null &&
+      locationMatch;
 
     if (!isEligible) {
       setOrders((prev) => prev.filter((o) => o.id !== newOrder.id));
@@ -126,7 +135,10 @@ export function useRealtimeUnpaidBills(): UseRealtimeUnpaidBillsReturn {
   }, []);
 
   useEffect(() => {
-    fetchOrders();
+    // Skip initial fetch if server already provided data, but always refetch on reconnect
+    if (!initialData || reconnectTrigger > 0) {
+      fetchOrders();
+    }
 
     const supabase = getSupabase();
 
@@ -142,12 +154,26 @@ export function useRealtimeUnpaidBills(): UseRealtimeUnpaidBillsReturn {
         },
         handleRealtimeChange
       )
-      .subscribe();
+      .subscribe((status) => {
+        reconnectionRef.current.handleStatus(status);
+
+        if (status === 'SUBSCRIBED') {
+          console.log('[Cashier Realtime] Unpaid bills channel connected');
+          setError(null);
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[Cashier Realtime] Unpaid bills channel error - attempting reconnect');
+        } else if (status === 'TIMED_OUT') {
+          console.warn('[Cashier Realtime] Unpaid bills timed out - attempting reconnect');
+        }
+      });
 
     return () => {
+      reconnectionRef.current.reset();
       supabase.removeChannel(channel);
     };
-  }, [fetchOrders, handleRealtimeChange]);
+  // reconnectTrigger intentionally drives reconnection; reconnection object excluded (stable via ref)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchOrders, handleRealtimeChange, reconnectTrigger]);
 
   return { orders, isLoading, error, refetch: fetchOrders };
 }

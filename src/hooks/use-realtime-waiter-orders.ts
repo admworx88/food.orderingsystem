@@ -5,6 +5,7 @@ import { createBrowserClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/supabase/types';
 import { calculateItemStatusCounts, hasReadyItems } from '@/lib/utils/item-status';
 import type { OrderItemStatus } from '@/lib/constants/item-status';
+import { useRealtimeReconnection } from './use-realtime-reconnection';
 
 type Order = Database['public']['Tables']['orders']['Row'];
 type OrderItem = Database['public']['Tables']['order_items']['Row'];
@@ -54,9 +55,12 @@ export function useRealtimeWaiterOrders(
   const [orders, setOrders] = useState<WaiterOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reconnectTrigger, setReconnectTrigger] = useState(0);
+  const [realtimeFailed, setRealtimeFailed] = useState(false);
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
   const prevReadyCountRef = useRef<number>(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const lastEventRef = useRef<number>(Date.now());
 
   // Initialize audio element
   useEffect(() => {
@@ -145,6 +149,35 @@ export function useRealtimeWaiterOrders(
     setIsLoading(false);
   }, [includeServed]);
 
+  // Separate reconnection instance per channel to track errors independently
+  const ordersReconnection = useRealtimeReconnection({
+    channelName: 'waiter-orders',
+    onMaxRetriesReached: () => {
+      console.warn('[Waiter] Max reconnection attempts reached for orders, using polling fallback');
+      setRealtimeFailed(true);
+    },
+    onReconnect: () => {
+      setReconnectTrigger((prev) => prev + 1);
+      setRealtimeFailed(false);
+    },
+  });
+  const ordersReconnectionRef = useRef(ordersReconnection);
+  ordersReconnectionRef.current = ordersReconnection;
+
+  const itemsReconnection = useRealtimeReconnection({
+    channelName: 'waiter-order-items',
+    onMaxRetriesReached: () => {
+      console.warn('[Waiter] Max reconnection attempts reached for items, using polling fallback');
+      setRealtimeFailed(true);
+    },
+    onReconnect: () => {
+      setReconnectTrigger((prev) => prev + 1);
+      setRealtimeFailed(false);
+    },
+  });
+  const itemsReconnectionRef = useRef(itemsReconnection);
+  itemsReconnectionRef.current = itemsReconnection;
+
   // Optimistic UI update for item status
   const optimisticItemUpdate = useCallback((
     itemId: string,
@@ -192,6 +225,7 @@ export function useRealtimeWaiterOrders(
     new: Record<string, unknown>;
     old: Record<string, unknown>;
   }) => {
+    lastEventRef.current = Date.now();
     console.log('[Waiter Realtime] Event received:', payload.eventType);
     const supabase = getSupabase();
 
@@ -283,11 +317,14 @@ export function useRealtimeWaiterOrders(
         },
         handleRealtimeChange
       )
-      .subscribe((status, err) => {
+      .subscribe((status) => {
+        ordersReconnectionRef.current.handleStatus(status);
+
         if (status === 'SUBSCRIBED') {
           console.log('[Waiter Realtime] Orders channel connected');
+          setError(null);
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('[Waiter Realtime] Orders channel error:', err);
+          console.error('[Waiter Realtime] Orders channel error - attempting reconnect');
         }
       });
 
@@ -307,23 +344,51 @@ export function useRealtimeWaiterOrders(
           fetchOrders();
         }
       )
-      .subscribe((status, err) => {
+      .subscribe((status) => {
+        itemsReconnectionRef.current.handleStatus(status);
+
         if (status === 'SUBSCRIBED') {
           console.log('[Waiter Realtime] Items channel connected');
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('[Waiter Realtime] Items channel error:', err);
+          console.error('[Waiter Realtime] Items channel error - attempting reconnect');
         }
       });
 
-    // Polling fallback: refetch every 10s
-    const pollInterval = setInterval(fetchOrders, 10_000);
-
     return () => {
+      ordersReconnectionRef.current.reset();
+      itemsReconnectionRef.current.reset();
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(itemsChannel);
-      clearInterval(pollInterval);
     };
-  }, [fetchOrders, handleRealtimeChange]);
+  // reconnectTrigger intentionally drives reconnection; reconnection objects excluded (stable via refs)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchOrders, handleRealtimeChange, reconnectTrigger]);
+
+  // Safety-net poll — always active at 15s so missed realtime events never delay waiter staff
+  useEffect(() => {
+    const poll = setInterval(fetchOrders, 15_000);
+    return () => clearInterval(poll);
+  }, [fetchOrders]);
+
+  // Polling fallback — activates after realtime max retries exhausted; tightens to 10s
+  useEffect(() => {
+    if (!realtimeFailed) return;
+    const pollInterval = setInterval(fetchOrders, 10_000);
+    return () => clearInterval(pollInterval);
+  }, [realtimeFailed, fetchOrders]);
+
+  // Heartbeat: detect zombie channel (WebSocket open but no events delivered)
+  useEffect(() => {
+    if (realtimeFailed) return;
+    const heartbeat = setInterval(() => {
+      const silence = Date.now() - lastEventRef.current;
+      if (silence > 90_000) {
+        console.warn('[Waiter Realtime] No events in 90s — possible zombie channel, refetching');
+        fetchOrders();
+      }
+    }, 30_000);
+    return () => clearInterval(heartbeat);
+  }, [realtimeFailed, fetchOrders]);
 
   return {
     orders,

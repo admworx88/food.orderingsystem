@@ -1,6 +1,8 @@
 import { createServerClient } from '@/lib/supabase/server';
-import { getPendingOrders, getUnpaidBills } from '@/services/payment-service';
+import { getPendingOrders, getUnpaidBills, getOpenShift } from '@/services/payment-service';
 import { CashierPosClient } from '@/components/cashier/cashier-pos-client';
+
+export const dynamic = 'force-dynamic';
 
 export default async function PaymentsPage() {
   // Fetch initial data server-side (both pending orders and unpaid bills)
@@ -31,6 +33,10 @@ export default async function PaymentsPage() {
     // Fallback
   }
 
+  // Check if cashier has an open shift
+  const openShiftResult = await getOpenShift();
+  const hasOpenShiftVal = openShiftResult.success && openShiftResult.data !== null;
+
   // Check if PayMongo is configured
   const isPayMongoEnabled = !!process.env.PAYMONGO_SECRET_KEY;
 
@@ -41,6 +47,7 @@ export default async function PaymentsPage() {
       cashierId={cashierId}
       cashierName={cashierName}
       isPayMongoEnabled={isPayMongoEnabled}
+      hasOpenShift={hasOpenShiftVal}
     />
   );
 }

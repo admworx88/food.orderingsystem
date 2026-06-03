@@ -142,7 +142,7 @@ export function clearRateLimit(identifier: string): void {
  * This prevents both IP-based and account-based brute force attacks
  */
 export function createRateLimitKey(
-  type: 'login' | 'signup',
+  type: 'login' | 'signup' | 'password-reset',
   ip: string,
   email?: string
 ): string {
@@ -150,4 +150,55 @@ export function createRateLimitKey(
     return `${type}:${ip}:${email.toLowerCase()}`;
   }
   return `${type}:${ip}`;
+}
+
+// ── Order rate limiter (sliding window, no lock) ──────────────────────────────
+// 5 orders per IP per 5 minutes. Resets automatically when window expires.
+
+const ORDER_RATE_LIMIT_MAX = 5;
+const ORDER_RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+
+interface OrderRateLimitEntry {
+  timestamps: number[];
+}
+
+const orderRateLimitStore = new Map<string, OrderRateLimitEntry>();
+
+export interface OrderRateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  retryAfterSeconds: number | null;
+}
+
+/**
+ * Check and record an order attempt for the given IP.
+ * Call once per createOrder invocation — it both checks and records.
+ */
+export function checkAndRecordOrderAttempt(ip: string): OrderRateLimitResult {
+  const now = Date.now();
+  const key = `order:${ip}`;
+  const entry = orderRateLimitStore.get(key) ?? { timestamps: [] };
+
+  // Drop timestamps outside the current window
+  entry.timestamps = entry.timestamps.filter(
+    (t) => now - t < ORDER_RATE_LIMIT_WINDOW_MS
+  );
+
+  if (entry.timestamps.length >= ORDER_RATE_LIMIT_MAX) {
+    const oldest = entry.timestamps[0]!;
+    const retryAfterSeconds = Math.ceil(
+      (oldest + ORDER_RATE_LIMIT_WINDOW_MS - now) / 1000
+    );
+    orderRateLimitStore.set(key, entry);
+    return { allowed: false, remaining: 0, retryAfterSeconds };
+  }
+
+  entry.timestamps.push(now);
+  orderRateLimitStore.set(key, entry);
+
+  return {
+    allowed: true,
+    remaining: ORDER_RATE_LIMIT_MAX - entry.timestamps.length,
+    retryAfterSeconds: null,
+  };
 }

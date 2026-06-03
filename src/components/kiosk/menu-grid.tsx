@@ -138,7 +138,11 @@ export function MenuGrid({ categories, menuItems }: MenuGridProps) {
                     : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                 )}
               >
-                <span className="text-base">{getCategoryIcon(cat.name)}</span>
+                {cat.image_url ? (
+                  <img src={cat.image_url} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                ) : (
+                  <span className="text-base">{getCategoryIcon(cat.name)}</span>
+                )}
                 <span>{cat.name}</span>
                 <span className={cn(
                   'px-1.5 py-0.5 text-xs rounded-full',
@@ -154,7 +158,7 @@ export function MenuGrid({ categories, menuItems }: MenuGridProps) {
 
       <div className="flex flex-1 min-h-0">
         {/* Left Sidebar - Category Navigation (Desktop only) */}
-        <aside className="hidden lg:flex w-[260px] flex-shrink-0 bg-white border-r border-stone-200 flex-col">
+        <aside className="hidden lg:flex w-[220px] xl:w-[260px] flex-shrink-0 bg-white border-r border-stone-200 flex-col">
           {/* Sidebar Header */}
           <div className="px-6 py-5 border-b border-stone-200">
             <h2 className="text-xs font-bold uppercase tracking-wider text-stone-500">Categories</h2>
@@ -178,19 +182,19 @@ export function MenuGrid({ categories, menuItems }: MenuGridProps) {
                   : 'hover:bg-stone-50 hover:border-stone-300'
               )}
             >
-              <span className="w-10 h-10 flex-shrink-0 flex items-center justify-center text-xl rounded-lg bg-white shadow-sm border border-stone-200">
+              <span className="w-8 h-8 flex-shrink-0 flex items-center justify-center text-lg rounded-lg bg-white shadow-sm border border-stone-200">
                 🍴
               </span>
               <div className="flex-1 min-w-0 text-left">
                 <span className={cn(
-                  'block text-base truncate',
+                  'block text-sm leading-tight',
                   selectedCategory === 'all' ? 'font-bold text-stone-900' : 'font-semibold text-stone-700'
                 )}>
                   All Items
                 </span>
               </div>
               <span className={cn(
-                'px-3 py-1.5 text-sm font-bold rounded-full flex-shrink-0',
+                'px-2 py-1 text-xs font-bold rounded-full flex-shrink-0',
                 selectedCategory === 'all'
                   ? 'bg-amber-500 text-white'
                   : 'bg-stone-200 text-stone-600'
@@ -212,26 +216,30 @@ export function MenuGrid({ categories, menuItems }: MenuGridProps) {
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}
                   className={cn(
-                    'w-full flex items-center gap-4 px-4 py-4 mb-2 transition-all',
-                    'border border-stone-200 rounded-none min-h-[60px]',
+                    'w-full flex items-center gap-3 px-3 py-3 mb-1.5 transition-all',
+                    'border border-stone-200 rounded-none min-h-[52px]',
                     isSelected
                       ? 'bg-amber-50 border-l-4 border-l-amber-500 border-t-stone-200 border-r-stone-200 border-b-stone-200'
                       : 'hover:bg-stone-50 hover:border-stone-300'
                   )}
                 >
-                  <span className="w-10 h-10 flex-shrink-0 flex items-center justify-center text-xl rounded-lg bg-white shadow-sm border border-stone-200">
-                    {getCategoryIcon(cat.name)}
-                  </span>
+                  {cat.image_url ? (
+                    <img src={cat.image_url} alt="" className="w-8 h-8 flex-shrink-0 rounded-lg object-cover border border-stone-200" />
+                  ) : (
+                    <span className="w-8 h-8 flex-shrink-0 flex items-center justify-center text-lg rounded-lg bg-white shadow-sm border border-stone-200">
+                      {getCategoryIcon(cat.name)}
+                    </span>
+                  )}
                   <div className="flex-1 min-w-0 text-left">
                     <span className={cn(
-                      'block text-base truncate',
+                      'block text-sm leading-tight',
                       isSelected ? 'font-bold text-stone-900' : 'font-semibold text-stone-700'
                     )}>
                       {cat.name}
                     </span>
                   </div>
                   <span className={cn(
-                    'px-3 py-1.5 text-sm font-bold rounded-full flex-shrink-0',
+                    'px-2 py-1 text-xs font-bold rounded-full flex-shrink-0',
                     isSelected
                       ? 'bg-amber-500 text-white'
                       : 'bg-stone-200 text-stone-600'
@@ -322,7 +330,7 @@ export function MenuGrid({ categories, menuItems }: MenuGridProps) {
               </div>
             ) : viewMode === 'grid' ? (
               /* Grid View - Responsive columns with better mobile spacing */
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-5">
                 {filteredItems.map((item, index) => (
                   <div
                     key={item.id}

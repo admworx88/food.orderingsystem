@@ -31,7 +31,9 @@ export function WaiterOrderDetailSheet({ order, onClose }: WaiterOrderDetailShee
       ? `Table ${order.table_number}`
       : order.order_type === 'room_service'
         ? `Room ${order.room_number}`
-        : 'Pickup Counter';
+        : order.order_type === 'ocean_view' && order.table_number
+          ? order.table_number
+          : 'Pickup Counter';
 
   // Calculate totals (assuming 12% VAT and 10% service charge based on CLAUDE.md)
   const subtotal = order.order_items.reduce(

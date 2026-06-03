@@ -23,7 +23,7 @@ export const ORDER_TYPE_CONFIG: Record<OrderType, OrderTypeConfig> = {
     description: 'Enjoy your meal at the restaurant',
     requiresTable: true,
     requiresRoom: false,
-    allowedPaymentMethods: ['cash', 'bill_later'],
+    allowedPaymentMethods: ['cash', 'ewallet', 'bill_later'],
   },
   room_service: {
     value: 'room_service',
@@ -33,7 +33,7 @@ export const ORDER_TYPE_CONFIG: Record<OrderType, OrderTypeConfig> = {
     description: 'Deliver to your room',
     requiresTable: false,
     requiresRoom: true,
-    allowedPaymentMethods: ['card', 'gcash'],
+    allowedPaymentMethods: ['cash', 'ewallet', 'card', 'bill_later'],
   },
   takeout: {
     value: 'takeout',
@@ -43,7 +43,7 @@ export const ORDER_TYPE_CONFIG: Record<OrderType, OrderTypeConfig> = {
     description: 'Take it to go',
     requiresTable: false,
     requiresRoom: false,
-    allowedPaymentMethods: ['card', 'gcash'],
+    allowedPaymentMethods: ['cash', 'ewallet', 'card', 'bill_later'],
   },
   ocean_view: {
     value: 'ocean_view',
@@ -53,7 +53,7 @@ export const ORDER_TYPE_CONFIG: Record<OrderType, OrderTypeConfig> = {
     description: 'Dine at our floating restaurant over the sea',
     requiresTable: false,
     requiresRoom: false,
-    allowedPaymentMethods: ['card', 'gcash'],
+    allowedPaymentMethods: ['cash', 'ewallet', 'bill_later'],
   },
 };
 

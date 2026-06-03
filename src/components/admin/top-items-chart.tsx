@@ -1,6 +1,5 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   BarChart,
   Bar,
@@ -11,13 +10,16 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
+import { DataCard } from '@/components/admin/data-card';
+import { EmptyState } from '@/components/admin/empty-state';
+import { UtensilsCrossed } from 'lucide-react';
 import type { TopSellingItem } from '@/types/dashboard';
 
 interface TopItemsChartProps {
   data: TopSellingItem[];
 }
 
-const COLORS = ['#f59e0b', '#1e293b', '#334155', '#10b981', '#475569'];
+const BAR_COLORS = ['#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EF4444', '#06B6D4', '#F97316', '#84CC16'];
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-PH', {
@@ -29,105 +31,104 @@ function formatCurrency(amount: number): string {
 }
 
 export function TopItemsChart({ data }: TopItemsChartProps) {
-  // Truncate item names for display
-  const chartData = data.map((item) => ({
+  const chartData = data.slice(0, 8).map((item) => ({
     ...item,
-    displayName: item.name.length > 15 ? `${item.name.slice(0, 15)}...` : item.name,
+    displayName: item.name.length > 22 ? `${item.name.slice(0, 22)}…` : item.name,
   }));
 
   if (data.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">Top Selling Items</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[300px] flex items-center justify-center text-slate-500">
-            No orders yet today
-          </div>
-        </CardContent>
-      </Card>
+      <DataCard title="Top Selling Items" description="Today's best performers">
+        <EmptyState
+          icon={UtensilsCrossed}
+          title="No sales data yet"
+          description="Top items will appear here once orders are placed today."
+          className="py-10"
+        />
+      </DataCard>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-xl font-semibold text-slate-900">Top Selling Items</CardTitle>
-        <p className="text-sm text-slate-600">Today&apos;s best performers</p>
-      </CardHeader>
-      <CardContent>
-        <div className="h-[300px]">
+    <DataCard title="Top Selling Items" description="Today's best performers by order count">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        {/* Horizontal bar chart */}
+        <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={chartData}
               layout="vertical"
-              margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
+              margin={{ top: 0, right: 16, left: 0, bottom: 0 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={true} vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" horizontal={false} vertical={true} />
               <XAxis
                 type="number"
-                stroke="#64748b"
-                fontSize={12}
+                stroke="#94A3B8"
+                fontSize={11}
                 tickLine={false}
                 axisLine={false}
               />
               <YAxis
                 type="category"
                 dataKey="displayName"
-                stroke="#64748b"
-                fontSize={12}
+                stroke="#94A3B8"
+                fontSize={11}
                 tickLine={false}
                 axisLine={false}
-                width={80}
+                width={110}
               />
               <Tooltip
                 formatter={(value, name) => {
-                  const numValue = Number(value) || 0;
-                  if (name === 'orderCount') {
-                    return [numValue, 'Orders'];
-                  }
-                  return [numValue, String(name)];
+                  if (name === 'orderCount') return [Number(value), 'Orders'];
+                  return [Number(value), String(name)];
                 }}
                 labelFormatter={(label) => {
                   const item = chartData.find((d) => d.displayName === label);
                   return item?.name || String(label);
                 }}
                 contentStyle={{
-                  backgroundColor: 'white',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                  backgroundColor: '#fff',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: '10px',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                  fontSize: '12px',
                 }}
               />
-              <Bar dataKey="orderCount" radius={[0, 4, 4, 0]}>
+              <Bar dataKey="orderCount" radius={[0, 4, 4, 0]} maxBarSize={20}>
                 {chartData.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  <Cell key={`cell-${index}`} fill={BAR_COLORS[index % BAR_COLORS.length]} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        {/* List view below chart */}
-        <div className="mt-4 space-y-2">
-          {data.map((item, index) => (
-            <div key={item.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-              <div className="flex items-center gap-3">
-                <span
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                />
-                <span className="font-medium text-sm text-slate-900">{item.name}</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-slate-500 admin-data">{item.orderCount} orders</span>
-                <span className="text-sm font-semibold text-slate-900 admin-data">{formatCurrency(item.revenue)}</span>
-              </div>
+        {/* Ranked list */}
+        <div className="space-y-1">
+          {data.slice(0, 8).map((item, index) => (
+            <div
+              key={item.id}
+              className="flex items-center gap-3 py-2.5 border-b border-slate-50 last:border-0"
+            >
+              <span
+                className="text-xs font-bold w-5 text-right shrink-0"
+                style={{ color: BAR_COLORS[index % BAR_COLORS.length] }}
+              >
+                #{index + 1}
+              </span>
+              <span
+                className="h-2 w-2 rounded-full shrink-0"
+                style={{ backgroundColor: BAR_COLORS[index % BAR_COLORS.length] }}
+              />
+              <span className="text-sm text-slate-700 flex-1 truncate">{item.name}</span>
+              <span className="text-xs text-slate-400 tabular-nums shrink-0">{item.orderCount}×</span>
+              <span className="text-sm font-semibold text-slate-800 tabular-nums shrink-0 w-20 text-right">
+                {formatCurrency(item.revenue)}
+              </span>
             </div>
           ))}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </DataCard>
   );
 }

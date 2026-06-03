@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Clock, MapPin, User, AlertTriangle } from 'lucide-react';
+import { Clock, MapPin, AlertTriangle, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/utils/currency';
 import { ExpirationCountdown } from './expiration-countdown';
@@ -21,7 +21,7 @@ const ORDER_TYPE_LABELS: Record<string, string> = {
 };
 
 /**
- * Pending orders queue - Terminal Command Center theme
+ * Unified payment queue — pending_payment + bill_later orders
  */
 export function PendingOrdersList({
   orders,
@@ -35,18 +35,19 @@ export function PendingOrdersList({
     return () => clearInterval(interval);
   }, []);
 
+  const noExpiry = (o: CashierOrder) => o.payment_method === 'bill_later' || o.payment_method === 'cash';
   const activeOrders = orders.filter(
-    (o) => !o.expires_at || new Date(o.expires_at).getTime() > now
+    (o) => noExpiry(o) || !o.expires_at || new Date(o.expires_at).getTime() > now
   );
   const expiredOrders = orders.filter(
-    (o) => o.expires_at && new Date(o.expires_at).getTime() <= now
+    (o) => !noExpiry(o) && o.expires_at && new Date(o.expires_at).getTime() <= now
   );
 
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="pos-queue-header">
-        <h2 className="pos-queue-title">Pending Orders</h2>
+        <h2 className="pos-queue-title">Payment Queue</h2>
         <p className="pos-queue-subtitle">
           {activeOrders.length} order{activeOrders.length !== 1 ? 's' : ''} awaiting payment
         </p>
@@ -64,8 +65,11 @@ export function PendingOrdersList({
         {/* Active orders */}
         {activeOrders.map((order, index) => {
           const isSelected = order.id === selectedOrderId;
+          const isBillLater = order.payment_method === 'bill_later';
+          const isCash = order.payment_method === 'cash';
+          const hasNoTimer = isBillLater || isCash;
           const expiresAt = order.expires_at;
-          const minutesLeft = expiresAt
+          const minutesLeft = !hasNoTimer && expiresAt
             ? (new Date(expiresAt).getTime() - now) / 60_000
             : null;
           const isUrgent = minutesLeft !== null && minutesLeft < 2;
@@ -81,43 +85,67 @@ export function PendingOrdersList({
               )}
               onClick={() => onSelectOrder(order.id)}
             >
-              {/* Top row: Order number + badges */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className={cn(
-                    'pos-order-number',
-                    isSelected && 'pos-order-number-selected'
-                  )}>
-                    #{order.order_number}
+              {/* Row 1: Order number + Timer or Bill Later badge */}
+              <div className="flex items-center justify-between mb-2">
+                <span className={cn(
+                  'pos-order-number',
+                  isSelected && 'pos-order-number-selected'
+                )}>
+                  #{order.order_number}
+                </span>
+                {isBillLater ? (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                    <Wallet className="w-2.5 h-2.5" />
+                    Bill Later
                   </span>
-                  <span className="pos-order-badge">
-                    {ORDER_TYPE_LABELS[order.order_type] || order.order_type}
-                  </span>
-                </div>
-                <ExpirationCountdown expiresAt={order.expires_at} />
+                ) : isCash ? null : (
+                  <ExpirationCountdown expiresAt={order.expires_at} />
+                )}
               </div>
 
-              {/* Middle row: Items + Amount */}
-              <div className="pos-order-meta">
-                <span>
+              {/* Row 2: Type · Location + Kiosk badge */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1 text-[11px] text-[var(--pos-text-muted)]">
+                  <span>{ORDER_TYPE_LABELS[order.order_type] || order.order_type}</span>
+                  {(order.table_number || order.room_number) && (
+                    <>
+                      <span className="opacity-30">·</span>
+                      <MapPin className="w-2.5 h-2.5 shrink-0" />
+                      <span>
+                        {order.table_number ? `Table ${order.table_number}` : `Room ${order.room_number}`}
+                      </span>
+                    </>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  {order.kiosk_location === 'ocean_view' && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[var(--pos-blue-glow)] text-[var(--pos-blue)] border border-[rgba(96,165,250,0.3)]">
+                      Ocean View
+                    </span>
+                  )}
+                  {order.kiosk_location === 'restaurant' && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[var(--pos-mint-glow)] text-[var(--pos-mint)] border border-[rgba(52,211,153,0.3)]">
+                      Restaurant
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="my-3 h-px bg-[var(--pos-border)]" />
+
+              {/* Row 3: Items + Amount */}
+              <div className="flex items-baseline justify-between">
+                <span className="text-[11px] text-[var(--pos-text-muted)]">
                   {order.order_items?.length || 0} item{(order.order_items?.length || 0) !== 1 ? 's' : ''}
                 </span>
                 <span className={cn(
-                  'pos-order-amount',
+                  'pos-order-amount text-[15px]',
                   isSelected && 'pos-order-amount-selected'
                 )}>
                   {formatCurrency(order.total_amount)}
                 </span>
               </div>
-
-              {/* Bottom row: Location */}
-              {(order.table_number || order.room_number) && (
-                <div className="flex items-center gap-1 mt-2 text-xs text-[var(--pos-text-muted)]">
-                  <MapPin className="w-3 h-3" />
-                  {order.table_number && <span>Table {order.table_number}</span>}
-                  {order.room_number && <span>Room {order.room_number}</span>}
-                </div>
-              )}
             </div>
           );
         })}

@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { User } from 'lucide-react';
+import { User, LogOut, Loader2 } from 'lucide-react';
+import { signOut } from '@/services/auth-service';
+import { hasOpenShift } from '@/services/payment-service';
+import { ShiftGateDialog } from '@/components/cashier/shift-gate-dialog';
 
 function LiveClock() {
   const [time, setTime] = useState<{ hours: string; minutes: string; seconds: string; period: string }>({
@@ -50,7 +53,7 @@ function LiveClock() {
 const NAV_ITEMS = [
   { href: '/payments', label: 'Payments' },
   { href: '/recent', label: 'Recent Orders' },
-  { href: '/reports', label: 'Reports' },
+  { href: '/collections', label: 'Collections' },
 ];
 
 interface CashierLayoutClientProps {
@@ -63,6 +66,19 @@ export function CashierLayoutClient({
   cashierName,
 }: CashierLayoutClientProps) {
   const pathname = usePathname();
+  const [gateOpen, setGateOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    const status = await hasOpenShift();
+    if (status.hasOpen) {
+      setSigningOut(false);
+      setGateOpen(true);
+      return;
+    }
+    await signOut();
+  };
 
   return (
     <div className="flex min-h-screen flex-col pos-bg">
@@ -95,7 +111,7 @@ export function CashierLayoutClient({
             ))}
           </nav>
 
-          {/* Right: Clock & Cashier */}
+          {/* Right: Clock, Cashier & Sign Out */}
           <div className="flex items-center gap-5">
             <LiveClock />
 
@@ -106,6 +122,19 @@ export function CashierLayoutClient({
               <User className="w-4 h-4" />
               <span>{cashierName}</span>
             </div>
+
+            <button
+              onClick={handleSignOut}
+              disabled={signingOut}
+              className="pos-signout-btn"
+              aria-label="Sign out"
+            >
+              {signingOut
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <LogOut className="w-4 h-4" />
+              }
+              <span>{signingOut ? 'Checking…' : 'Sign Out'}</span>
+            </button>
           </div>
         </div>
 
@@ -114,7 +143,9 @@ export function CashierLayoutClient({
       </header>
 
       {/* Main Content */}
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 overflow-y-auto">{children}</main>
+
+      <ShiftGateDialog open={gateOpen} onClose={() => setGateOpen(false)} />
     </div>
   );
 }

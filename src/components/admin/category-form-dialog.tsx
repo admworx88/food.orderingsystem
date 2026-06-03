@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -12,8 +12,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
-import { createCategory, updateCategory, deleteCategory } from '@/services/menu-service';
+import { Plus, Edit2, Trash2, X, Image as ImageIcon } from 'lucide-react';
+import { createCategory, updateCategory, deleteCategory, uploadMenuImage } from '@/services/menu-service';
 import { toast } from 'sonner';
 import type { Database } from '@/lib/supabase/types';
 
@@ -28,6 +28,9 @@ interface CategoryFormDialogProps {
 export function CategoryFormDialog({ mode, category, trigger }: CategoryFormDialogProps) {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(category?.image_url ?? null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Memoized initial form data getter
   const getInitialFormData = useCallback(() => ({
@@ -43,8 +46,9 @@ export function CategoryFormDialog({ mode, category, trigger }: CategoryFormDial
   useEffect(() => {
     if (open) {
       setFormData(getInitialFormData());
+      setImageUrl(category?.image_url ?? null);
     }
-  }, [open, category?.id, getInitialFormData]);
+  }, [open, category?.id, category?.image_url, getInitialFormData]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -60,17 +64,59 @@ export function CategoryFormDialog({ mode, category, trigger }: CategoryFormDial
     }
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      toast.error('Invalid file type. Use JPG, PNG, or WebP.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File too large. Maximum size is 5MB.');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append('file', file);
+      const result = await uploadMenuImage(formDataUpload);
+
+      if (result.success) {
+        setImageUrl(result.data.url);
+        toast.success('Image uploaded successfully');
+      } else {
+        toast.error(result.error || 'Failed to upload image');
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Image upload error:', error);
+      toast.error('Failed to upload image');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const removeImage = () => {
+    setImageUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
       let result;
+      const payload = { ...formData, image_url: imageUrl };
 
       if (mode === 'create') {
-        result = await createCategory(formData);
+        result = await createCategory(payload);
       } else if (mode === 'edit' && category) {
-        result = await updateCategory(category.id, formData);
+        result = await updateCategory(category.id, payload);
       } else if (mode === 'delete' && category) {
         result = await deleteCategory(category.id);
       }
@@ -86,6 +132,7 @@ export function CategoryFormDialog({ mode, category, trigger }: CategoryFormDial
         setOpen(false);
         if (mode === 'create') {
           setFormData({ name: '', slug: '', display_order: 0, is_active: true });
+          setImageUrl(null);
         }
       } else {
         toast.error(result?.error || `Failed to ${mode} category`);
@@ -201,6 +248,63 @@ export function CategoryFormDialog({ mode, category, trigger }: CategoryFormDial
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+          {/* Category Image (optional) */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Category Image (optional)</Label>
+
+            {imageUrl ? (
+              <div className="relative group">
+                <div className="h-32 bg-slate-100 rounded-xl overflow-hidden border-2 border-slate-200">
+                  <img
+                    src={imageUrl}
+                    alt="Category preview"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={removeImage}
+                  className="absolute top-2 right-2 p-1.5 bg-rose-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  id="category-image"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleImageUpload}
+                  disabled={isUploading}
+                  className="sr-only"
+                />
+                <label
+                  htmlFor="category-image"
+                  className="flex flex-col items-center justify-center h-32 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border-2 border-dashed border-slate-300 cursor-pointer hover:border-slate-400 hover:bg-slate-100 transition-all group"
+                >
+                  <div className="flex flex-col items-center gap-1.5 text-slate-600">
+                    {isUploading ? (
+                      <>
+                        <div className="animate-spin h-8 w-8 border-3 border-slate-300 border-t-amber-500 rounded-full" />
+                        <span className="text-sm font-medium">Uploading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="p-2 bg-white rounded-full shadow-sm group-hover:shadow-md transition-shadow">
+                          <ImageIcon className="h-5 w-5" />
+                        </div>
+                        <span className="text-sm font-medium">Upload Image</span>
+                        <span className="text-xs text-slate-500">JPG, PNG or WebP (Max 5MB)</span>
+                      </>
+                    )}
+                  </div>
+                </label>
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name" className="text-sm font-medium">
@@ -282,7 +386,7 @@ export function CategoryFormDialog({ mode, category, trigger }: CategoryFormDial
           <div className="flex justify-end pt-4 border-t">
             <Button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isUploading}
               className="px-6 h-11 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-medium shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transition-all"
             >
               {isSubmitting ? (

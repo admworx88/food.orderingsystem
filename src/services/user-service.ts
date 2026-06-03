@@ -7,6 +7,7 @@ import { z } from 'zod';
 import {
   createUserSchema,
   updateUserRoleSchema,
+  updatePinSchema,
   type CreateUserInput,
   type UpdateUserRoleInput,
 } from '@/lib/validators/user';
@@ -165,30 +166,22 @@ export async function createStaffUser(input: CreateUserInput): Promise<ServiceRe
     if (authError) throw authError;
     if (!authData.user) throw new Error('Failed to create auth user');
 
-    // Create profile with the new user's ID
-    const profileData: Database['public']['Tables']['profiles']['Insert'] = {
-      id: authData.user.id,
-      full_name: validated.full_name,
-      role: validated.role as UserRole,
-      is_active: true,
-    };
-
-    // If PIN provided, hash it (in a real app, you'd use bcrypt on the server)
-    // For now, we'll store the PIN hash placeholder - implement proper hashing
-    if (validated.pin) {
-      // TODO: Use bcrypt to hash the PIN
-      // For now, we'll just note that PIN was set
-      console.log('PIN provided for user - implement bcrypt hashing');
-    }
-
+    // The handle_new_user trigger auto-creates a profile on auth user creation.
+    // Update it with the correct role, name, and PIN rather than inserting again.
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .insert(profileData)
+      .update({
+        full_name: validated.full_name,
+        role: validated.role as UserRole,
+        is_active: true,
+        pin_hash: validated.pin ?? null,
+      })
+      .eq('id', authData.user.id)
       .select()
       .single();
 
     if (profileError) {
-      // Rollback: delete the auth user if profile creation fails
+      // Rollback: delete the auth user if profile update fails
       await adminClient.auth.admin.deleteUser(authData.user.id);
       throw profileError;
     }
@@ -215,6 +208,47 @@ export async function createStaffUser(input: CreateUserInput): Promise<ServiceRe
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to create staff user',
+    };
+  }
+}
+
+/**
+ * Update a user's name and role together
+ */
+export async function updateStaffUser(
+  userId: string,
+  input: { full_name: string; role: string }
+): Promise<ServiceResult<Profile>> {
+  try {
+    const idValidation = validateId(userId);
+    if (!idValidation.valid) {
+      return { success: false, error: idValidation.error };
+    }
+
+    if (!input.full_name || input.full_name.trim().length < 2) {
+      return { success: false, error: 'Name must be at least 2 characters' };
+    }
+
+    const supabase = await createServerClient();
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({
+        full_name: input.full_name.trim(),
+        role: input.role as UserRole,
+      })
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    revalidatePath('/admin/users');
+    return { success: true, data };
+  } catch (error) {
+    console.error('updateStaffUser failed:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update user',
     };
   }
 }
@@ -325,6 +359,46 @@ export async function reactivateUser(userId: string): Promise<ServiceResult<null
 }
 
 /**
+ * Update (or clear) a staff user's PIN
+ * Pass null to remove the PIN entirely
+ */
+export async function updateStaffPin(
+  userId: string,
+  pin: string | null
+): Promise<ServiceResult<null>> {
+  try {
+    const idValidation = validateId(userId);
+    if (!idValidation.valid) {
+      return { success: false, error: idValidation.error };
+    }
+
+    if (pin !== null) {
+      const result = updatePinSchema.safeParse({ pin });
+      if (!result.success) {
+        return { success: false, error: result.error.issues[0]?.message || 'Invalid PIN' };
+      }
+    }
+
+    const adminClient = createAdminClient();
+    const { error } = await adminClient
+      .from('profiles')
+      .update({ pin_hash: pin })
+      .eq('id', userId);
+
+    if (error) throw error;
+
+    revalidatePath('/admin/users');
+    return { success: true, data: null };
+  } catch (error) {
+    console.error('updateStaffPin failed:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update PIN',
+    };
+  }
+}
+
+/**
  * Delete a user permanently (use with caution)
  */
 export async function deleteUser(userId: string): Promise<ServiceResult<null>> {
@@ -349,5 +423,75 @@ export async function deleteUser(userId: string): Promise<ServiceResult<null>> {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to delete user',
     };
+  }
+}
+
+/**
+ * Resolve a staff member by their PIN.
+ * Returns their id, full_name, and role if the PIN matches an active profile.
+ */
+export type KioskType = 'restaurant' | 'ocean_view';
+
+const KIOSK_LABEL: Record<KioskType, string> = {
+  restaurant: 'Restaurant Kiosk',
+  ocean_view: 'Ocean View Kiosk',
+};
+
+export async function resolveStaffPin(
+  pin: string,
+  kioskType: KioskType
+): Promise<ServiceResult<{ id: string; full_name: string; role: string }>> {
+  try {
+    if (!pin || !/^\d{4,6}$/.test(pin)) {
+      return { success: false, error: 'Invalid PIN format' };
+    }
+
+    // Use admin client — profiles table has no anon SELECT policy; kiosk has no auth session.
+    const admin = createAdminClient();
+
+    const { data, error } = await admin
+      .from('profiles')
+      .select('id, full_name, role')
+      .eq('pin_hash', pin)
+      .eq('is_active', true)
+      .single();
+
+    if (error || !data) {
+      return { success: false, error: 'Incorrect PIN. Please try again.' };
+    }
+
+    const { data: existingSession } = await admin
+      .from('kiosk_active_sessions')
+      .select('kiosk_type')
+      .eq('profile_id', data.id)
+      .maybeSingle();
+
+    if (existingSession && existingSession.kiosk_type !== kioskType) {
+      const otherKiosk = KIOSK_LABEL[existingSession.kiosk_type as KioskType] ?? existingSession.kiosk_type;
+      return {
+        success: false,
+        error: `Already signed in on the ${otherKiosk}. Please sign out there first.`,
+      };
+    }
+
+    await admin
+      .from('kiosk_active_sessions')
+      .upsert({ profile_id: data.id, kiosk_type: kioskType, signed_in_at: new Date().toISOString() });
+
+    return { success: true, data };
+  } catch (error) {
+    console.error('resolveStaffPin failed:', error);
+    return { success: false, error: 'Failed to verify PIN' };
+  }
+}
+
+export async function clearKioskSession(profileId: string): Promise<void> {
+  try {
+    await createAdminClient()
+      .from('kiosk_active_sessions')
+      .delete()
+      .eq('profile_id', profileId);
+  } catch (error) {
+    console.error('clearKioskSession failed:', error);
   }
 }

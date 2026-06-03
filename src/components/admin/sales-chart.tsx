@@ -1,26 +1,33 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { DataCard } from '@/components/admin/data-card';
 import type { RevenueDataPoint } from '@/types/dashboard';
 
 interface SalesChartProps {
   data: RevenueDataPoint[];
 }
 
-function formatCurrency(amount: number): string {
-  if (amount >= 1000) {
-    return `₱${(amount / 1000).toFixed(1)}k`;
-  }
+function formatCurrencyShort(amount: number): string {
+  if (amount >= 1000) return `₱${(amount / 1000).toFixed(1)}k`;
   return `₱${amount.toFixed(0)}`;
+}
+
+function formatCurrencyFull(amount: number): string {
+  return new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency: 'PHP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
 }
 
 export function SalesChart({ data }: SalesChartProps) {
@@ -28,74 +35,61 @@ export function SalesChart({ data }: SalesChartProps) {
   const totalOrders = data.reduce((sum, d) => sum + d.orders, 0);
 
   return (
-    <Card className="col-span-2">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-xl font-semibold text-slate-900">Revenue (Last 7 Days)</CardTitle>
-            <p className="text-sm text-slate-600 mt-1 admin-data">
-              {formatCurrency(totalRevenue)} from {totalOrders} orders
-            </p>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={data}
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-            >
-              <defs>
-                <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="#f59e0b" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis
-                dataKey="label"
-                stroke="#64748b"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                stroke="#64748b"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={formatCurrency}
-              />
-              <Tooltip
-                formatter={(value) => [
-                  new Intl.NumberFormat('en-PH', {
-                    style: 'currency',
-                    currency: 'PHP',
-                  }).format(Number(value) || 0),
-                  'Revenue',
-                ]}
-                labelFormatter={(label) => `Day: ${label}`}
-                contentStyle={{
-                  backgroundColor: 'white',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="revenue"
-                stroke="#f59e0b"
-                strokeWidth={3}
-                dot={{ fill: '#f59e0b', strokeWidth: 2, r: 4 }}
-                activeDot={{ r: 6, stroke: '#f59e0b', strokeWidth: 2 }}
-                fill="url(#revenueGradient)"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </CardContent>
-    </Card>
+    <DataCard
+      title="Revenue — Last 7 Days"
+      description={`${formatCurrencyFull(totalRevenue)} from ${totalOrders} orders`}
+      className="lg:col-span-2"
+    >
+      <div className="h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.18} />
+                <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+            <XAxis
+              dataKey="label"
+              stroke="#94A3B8"
+              fontSize={11}
+              tickLine={false}
+              axisLine={false}
+              dy={4}
+            />
+            <YAxis
+              stroke="#94A3B8"
+              fontSize={11}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={formatCurrencyShort}
+              width={52}
+            />
+            <Tooltip
+              formatter={(value) => [formatCurrencyFull(Number(value) || 0), 'Revenue']}
+              labelFormatter={(label) => `${label}`}
+              contentStyle={{
+                backgroundColor: '#fff',
+                border: '1px solid #E2E8F0',
+                borderRadius: '10px',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                fontSize: '13px',
+              }}
+              cursor={{ stroke: '#F59E0B', strokeWidth: 1, strokeDasharray: '4 4' }}
+            />
+            <Area
+              type="monotone"
+              dataKey="revenue"
+              stroke="#F59E0B"
+              strokeWidth={2.5}
+              fill="url(#revenueGrad)"
+              dot={false}
+              activeDot={{ r: 5, fill: '#F59E0B', stroke: '#fff', strokeWidth: 2 }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </DataCard>
   );
 }

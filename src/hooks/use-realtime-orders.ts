@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { createBrowserClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/supabase/types';
+import { useRealtimeReconnection } from './use-realtime-reconnection';
 
 type Order = Database['public']['Tables']['orders']['Row'];
 type OrderItem = Database['public']['Tables']['order_items']['Row'];
@@ -47,6 +48,38 @@ export function useRealtimeOrders(
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
   const prevNewOrderCountRef = useRef<number>(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const lastEventRef = useRef<number>(Date.now());
+  const [reconnectTrigger, setReconnectTrigger] = useState(0);
+  const [realtimeFailed, setRealtimeFailed] = useState(false);
+
+  // Separate reconnection instance per channel to track errors independently
+  const ordersReconnection = useRealtimeReconnection({
+    channelName: 'kitchen-orders',
+    onMaxRetriesReached: () => {
+      console.warn('[KDS] Max reconnection attempts reached for orders, using polling fallback');
+      setRealtimeFailed(true);
+    },
+    onReconnect: () => {
+      setReconnectTrigger(prev => prev + 1);
+      setRealtimeFailed(false);
+    },
+  });
+  const ordersReconnectionRef = useRef(ordersReconnection);
+  ordersReconnectionRef.current = ordersReconnection;
+
+  const itemsReconnection = useRealtimeReconnection({
+    channelName: 'kitchen-order-items',
+    onMaxRetriesReached: () => {
+      console.warn('[KDS] Max reconnection attempts reached for items, using polling fallback');
+      setRealtimeFailed(true);
+    },
+    onReconnect: () => {
+      setReconnectTrigger(prev => prev + 1);
+      setRealtimeFailed(false);
+    },
+  });
+  const itemsReconnectionRef = useRef(itemsReconnection);
+  itemsReconnectionRef.current = itemsReconnection;
 
   // Initialize audio element
   useEffect(() => {
@@ -113,7 +146,16 @@ export function useRealtimeOrders(
       console.error('Failed to fetch kitchen orders:', fetchError);
       setError(fetchError.message);
     } else {
-      setOrders((data || []) as KitchenOrder[]);
+      // Safety net: hide orders that are stuck in paid/preparing/ready state but have
+      // all items already served — this means the DB trigger failed to advance the
+      // order to 'served'. Orders that are already 'served' are kept (for Recent tab).
+      const filtered = (data || []).filter((order) => {
+        if (order.status === 'served') return true;
+        const items = order.order_items || [];
+        if (items.length === 0) return true;
+        return items.some((item) => item.status !== 'served');
+      });
+      setOrders(filtered as KitchenOrder[]);
       setError(null);
     }
 
@@ -152,6 +194,7 @@ export function useRealtimeOrders(
     new: Record<string, unknown>;
     old: Record<string, unknown>;
   }) => {
+    lastEventRef.current = Date.now();
     console.log('[KDS Realtime] Event received:', payload.eventType, (payload.new as Record<string, unknown>)?.id);
     const supabase = getSupabase();
 
@@ -236,13 +279,16 @@ export function useRealtimeOrders(
         },
         handleRealtimeChange
       )
-      .subscribe((status, err) => {
+      .subscribe((status) => {
+        ordersReconnectionRef.current.handleStatus(status);
+
         if (status === 'SUBSCRIBED') {
           console.log('[KDS Realtime] Orders channel connected');
+          setError(null);
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('[KDS Realtime] Orders channel error:', err);
+          console.error('[KDS Realtime] Orders channel error - attempting reconnect');
         } else if (status === 'TIMED_OUT') {
-          console.warn('[KDS Realtime] Orders connection timed out');
+          console.warn('[KDS Realtime] Orders connection timed out - attempting reconnect');
         } else {
           console.log('[KDS Realtime] Orders status:', status);
         }
@@ -264,23 +310,51 @@ export function useRealtimeOrders(
           fetchOrders();
         }
       )
-      .subscribe((status, err) => {
+      .subscribe((status) => {
+        itemsReconnectionRef.current.handleStatus(status);
+
         if (status === 'SUBSCRIBED') {
           console.log('[KDS Realtime] Items channel connected');
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('[KDS Realtime] Items channel error:', err);
+          console.error('[KDS Realtime] Items channel error - attempting reconnect');
         }
       });
 
-    // Polling fallback: refetch every 10s to catch new orders if Realtime fails
-    const pollInterval = setInterval(fetchOrders, 10_000);
-
     return () => {
+      ordersReconnectionRef.current.reset();
+      itemsReconnectionRef.current.reset();
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(itemsChannel);
-      clearInterval(pollInterval);
     };
-  }, [fetchOrders, handleRealtimeChange]);
+  // reconnectTrigger intentionally drives reconnection; reconnection objects excluded (stable via refs)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchOrders, handleRealtimeChange, reconnectTrigger]);
+
+  // Safety-net poll — always active at 15s so missed realtime events never delay kitchen staff
+  useEffect(() => {
+    const poll = setInterval(fetchOrders, 15_000);
+    return () => clearInterval(poll);
+  }, [fetchOrders]);
+
+  // Polling fallback — activates after realtime max retries exhausted; tightens to 10s
+  useEffect(() => {
+    if (!realtimeFailed) return;
+    const pollInterval = setInterval(fetchOrders, 10_000);
+    return () => clearInterval(pollInterval);
+  }, [realtimeFailed, fetchOrders]);
+
+  // Heartbeat: detect zombie channel (WebSocket open but no events delivered)
+  useEffect(() => {
+    if (realtimeFailed) return;
+    const heartbeat = setInterval(() => {
+      const silence = Date.now() - lastEventRef.current;
+      if (silence > 90_000) {
+        console.warn('[KDS Realtime] No events in 90s — possible zombie channel, refetching');
+        fetchOrders();
+      }
+    }, 30_000);
+    return () => clearInterval(heartbeat);
+  }, [realtimeFailed, fetchOrders]);
 
   return { orders, isLoading, error, refetch: fetchOrders, optimisticStatusUpdate };
 }

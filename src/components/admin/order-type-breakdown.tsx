@@ -1,7 +1,9 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { DataCard } from '@/components/admin/data-card';
+import { EmptyState } from '@/components/admin/empty-state';
+import { PieChart as PieIcon } from 'lucide-react';
 import type { OrderTypeData } from '@/types/dashboard';
 
 interface OrderTypeBreakdownProps {
@@ -13,38 +15,34 @@ export function OrderTypeBreakdown({ data }: OrderTypeBreakdownProps) {
 
   if (total === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">Order Types</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[300px] flex items-center justify-center text-slate-500">
-            No orders yet today
-          </div>
-        </CardContent>
-      </Card>
+      <DataCard title="Order Types" description="Distribution by type today">
+        <EmptyState
+          icon={PieIcon}
+          title="No orders yet"
+          description="Order type data will appear here once orders come in today."
+          className="py-10"
+        />
+      </DataCard>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-xl font-semibold text-slate-900">Order Types</CardTitle>
-        <p className="text-sm text-slate-600">Distribution by type today</p>
-      </CardHeader>
-      <CardContent>
-        <div className="h-[200px]">
+    <DataCard title="Order Types" description={`${total} orders today`}>
+      <div className="flex items-center gap-4">
+        {/* Donut */}
+        <div className="h-44 w-44 shrink-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={data}
                 cx="50%"
                 cy="50%"
-                innerRadius={50}
-                outerRadius={80}
+                innerRadius={44}
+                outerRadius={68}
                 paddingAngle={2}
                 dataKey="count"
                 nameKey="label"
+                strokeWidth={0}
               >
                 {data.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
@@ -52,36 +50,51 @@ export function OrderTypeBreakdown({ data }: OrderTypeBreakdownProps) {
               </Pie>
               <Tooltip
                 formatter={(value, name) => [
-                  `${Number(value) || 0} orders (${data.find((d) => d.label === String(name))?.percentage || 0}%)`,
+                  `${Number(value) || 0} orders`,
                   String(name),
                 ]}
                 contentStyle={{
-                  backgroundColor: 'white',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                  backgroundColor: '#fff',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: '10px',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                  fontSize: '12px',
                 }}
               />
-              <Legend />
             </PieChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Stats below chart */}
-        <div className="mt-4 grid grid-cols-3 gap-4">
+        {/* Legend list */}
+        <div className="flex-1 space-y-3 min-w-0">
           {data.map((item) => (
-            <div key={item.type} className="text-center">
-              <div
-                className="w-3 h-3 rounded-full mx-auto mb-1"
+            <div key={item.type} className="flex items-center gap-2.5">
+              <span
+                className="h-2.5 w-2.5 rounded-full shrink-0"
                 style={{ backgroundColor: item.color }}
               />
-              <p className="text-2xl font-bold admin-data text-slate-900">{item.count}</p>
-              <p className="text-xs text-slate-600 font-medium">{item.label}</p>
-              <p className="text-xs font-medium text-slate-500">{item.percentage}%</p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-slate-700 truncate">{item.label}</span>
+                  <span className="text-xs font-bold text-slate-900 tabular-nums shrink-0">
+                    {item.count}
+                  </span>
+                </div>
+                <div className="mt-1 h-1 rounded-full bg-slate-100 overflow-hidden">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${item.percentage}%`,
+                      backgroundColor: item.color,
+                      opacity: 0.7,
+                    }}
+                  />
+                </div>
+              </div>
             </div>
           ))}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </DataCard>
   );
 }

@@ -1,14 +1,22 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import Image from 'next/image';
-import { ShoppingBag } from 'lucide-react';
+import { ShoppingBag, WifiOff } from 'lucide-react';
 import { CartDrawer } from '@/components/kiosk/cart-drawer';
 import { FullscreenToggle } from '@/components/kiosk/fullscreen-toggle';
+import { LanguageSwitcher } from '@/components/kiosk/language-switcher';
+import { KioskSetupScreen } from '@/components/kiosk/kiosk-setup-screen';
+import { KioskPinDialog } from '@/components/kiosk/kiosk-pin-dialog';
+import { LocaleProvider, useLocale } from '@/lib/i18n/locale-context';
 import { useCartStore } from '@/stores/cart-store';
+import { useKioskLocation } from '@/hooks/use-kiosk-location';
+import { useNetworkStatus } from '@/hooks/use-network-status';
+import { NetworkOfflineDialog } from '@/components/shared/network-offline-dialog';
 import { formatCurrency } from '@/lib/utils/currency';
+import { cn } from '@/lib/utils';
 
 interface KioskLayoutProps {
   children: React.ReactNode;
@@ -35,14 +43,56 @@ function CurrentTime() {
 }
 
 export default function KioskLayout({ children }: KioskLayoutProps) {
+  return (
+    <LocaleProvider>
+      <KioskLayoutInner>{children}</KioskLayoutInner>
+    </LocaleProvider>
+  );
+}
+
+function KioskLayoutInner({ children }: KioskLayoutProps) {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [lastInteraction, setLastInteraction] = useState(() => Date.now());
   const [showIdleWarning, setShowIdleWarning] = useState(false);
+  const [pinDialogOpen, setPinDialogOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  const { t } = useLocale();
+  const { location, isLoaded, setLocation, clearLocation } = useKioskLocation();
+  const { isOnline, isChecking, retry } = useNetworkStatus();
+  const tapCountRef = useRef(0);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Show floating cart button on menu and add-items pages
-  const showCartButton = pathname === '/menu' || pathname.startsWith('/add-items/');
+  // Redirect ocean_view kiosk away from / and /order-type
+  useEffect(() => {
+    if (!isLoaded || location !== 'ocean_view') return;
+    if (pathname === '/' || pathname === '/order-type') {
+      router.replace('/ocean-view');
+    }
+  }, [isLoaded, location, pathname, router]);
+
+  const handleLogoTap = useCallback((e: React.MouseEvent) => {
+    tapCountRef.current += 1;
+
+    if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+    tapTimerRef.current = setTimeout(() => {
+      tapCountRef.current = 0;
+    }, 2000);
+
+    if (tapCountRef.current >= 5) {
+      tapCountRef.current = 0;
+      if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+      e.preventDefault();
+      setPinDialogOpen(true);
+    }
+  }, []);
+
+  const handlePinSuccess = useCallback(() => {
+    clearLocation();
+  }, [clearLocation]);
+
+  // Show floating cart button only on add-items pages — /menu has its own embedded cart panel
+  const showCartButton = pathname.startsWith('/add-items/');
 
   // Get cart state from Zustand store
   const {
@@ -54,6 +104,7 @@ export default function KioskLayout({ children }: KioskLayoutProps) {
     clearCart,
     getItemCount,
     getTotal,
+    isDetailSheetOpen,
   } = useCartStore();
 
   const cartItemCount = getItemCount();
@@ -85,13 +136,15 @@ export default function KioskLayout({ children }: KioskLayoutProps) {
     window.addEventListener('keydown', handleInteraction);
 
     const idleChecker = setInterval(() => {
+      const isLandingPage = pathname === '/' || pathname === '/ocean-view';
+      if (isLandingPage) return;
       const idleTime = Date.now() - lastInteraction;
-      if (idleTime > 60000 && idleTime < 90000) {
+      if (idleTime > 90000 && idleTime < 120000) {
         setShowIdleWarning(true);
-      } else if (idleTime >= 90000) {
+      } else if (idleTime >= 120000) {
         setShowIdleWarning(false);
         clearCart();
-        router.push('/');
+        router.push(location === 'ocean_view' ? '/ocean-view' : '/');
       }
     }, 1000);
 
@@ -103,12 +156,20 @@ export default function KioskLayout({ children }: KioskLayoutProps) {
     };
   }, [lastInteraction]);
 
+  // Suppress child render until location is known — prevents flash of wrong page
+  const shouldSuppressChildren =
+    !isLoaded ||
+    (location === 'ocean_view' && (pathname === '/' || pathname === '/order-type'));
+
   return (
-    <div className="h-[100dvh] flex flex-col bg-[var(--kiosk-bg)] overflow-hidden">
-      {/* Premium Header - responsive height */}
-      <header className="flex-shrink-0 h-14 sm:h-16 md:h-[72px] px-3 sm:px-4 md:px-6 flex items-center justify-between bg-white border-b border-stone-200 shadow-sm safe-area-inset-top">
+    <div className="h-[100dvh] flex flex-col bg-[var(--kiosk-bg)] [overflow:clip]">
+      {/* Premium Header — hidden on Ocean View landing */}
+      <header className={cn(
+        'flex-shrink-0 sticky top-0 z-10 h-14 sm:h-16 md:h-[72px] px-3 sm:px-4 md:px-6 flex items-center justify-between bg-[#FEF7EE] border-b border-orange-100/40 shadow-none safe-area-inset-top',
+        (pathname === '/ocean-view' || pathname === '/') && 'hidden'
+      )}>
         {/* Logo & Brand */}
-        <Link href="/" className="flex items-center gap-2 sm:gap-3 active:scale-[0.98] transition-transform">
+        <Link href="/" onClick={handleLogoTap} className="flex items-center gap-2 sm:gap-3 active:scale-[0.98] transition-transform">
           <Image
             src="/arenalogo.png"
             alt="Arena Blanca Resort"
@@ -120,21 +181,24 @@ export default function KioskLayout({ children }: KioskLayoutProps) {
             <h1 className="text-base sm:text-lg font-semibold text-stone-800 leading-tight tracking-tight">
               Arena Blanca Resort
             </h1>
-            <p className="text-[10px] sm:text-xs text-stone-400 font-medium hidden sm:block">Restaurant</p>
+            <p className="text-[10px] sm:text-xs text-stone-400 font-medium hidden sm:block">
+              {location === 'ocean_view' ? 'Ocean View' : 'Restaurant'}
+            </p>
           </div>
         </Link>
+
+        {/* Center: Offline banner */}
+        {!isOnline && (
+          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-red-500 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-md shadow-red-500/30">
+            <WifiOff className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2} />
+            <span>Internet Connection Issues</span>
+          </div>
+        )}
 
         {/* Right side: Language + Time */}
         <div className="flex items-center gap-2 sm:gap-3 md:gap-5">
           {/* Language Toggle - compact on mobile */}
-          <div className="flex bg-stone-100 rounded-md sm:rounded-lg p-0.5 sm:p-1">
-            <button className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-semibold rounded-md bg-white text-amber-600 shadow-sm transition-all">
-              EN
-            </button>
-            <button className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md text-stone-400 hover:text-stone-600 transition-colors">
-              TL
-            </button>
-          </div>
+          <LanguageSwitcher />
 
           {/* Fullscreen Toggle */}
           <FullscreenToggle variant="header" />
@@ -151,14 +215,14 @@ export default function KioskLayout({ children }: KioskLayoutProps) {
 
       {/* Main content */}
       <main className="flex-1 overflow-hidden">
-        {children}
+        {shouldSuppressChildren ? null : children}
       </main>
 
       {/* Premium Floating Cart Button — only on menu page, responsive positioning */}
-      {showCartButton && (
+      {showCartButton && !isDetailSheetOpen && (
         <button
           onClick={() => setIsCartOpen(true)}
-          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex items-center gap-2 sm:gap-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white pl-3 pr-4 sm:pl-4 sm:pr-5 h-12 sm:h-14 rounded-full shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 active:scale-[0.98] transition-all safe-area-inset-bottom"
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex items-center gap-2 sm:gap-3 bg-amber-500 bg-gradient-to-r from-amber-500 to-amber-600 text-white pl-3 pr-4 sm:pl-4 sm:pr-5 h-12 sm:h-14 rounded-full shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 active:scale-[0.98] transition-all safe-area-inset-bottom"
         >
           <div className="relative flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 bg-white/20 rounded-full">
             <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2} />
@@ -169,7 +233,7 @@ export default function KioskLayout({ children }: KioskLayoutProps) {
             )}
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            <span className="font-semibold text-sm sm:text-base hidden xs:inline">Cart</span>
+            <span className="font-semibold text-sm sm:text-base hidden xs:inline">{t.kiosk.common.cart}</span>
             <span className="font-semibold text-sm sm:text-base xs:hidden">{cartItemCount}</span>
             {cartItemCount > 0 && (
               <>
@@ -181,17 +245,34 @@ export default function KioskLayout({ children }: KioskLayoutProps) {
         </button>
       )}
 
-      {/* Cart Drawer */}
-      <CartDrawer
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        items={cartItems}
-        promoCode={promoCode}
-        discountAmount={discountAmount}
-        onUpdateQuantity={handleUpdateQuantity}
-        onRemoveItem={handleRemoveItem}
-        onCheckout={handleCheckout}
+      {/* Cart Drawer — suppressed on /menu which has its own embedded cart panel */}
+      {pathname !== '/menu' && (
+        <CartDrawer
+          isOpen={isCartOpen}
+          onClose={() => setIsCartOpen(false)}
+          items={cartItems}
+          promoCode={promoCode}
+          discountAmount={discountAmount}
+          onUpdateQuantity={handleUpdateQuantity}
+          onRemoveItem={handleRemoveItem}
+          onCheckout={handleCheckout}
+        />
+      )}
+
+      {/* Kiosk Setup Screen — shown on first launch */}
+      {isLoaded && location === null && (
+        <KioskSetupScreen onSelect={setLocation} />
+      )}
+
+      {/* Admin PIN Dialog — triggered by 5-tap on logo */}
+      <KioskPinDialog
+        open={pinDialogOpen}
+        onOpenChange={setPinDialogOpen}
+        onSuccess={handlePinSuccess}
       />
+
+      {/* Network Offline Dialog */}
+      <NetworkOfflineDialog isOnline={isOnline} isChecking={isChecking} onRetry={retry} />
 
       {/* Idle Warning Overlay */}
       {showIdleWarning && (
@@ -203,10 +284,10 @@ export default function KioskLayout({ children }: KioskLayoutProps) {
               </svg>
             </div>
             <h2 className="text-2xl font-bold text-stone-800 mb-3">
-              Still there?
+              {t.kiosk.common.stillThere}
             </h2>
             <p className="text-stone-500 mb-8">
-              Your session will reset in 30 seconds due to inactivity.
+              {t.kiosk.common.sessionReset}
             </p>
             <button
               onClick={() => {
@@ -215,7 +296,7 @@ export default function KioskLayout({ children }: KioskLayoutProps) {
               }}
               className="w-full h-14 bg-amber-500 hover:bg-amber-600 text-white font-semibold text-lg rounded-xl active:scale-[0.98] transition-all"
             >
-              Continue Ordering
+              {t.kiosk.common.continueOrdering}
             </button>
           </div>
         </div>

@@ -7,30 +7,10 @@ export type Json =
   | Json[]
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
@@ -214,6 +194,7 @@ export type Database = {
           image_url: string | null
           is_active: boolean | null
           name: string
+          requires_kitchen: boolean
           slug: string
           updated_at: string | null
         }
@@ -225,6 +206,7 @@ export type Database = {
           image_url?: string | null
           is_active?: boolean | null
           name: string
+          requires_kitchen?: boolean
           slug: string
           updated_at?: string | null
         }
@@ -236,10 +218,37 @@ export type Database = {
           image_url?: string | null
           is_active?: boolean | null
           name?: string
+          requires_kitchen?: boolean
           slug?: string
           updated_at?: string | null
         }
         Relationships: []
+      }
+      kiosk_active_sessions: {
+        Row: {
+          kiosk_type: string
+          profile_id: string
+          signed_in_at: string
+        }
+        Insert: {
+          kiosk_type: string
+          profile_id: string
+          signed_in_at?: string
+        }
+        Update: {
+          kiosk_type?: string
+          profile_id?: string
+          signed_in_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kiosk_active_sessions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       kitchen_stations: {
         Row: {
@@ -517,9 +526,12 @@ export type Database = {
           deleted_at: string | null
           discount_amount: number | null
           estimated_ready_at: string | null
+          ewallet_provider: string | null
+          ewallet_reference: string | null
           expires_at: string | null
           guest_phone: string | null
           id: string
+          kiosk_location: string | null
           order_number: string
           order_type: Database["public"]["Enums"]["order_type"]
           paid_at: string | null
@@ -534,6 +546,7 @@ export type Database = {
           status: Database["public"]["Enums"]["order_status"]
           subtotal: number
           table_number: string | null
+          taken_by: string | null
           tax_amount: number
           total_amount: number
           updated_at: string | null
@@ -545,9 +558,12 @@ export type Database = {
           deleted_at?: string | null
           discount_amount?: number | null
           estimated_ready_at?: string | null
+          ewallet_provider?: string | null
+          ewallet_reference?: string | null
           expires_at?: string | null
           guest_phone?: string | null
           id?: string
+          kiosk_location?: string | null
           order_number?: string
           order_type: Database["public"]["Enums"]["order_type"]
           paid_at?: string | null
@@ -562,6 +578,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
           table_number?: string | null
+          taken_by?: string | null
           tax_amount?: number
           total_amount?: number
           updated_at?: string | null
@@ -573,9 +590,12 @@ export type Database = {
           deleted_at?: string | null
           discount_amount?: number | null
           estimated_ready_at?: string | null
+          ewallet_provider?: string | null
+          ewallet_reference?: string | null
           expires_at?: string | null
           guest_phone?: string | null
           id?: string
+          kiosk_location?: string | null
           order_number?: string
           order_type?: Database["public"]["Enums"]["order_type"]
           paid_at?: string | null
@@ -590,6 +610,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
           table_number?: string | null
+          taken_by?: string | null
           tax_amount?: number
           total_amount?: number
           updated_at?: string | null
@@ -603,13 +624,19 @@ export type Database = {
             referencedRelation: "promo_codes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "orders_taken_by_fkey"
+            columns: ["taken_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       payments: {
         Row: {
           amount: number
           cash_received: number | null
-          cashier_name: string | null
           change_given: number | null
           completed_at: string | null
           created_at: string | null
@@ -623,7 +650,6 @@ export type Database = {
         Insert: {
           amount: number
           cash_received?: number | null
-          cashier_name?: string | null
           change_given?: number | null
           completed_at?: string | null
           created_at?: string | null
@@ -637,7 +663,6 @@ export type Database = {
         Update: {
           amount?: number
           cash_received?: number | null
-          cashier_name?: string | null
           change_given?: number | null
           completed_at?: string | null
           created_at?: string | null
@@ -778,6 +803,164 @@ export type Database = {
           },
         ]
       }
+      shift_collections: {
+        Row: {
+          card_total: number
+          cash_total: number
+          cashier_id: string
+          cashier_name: string
+          date: string
+          deductions_total: number
+          ewallet_total: number
+          gcash_total: number
+          id: string
+          net_cash: number
+          refunds_total: number
+          remittance_number: string | null
+          shift_ended_at: string | null
+          shift_id: string | null
+          shift_started_at: string | null
+          submitted_at: string
+          total_orders: number
+          total_revenue: number
+        }
+        Insert: {
+          card_total?: number
+          cash_total?: number
+          cashier_id: string
+          cashier_name: string
+          date?: string
+          deductions_total?: number
+          ewallet_total?: number
+          gcash_total?: number
+          id?: string
+          net_cash?: number
+          refunds_total?: number
+          remittance_number?: string | null
+          shift_ended_at?: string | null
+          shift_id?: string | null
+          shift_started_at?: string | null
+          submitted_at?: string
+          total_orders?: number
+          total_revenue?: number
+        }
+        Update: {
+          card_total?: number
+          cash_total?: number
+          cashier_id?: string
+          cashier_name?: string
+          date?: string
+          deductions_total?: number
+          ewallet_total?: number
+          gcash_total?: number
+          id?: string
+          net_cash?: number
+          refunds_total?: number
+          remittance_number?: string | null
+          shift_ended_at?: string | null
+          shift_id?: string | null
+          shift_started_at?: string | null
+          submitted_at?: string
+          total_orders?: number
+          total_revenue?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_collections_cashier_id_fkey"
+            columns: ["cashier_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_collections_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: true
+            referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shift_deductions: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          shift_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          shift_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          shift_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_deductions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_deductions_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shifts: {
+        Row: {
+          cashier_id: string
+          ended_at: string | null
+          id: string
+          notes: string | null
+          started_at: string
+          status: string
+          submitted_at: string | null
+        }
+        Insert: {
+          cashier_id: string
+          ended_at?: string | null
+          id?: string
+          notes?: string | null
+          started_at?: string
+          status?: string
+          submitted_at?: string | null
+        }
+        Update: {
+          cashier_id?: string
+          ended_at?: string | null
+          id?: string
+          notes?: string | null
+          started_at?: string
+          status?: string
+          submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shifts_cashier_id_fkey"
+            columns: ["cashier_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -786,15 +969,44 @@ export type Database = {
       cancel_expired_orders: { Args: never; Returns: number }
       generate_order_number: { Args: never; Returns: string }
       get_next_bir_receipt_number: { Args: never; Returns: string }
+      get_next_remittance_number: { Args: never; Returns: string }
+      get_shift_payments: {
+        Args: { p_shift_id: string }
+        Returns: {
+          amount: number
+          completed_at: string
+          id: string
+          method: string
+          order_id: string
+          order_number: string
+          status: string
+        }[]
+      }
       increment_promo_usage: { Args: { promo_id: string }; Returns: undefined }
       process_cash_payment: {
         Args: {
           p_amount: number
           p_cash_received: number
           p_cashier_id: string
-          p_cashier_name?: string
           p_change_given: number
           p_order_id: string
+        }
+        Returns: string
+      }
+      submit_shift: {
+        Args: {
+          p_card_total: number
+          p_cash_total: number
+          p_cashier_id: string
+          p_cashier_name: string
+          p_deductions_total: number
+          p_ewallet_total: number
+          p_gcash_total: number
+          p_gross_total: number
+          p_net_cash: number
+          p_refunds_total: number
+          p_shift_id: string
+          p_total_orders: number
         }
         Returns: string
       }
@@ -814,7 +1026,7 @@ export type Database = {
         | "served"
         | "cancelled"
       order_type: "dine_in" | "room_service" | "takeout" | "ocean_view"
-      payment_method: "cash" | "gcash" | "card" | "bill_later"
+      payment_method: "cash" | "gcash" | "card" | "bill_later" | "ewallet"
       payment_status: "unpaid" | "processing" | "paid" | "refunded" | "expired"
       user_role: "admin" | "cashier" | "kitchen" | "kiosk" | "waiter"
     }
@@ -942,9 +1154,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       discount_type: ["percentage", "fixed_amount"],
@@ -958,10 +1167,9 @@ export const Constants = {
         "cancelled",
       ],
       order_type: ["dine_in", "room_service", "takeout", "ocean_view"],
-      payment_method: ["cash", "gcash", "card", "bill_later"],
+      payment_method: ["cash", "gcash", "card", "bill_later", "ewallet"],
       payment_status: ["unpaid", "processing", "paid", "refunded", "expired"],
       user_role: ["admin", "cashier", "kitchen", "kiosk", "waiter"],
     },
   },
 } as const
-

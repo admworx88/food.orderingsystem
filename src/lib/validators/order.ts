@@ -21,11 +21,15 @@ export const orderInputSchema = z.object({
   orderType: z.enum(['dine_in', 'room_service', 'takeout', 'ocean_view']),
   tableNumber: z.string().optional().nullable(),
   roomNumber: z.string().optional().nullable(),
-  paymentMethod: z.enum(['cash', 'gcash', 'card', 'bill_later']),
+  paymentMethod: z.enum(['cash', 'gcash', 'card', 'bill_later', 'ewallet']),
   promoCode: z.string().optional().nullable(),
   promoCodeId: z.string().uuid().optional().nullable(),
   guestPhone: z.string().max(20).optional().nullable(),
   specialInstructions: z.string().max(500).optional().nullable(),
+  kioskLocation: z.string().optional().nullable(),
+  ewalletProvider: z.string().optional().nullable(),
+  ewalletReference: z.string().optional().nullable(),
+  takenBy: z.string().uuid().optional().nullable(),
 }).refine(
   (data) => {
     if (data.orderType === 'dine_in') {

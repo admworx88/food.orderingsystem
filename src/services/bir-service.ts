@@ -47,7 +47,7 @@ export async function generateBIRReceipt(
 
     // Fetch BIR config, order with details, and payment in parallel
     const [configResult, orderResult, paymentResult] = await Promise.all([
-      supabase.from('bir_receipt_config').select('*').limit(1).single(),
+      supabase.from('bir_receipt_config').select('*').limit(1).maybeSingle(),
       supabase
         .from('orders')
         .select(`
@@ -71,10 +71,8 @@ export async function generateBIRReceipt(
         .single(),
     ]);
 
-    // Validate BIR config exists
-    if (configResult.error || !configResult.data) {
-      console.error('BIR config not found:', configResult.error);
-      return serviceError('E9001', 'BIR receipt configuration not found. Please contact admin.');
+    if (configResult.error) {
+      console.error('BIR config fetch error:', configResult.error);
     }
 
     // Validate order exists and is paid
@@ -111,7 +109,17 @@ export async function generateBIRReceipt(
       return serviceError('E9001', 'Failed to generate receipt number');
     }
 
-    const config = configResult.data;
+    const config = configResult.data ?? {
+      business_name: 'Arena Blanca Resort',
+      business_address: 'Britania, San Agustin, Surigao Del Sur, Philippines 8000',
+      tin: '',
+      accreditation_number: null,
+      accreditation_date: null,
+      permit_number: null,
+      permit_date_issued: null,
+      pos_machine_id: null,
+      terminal_id: null,
+    };
 
     // Build receipt items
     const items: BIRReceiptItem[] = (order.order_items || []).map((item) => ({
@@ -174,6 +182,7 @@ export async function generateBIRReceipt(
       promoCode: order.promo_codes
         ? (order.promo_codes as { code: string }).code
         : null,
+      kioskLocation: order.kiosk_location ?? null,
     };
 
     return { success: true, data: receiptData };

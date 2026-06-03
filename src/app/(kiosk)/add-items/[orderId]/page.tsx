@@ -1,4 +1,4 @@
-import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { redirect } from 'next/navigation';
 import { AddItemsClient } from '@/components/kiosk/add-items-client';
 
@@ -8,12 +8,12 @@ interface AddItemsMenuPageProps {
 
 export default async function AddItemsMenuPage({ params }: AddItemsMenuPageProps) {
   const { orderId } = await params;
-  const supabase = await createServerClient();
+  const supabase = createAdminClient();
 
   // Verify order exists and is active dine-in
   const { data: order, error: orderError } = await supabase
     .from('orders')
-    .select('id, order_number, table_number, status, order_type, subtotal, total_amount, order_items(id, item_name, quantity, unit_price, total_price)')
+    .select('id, order_number, table_number, status, order_type, subtotal, total_amount, payment_method, order_items(id, item_name, quantity, unit_price, total_price, status)')
     .eq('id', orderId)
     .is('deleted_at', null)
     .single();
@@ -31,7 +31,7 @@ export default async function AddItemsMenuPage({ params }: AddItemsMenuPageProps
 
   const { data: menuItems } = await supabase
     .from('menu_items')
-    .select('*, category:categories(id, name)')
+    .select('*, category:categories(id, name, requires_kitchen)')
     .eq('is_available', true)
     .is('deleted_at', null)
     .order('display_order');
@@ -45,6 +45,7 @@ export default async function AddItemsMenuPage({ params }: AddItemsMenuPageProps
         currentItems: order.order_items,
         subtotal: order.subtotal,
         totalAmount: order.total_amount,
+        paymentMethod: order.payment_method,
       }}
       categories={categories || []}
       menuItems={menuItems || []}

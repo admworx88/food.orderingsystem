@@ -37,7 +37,9 @@ export function WaiterListCard({
       ? `T.${order.table_number}`
       : order.order_type === 'room_service'
         ? `R.${order.room_number}`
-        : 'Pickup';
+        : order.order_type === 'ocean_view' && order.table_number
+          ? order.table_number
+          : 'Pickup';
 
   const hasReadyItems = order.readyCount > 0;
   const isFullyServed = order.status === 'served';

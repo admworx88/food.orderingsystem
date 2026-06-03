@@ -35,9 +35,17 @@ export function CategoryCards({ categories }: CategoryCardsProps) {
         >
           {/* Header with gradient */}
           <div className="h-24 bg-gradient-to-br from-amber-500 to-amber-600 relative">
-            <div className="absolute inset-0 flex items-center justify-center">
-              <FolderOpen className="h-10 w-10 text-white/30" />
-            </div>
+            {category.image_url ? (
+              <img
+                src={category.image_url}
+                alt={category.name}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <FolderOpen className="h-10 w-10 text-white/30" />
+              </div>
+            )}
             {/* Status Badge */}
             <Badge
               variant={category.is_active ? 'default' : 'secondary'}

@@ -269,6 +269,94 @@ export async function signOut(): Promise<void> {
 }
 
 /**
+ * Request a password reset email for the given address.
+ * Always returns success to prevent email enumeration.
+ */
+export async function requestPasswordReset(
+  email: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Validate email format
+    const emailSchema = z
+      .string()
+      .min(1, 'Email is required')
+      .email('Please enter a valid email address')
+      .max(255)
+      .transform((v) => v.toLowerCase().trim());
+
+    const validation = emailSchema.safeParse(email);
+    if (!validation.success) {
+      return { success: false, error: validation.error.issues[0]?.message || 'Invalid email' };
+    }
+
+    // Rate limit by IP only (email enumeration risk if we include email)
+    const clientIp = await getClientIdentifier();
+    const rateLimitKey = createRateLimitKey('password-reset', clientIp);
+
+    const rateLimitStatus = checkRateLimit(rateLimitKey);
+    if (!rateLimitStatus.allowed) {
+      const minutes = Math.ceil((rateLimitStatus.retryAfterSeconds || 0) / 60);
+      return {
+        success: false,
+        error: `Too many reset attempts. Please try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`,
+      };
+    }
+
+    recordFailedAttempt(rateLimitKey);
+
+    const supabase = await createServerClient();
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+
+    const { error } = await supabase.auth.resetPasswordForEmail(validation.data, {
+      redirectTo: `${siteUrl}/reset-password`,
+    });
+
+    if (error) {
+      console.error('requestPasswordReset: Supabase error:', error.message);
+    }
+
+    // Always succeed — never reveal whether the email exists
+    return { success: true };
+  } catch (error) {
+    console.error('requestPasswordReset unexpected error:', error);
+    return { success: true }; // Still succeed to avoid enumeration
+  }
+}
+
+/**
+ * Update the password for the currently authenticated user.
+ * Called from the reset-password page after the recovery session is established.
+ */
+export async function updatePassword(
+  newPassword: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const passwordSchema = z
+      .string()
+      .min(8, 'Password must be at least 8 characters')
+      .max(72, 'Password must be less than 72 characters');
+
+    const validation = passwordSchema.safeParse(newPassword);
+    if (!validation.success) {
+      return { success: false, error: validation.error.issues[0]?.message || 'Invalid password' };
+    }
+
+    const supabase = await createServerClient();
+    const { error } = await supabase.auth.updateUser({ password: validation.data });
+
+    if (error) {
+      console.error('updatePassword: Supabase error:', error.message);
+      return { success: false, error: 'Failed to update password. Please try again.' };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('updatePassword unexpected error:', error);
+    return { success: false, error: 'An unexpected error occurred. Please try again.' };
+  }
+}
+
+/**
  * Get current authenticated user with profile
  * Returns null if not authenticated
  */
