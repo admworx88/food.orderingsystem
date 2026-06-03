@@ -7,13 +7,14 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   UtensilsCrossed, Leaf, ChefHat, ArrowRight, Waves, Sparkles,
-  UserCircle2, RefreshCw, CreditCard, ClipboardList,
+  UserCircle2, RefreshCw, CreditCard, ClipboardList, Plus,
 } from 'lucide-react';
 import { KioskAdminOverlay } from '@/components/kiosk/kiosk-admin-overlay';
 import { EmployeePinDialog } from '@/components/kiosk/employee-pin-dialog';
+import { StaffSignOutDialog } from '@/components/kiosk/staff-signout-dialog';
+import { BurgerLoader } from '@/components/shared/burger-loader';
 import { useStaffSessionStore } from '@/stores/staff-session-store';
 import { useKioskLocation } from '@/hooks/use-kiosk-location';
-import { clearKioskSession } from '@/services/user-service';
 import { cn } from '@/lib/utils';
 
 
@@ -63,9 +64,11 @@ export function KioskWelcomeClient() {
   const router = useRouter();
 
   const [mounted, setMounted] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const [adminOverlayOpen, setAdminOverlayOpen] = useState(false);
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
-  const { session, clearSession } = useStaffSessionStore();
+  const [signOutDialogOpen, setSignOutDialogOpen] = useState(false);
+  const { session } = useStaffSessionStore();
   const { location } = useKioskLocation();
   const isOceanView = location === 'ocean_view';
 
@@ -95,6 +98,11 @@ export function KioskWelcomeClient() {
     router.push('/order-type');
   }, [router]);
 
+  const handleNavigate = useCallback((href: string) => {
+    setIsNavigating(true);
+    router.push(href);
+  }, [router]);
+
   return (
     <div
       className={cn(
@@ -102,6 +110,7 @@ export function KioskWelcomeClient() {
         mounted ? 'opacity-100' : 'opacity-0'
       )}
     >
+      <BurgerLoader isLoading={isNavigating} message="Loading…" />
       {/* ── Food doodle background ── */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
         <svg
@@ -405,22 +414,22 @@ export function KioskWelcomeClient() {
             {hasSideButtons && (
               <div className="flex-shrink-0 flex flex-row gap-2">
                 {showOrders && (
-                  <Link
-                    href="/menu?view=orders"
-                    className="flex flex-col items-center justify-center gap-1 bg-white border-2 border-orange-400 hover:bg-orange-50 active:scale-[0.97] text-orange-500 px-4 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 h-[56px] min-w-[64px]"
+                  <button
+                    onClick={() => handleNavigate('/menu?view=orders')}
+                    className="flex flex-col items-center justify-center gap-1 bg-white border-2 border-orange-400 hover:bg-orange-50 active:scale-[0.97] text-orange-500 px-4 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 h-[56px] min-w-[64px] cursor-default"
                   >
                     <ClipboardList className="w-5 h-5" strokeWidth={2} />
-                    <span className="text-[11px] font-semibold whitespace-nowrap">Orders</span>
-                  </Link>
+                    <span className="text-[13px] font-semibold whitespace-nowrap">Orders</span>
+                  </button>
                 )}
                 {showPayments && (
-                  <Link
-                    href="/menu?view=payments"
-                    className="flex flex-col items-center justify-center gap-1 bg-white border-2 border-orange-400 hover:bg-orange-50 active:scale-[0.97] text-orange-500 px-4 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 h-[56px] min-w-[64px]"
+                  <button
+                    onClick={() => handleNavigate('/menu?view=payments')}
+                    className="flex flex-col items-center justify-center gap-1 bg-white border-2 border-orange-400 hover:bg-orange-50 active:scale-[0.97] text-orange-500 px-4 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 h-[56px] min-w-[64px] cursor-default"
                   >
                     <CreditCard className="w-5 h-5" strokeWidth={2} />
-                    <span className="text-[11px] font-semibold whitespace-nowrap">Payments</span>
-                  </Link>
+                    <span className="text-[13px] font-semibold whitespace-nowrap">Payments</span>
+                  </button>
                 )}
               </div>
             )}
@@ -433,13 +442,13 @@ export function KioskWelcomeClient() {
             animate={mounted ? 'show' : 'hidden'}
             custom={0.9}
           >
-            <Link
-              href="/add-items"
-              className="mt-4 inline-flex items-center gap-1.5 text-stone-400 hover:text-orange-500 text-sm font-medium transition-colors"
+            <button
+              onClick={() => handleNavigate('/add-items')}
+              className="mt-4 inline-flex items-center gap-1.5 min-h-[44px] px-4 text-stone-400 hover:text-orange-500 text-sm font-medium transition-colors cursor-default active:scale-[0.98]"
             >
-              <span className="text-base font-bold leading-none">+</span>
+              <Plus className="w-4 h-4 flex-shrink-0" strokeWidth={2.5} />
               <span>Add to Existing Order</span>
-            </Link>
+            </button>
           </motion.div>
 
         </div>
@@ -449,8 +458,8 @@ export function KioskWelcomeClient() {
       <div className="absolute top-5 right-6 z-20">
         {session ? (
           <button
-            onClick={async () => { await clearKioskSession(session.id); clearSession(); }}
-            title="Click to change employee"
+            onClick={() => setSignOutDialogOpen(true)}
+            title="Click to sign out"
             className="flex items-center gap-1.5 bg-white border border-orange-200 hover:border-orange-400 text-stone-700 pl-1.5 pr-3 py-1.5 rounded-full shadow-md hover:shadow-lg transition-all duration-200"
           >
             <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
@@ -475,6 +484,7 @@ export function KioskWelcomeClient() {
 
       <KioskAdminOverlay isOpen={adminOverlayOpen} onClose={() => setAdminOverlayOpen(false)} />
       <EmployeePinDialog open={pinDialogOpen} onOpenChange={setPinDialogOpen} kioskType="restaurant" />
+      <StaffSignOutDialog open={signOutDialogOpen} onOpenChange={setSignOutDialogOpen} kioskType="restaurant" />
     </div>
   );
 }

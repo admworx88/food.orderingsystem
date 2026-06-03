@@ -680,7 +680,8 @@ export async function createOrder(
     const isBillLater = validated.paymentMethod === 'bill_later';
     const orderStatus = isBillLater ? 'paid' : 'pending_payment';
     const paymentStatus = 'unpaid';
-    const expiresAt = isBillLater ? null : new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    const isCash = validated.paymentMethod === 'cash';
+    const expiresAt = (isBillLater || isCash) ? null : new Date(Date.now() + 15 * 60 * 1000).toISOString();
     const paidAt = isBillLater ? new Date().toISOString() : null; // bill_later skips payment step
 
     // 9. Insert the order — pre-generate the UUID so we can fetch it back
@@ -1373,6 +1374,33 @@ export async function getActiveDineInOrders(): Promise<ServiceResult<OrderWithIt
   }
 
   return { success: true, data: (data || []) as OrderWithItems[] };
+}
+
+export async function checkTableInUse(
+  tableNumber: string,
+  orderType: 'dine_in' | 'ocean_view' | 'room_service'
+): Promise<ServiceResult<{ inUse: boolean; orderNumber?: string }>> {
+  try {
+    const supabase = createAdminClient();
+    const { data } = await supabase
+      .from('orders')
+      .select('id, order_number')
+      .eq('table_number', tableNumber.trim())
+      .eq('order_type', orderType)
+      .in('status', ['pending_payment', 'paid', 'preparing', 'ready'])
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (data) {
+      return { success: true, data: { inUse: true, orderNumber: data.order_number } };
+    }
+    return { success: true, data: { inUse: false } };
+  } catch (error) {
+    console.error('checkTableInUse failed:', error);
+    return { success: false, error: 'Failed to check table status' };
+  }
 }
 
 /**

@@ -375,10 +375,23 @@ export function KioskCartPanel({ addItemsContext }: { addItemsContext?: AddItems
                   <span>Add to Order · {formatCurrency(total)}</span>
                 )}
               </button>
+            ) : !orderType && !isOceanView ? (
+              <Link
+                href="/order-type"
+                className={cn(
+                  'w-full py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center',
+                  'bg-amber-500 bg-gradient-to-r from-amber-500 to-amber-600 text-white',
+                  'shadow-lg shadow-amber-500/20',
+                  'hover:from-amber-400 hover:to-amber-500 hover:shadow-amber-500/35',
+                  'active:scale-[0.98]',
+                )}
+              >
+                Select Order Type
+              </Link>
             ) : (
               <button
                 onClick={handleCheckout}
-                disabled={items.length === 0 || (!orderType && !isOceanView)}
+                disabled={items.length === 0}
                 className={cn(
                   'w-full py-3.5 rounded-xl font-bold text-sm transition-all',
                   'bg-amber-500 bg-gradient-to-r from-amber-500 to-amber-600 text-white',

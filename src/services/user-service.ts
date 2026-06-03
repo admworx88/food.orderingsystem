@@ -447,8 +447,7 @@ export async function resolveStaffPin(
     }
 
     // Use admin client — profiles table has no anon SELECT policy; kiosk has no auth session.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createAdminClient() as any;
+    const admin = createAdminClient();
 
     const { data, error } = await admin
       .from('profiles')
@@ -488,8 +487,7 @@ export async function resolveStaffPin(
 
 export async function clearKioskSession(profileId: string): Promise<void> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (createAdminClient() as any)
+    await createAdminClient()
       .from('kiosk_active_sessions')
       .delete()
       .eq('profile_id', profileId);

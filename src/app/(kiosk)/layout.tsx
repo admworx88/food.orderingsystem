@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import Image from 'next/image';
-import { ShoppingBag } from 'lucide-react';
+import { ShoppingBag, WifiOff } from 'lucide-react';
 import { CartDrawer } from '@/components/kiosk/cart-drawer';
 import { FullscreenToggle } from '@/components/kiosk/fullscreen-toggle';
 import { LanguageSwitcher } from '@/components/kiosk/language-switcher';
@@ -13,6 +13,8 @@ import { KioskPinDialog } from '@/components/kiosk/kiosk-pin-dialog';
 import { LocaleProvider, useLocale } from '@/lib/i18n/locale-context';
 import { useCartStore } from '@/stores/cart-store';
 import { useKioskLocation } from '@/hooks/use-kiosk-location';
+import { useNetworkStatus } from '@/hooks/use-network-status';
+import { NetworkOfflineDialog } from '@/components/shared/network-offline-dialog';
 import { formatCurrency } from '@/lib/utils/currency';
 import { cn } from '@/lib/utils';
 
@@ -57,6 +59,7 @@ function KioskLayoutInner({ children }: KioskLayoutProps) {
   const pathname = usePathname();
   const { t } = useLocale();
   const { location, isLoaded, setLocation, clearLocation } = useKioskLocation();
+  const { isOnline, isChecking, retry } = useNetworkStatus();
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -159,10 +162,10 @@ function KioskLayoutInner({ children }: KioskLayoutProps) {
     (location === 'ocean_view' && (pathname === '/' || pathname === '/order-type'));
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-[var(--kiosk-bg)] overflow-hidden">
+    <div className="h-[100dvh] flex flex-col bg-[var(--kiosk-bg)] [overflow:clip]">
       {/* Premium Header — hidden on Ocean View landing */}
       <header className={cn(
-        'flex-shrink-0 h-14 sm:h-16 md:h-[72px] px-3 sm:px-4 md:px-6 flex items-center justify-between bg-[#FEF7EE] border-b border-orange-100/40 shadow-none safe-area-inset-top',
+        'flex-shrink-0 sticky top-0 z-10 h-14 sm:h-16 md:h-[72px] px-3 sm:px-4 md:px-6 flex items-center justify-between bg-[#FEF7EE] border-b border-orange-100/40 shadow-none safe-area-inset-top',
         (pathname === '/ocean-view' || pathname === '/') && 'hidden'
       )}>
         {/* Logo & Brand */}
@@ -178,9 +181,19 @@ function KioskLayoutInner({ children }: KioskLayoutProps) {
             <h1 className="text-base sm:text-lg font-semibold text-stone-800 leading-tight tracking-tight">
               Arena Blanca Resort
             </h1>
-            <p className="text-[10px] sm:text-xs text-stone-400 font-medium hidden sm:block">Restaurant</p>
+            <p className="text-[10px] sm:text-xs text-stone-400 font-medium hidden sm:block">
+              {location === 'ocean_view' ? 'Ocean View' : 'Restaurant'}
+            </p>
           </div>
         </Link>
+
+        {/* Center: Offline banner */}
+        {!isOnline && (
+          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-red-500 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-md shadow-red-500/30">
+            <WifiOff className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2} />
+            <span>Internet Connection Issues</span>
+          </div>
+        )}
 
         {/* Right side: Language + Time */}
         <div className="flex items-center gap-2 sm:gap-3 md:gap-5">
@@ -257,6 +270,9 @@ function KioskLayoutInner({ children }: KioskLayoutProps) {
         onOpenChange={setPinDialogOpen}
         onSuccess={handlePinSuccess}
       />
+
+      {/* Network Offline Dialog */}
+      <NetworkOfflineDialog isOnline={isOnline} isChecking={isChecking} onRetry={retry} />
 
       {/* Idle Warning Overlay */}
       {showIdleWarning && (

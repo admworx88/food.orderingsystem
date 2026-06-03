@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { User } from 'lucide-react';
+import { User, Delete } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -71,20 +71,24 @@ export function EmployeePinDialog({ open, onOpenChange, kioskType }: EmployeePin
     setLoading(false);
   };
 
-  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleNumPad = useCallback((digit: string) => {
+    if (pin.length >= 6 || loading) return;
     setError('');
-    setPin(e.target.value.replace(/\D/g, '').slice(0, 6));
-  };
+    setPin((prev) => prev + digit);
+  }, [pin, loading]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') handleSubmit();
-  };
+  const handleBackspace = useCallback(() => {
+    setError('');
+    setPin((prev) => prev.slice(0, -1));
+  }, []);
+
+  const pinDots = Array.from({ length: 6 }, (_, i) => i < pin.length);
 
   return (
     <>
     <BurgerLoader isLoading={loading} message="Signing in…" />
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-sm rounded-3xl border-orange-100/60 bg-[#FEF7EE] p-8">
+      <DialogContent className="max-w-sm rounded-3xl border-orange-100/60 bg-[#FEF7EE] p-6">
         <DialogHeader className="items-center text-center">
           <div className="w-14 h-14 rounded-2xl bg-orange-100 flex items-center justify-center mb-2">
             <User className="w-7 h-7 text-orange-500" strokeWidth={1.75} />
@@ -97,39 +101,64 @@ export function EmployeePinDialog({ open, onOpenChange, kioskType }: EmployeePin
           </DialogDescription>
         </DialogHeader>
 
-        <div className="mt-4">
-          <input
-            type="password"
-            inputMode="numeric"
-            pattern="\d*"
-            maxLength={6}
-            value={pin}
-            onChange={handleInput}
-            onKeyDown={handleKeyDown}
-            placeholder="• • • •"
-            autoFocus
-            className={cn(
-              'w-full h-24 text-6xl font-bold text-center tracking-[0.5em] rounded-2xl border bg-white',
-              'placeholder:text-stone-200 placeholder:tracking-widest placeholder:text-4xl',
-              'focus:outline-none focus:ring-2 focus:ring-orange-400/50 focus:border-orange-400',
-              error ? 'border-rose-300' : 'border-stone-200'
-            )}
-          />
-          {error && (
-            <p className="text-xs text-rose-500 text-center mt-2">{error}</p>
-          )}
+        {/* PIN dots */}
+        <div className="flex items-center justify-center gap-3 mt-4">
+          {pinDots.map((filled, i) => (
+            <div
+              key={i}
+              className={cn(
+                'w-3.5 h-3.5 rounded-full transition-all duration-150',
+                filled ? 'bg-orange-500 scale-110' : 'bg-stone-200'
+              )}
+            />
+          ))}
+        </div>
+
+        {/* Error */}
+        <div className="h-5 flex items-center justify-center">
+          {error && <p className="text-xs text-rose-500 text-center">{error}</p>}
+        </div>
+
+        {/* Number pad */}
+        <div className="grid grid-cols-3 gap-2">
+          {['1','2','3','4','5','6','7','8','9'].map((digit) => (
+            <button
+              key={digit}
+              onClick={() => handleNumPad(digit)}
+              disabled={loading}
+              className="h-13 py-3.5 rounded-xl bg-white hover:bg-orange-50 active:bg-orange-100 active:scale-95 text-xl font-bold text-stone-800 transition-all duration-100 border border-stone-200 shadow-sm disabled:opacity-40"
+            >
+              {digit}
+            </button>
+          ))}
+          <button
+            onClick={handleBackspace}
+            disabled={loading}
+            className="h-13 py-3.5 rounded-xl bg-white hover:bg-red-50 active:bg-red-100 active:scale-95 transition-all duration-100 border border-stone-200 shadow-sm flex items-center justify-center disabled:opacity-40"
+            aria-label="Backspace"
+          >
+            <Delete className="w-5 h-5 text-stone-500" strokeWidth={2} />
+          </button>
+          <button
+            onClick={() => handleNumPad('0')}
+            disabled={loading}
+            className="h-13 py-3.5 rounded-xl bg-white hover:bg-orange-50 active:bg-orange-100 active:scale-95 text-xl font-bold text-stone-800 transition-all duration-100 border border-stone-200 shadow-sm disabled:opacity-40"
+          >
+            0
+          </button>
+          <div />
         </div>
 
         <button
           onClick={handleSubmit}
           disabled={pin.length < 4 || loading}
           className={cn(
-            'mt-4 w-full h-14 rounded-2xl font-bold text-base transition-all',
+            'mt-3 w-full h-13 py-3.5 rounded-2xl font-bold text-base transition-all',
             'bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/25',
             'disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none'
           )}
         >
-          {loading ? 'Verifying…' : 'Sign In'}
+          Sign In
         </button>
       </DialogContent>
     </Dialog>

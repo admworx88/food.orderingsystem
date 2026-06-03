@@ -124,3 +124,77 @@ export interface ShiftSummary {
   cancelledOrders: number;
   expiredOrders: number;
 }
+
+// Shift lifecycle types (Collections tab)
+export interface Shift {
+  id: string;
+  cashier_id: string;
+  started_at: string;
+  ended_at: string | null;
+  submitted_at: string | null;
+  status: 'open' | 'closed';
+  notes: string | null;
+}
+
+export interface ShiftDeduction {
+  id: string;
+  shift_id: string;
+  amount: number;
+  description: string;
+  created_at: string;
+  created_by: string | null;
+}
+
+export interface ShiftPaymentRow {
+  id: string;
+  order_id: string;
+  method: string;
+  amount: number;
+  status: string;
+  completed_at: string;
+  order_number: string;
+}
+
+export interface ShiftTotals {
+  grossTotal: number;
+  byMethod: {
+    cash: { count: number; total: number };
+    gcash: { count: number; total: number };
+    ewallet: { count: number; total: number };
+    card: { count: number; total: number };
+    bill_later: { count: number; total: number };
+  };
+  refundsTotal: number;
+  deductionsTotal: number;
+  netCash: number;
+  totalOrders: number;
+}
+
+export interface ShiftDetails {
+  shift: Shift;
+  cashierName: string;
+  payments: ShiftPaymentRow[];
+  deductions: ShiftDeduction[];
+  totals: ShiftTotals;
+}
+
+export interface ShiftCollectionRecord {
+  id: string;
+  remittance_number: string;
+  cashier_id: string;
+  cashier_name: string;
+  date: string;
+  submitted_at: string;
+  shift_started_at: string | null;
+  shift_ended_at: string | null;
+  total_orders: number;
+  total_revenue: number;
+  cash_total: number;
+  gcash_total: number;
+  ewallet_total: number;
+  card_total: number;
+  refunds_total: number;
+  deductions_total: number;
+  net_cash: number;
+  shift_id: string | null;
+}

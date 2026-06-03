@@ -83,13 +83,13 @@ export async function getPendingOrders(kioskLocation?: string | null): Promise<S
     const { data, error } = await query.order('created_at', { ascending: true });
 
     if (error) {
-      console.error('getPendingOrders failed:', error);
+      console.warn('getPendingOrders failed:', error);
       return serviceError('E9001', 'Failed to fetch pending orders');
     }
 
     return { success: true, data: (data || []) as CashierOrder[] };
   } catch (error) {
-    console.error('getPendingOrders unexpected error:', error);
+    console.warn('getPendingOrders unexpected error:', error);
     return serviceError('E9001', 'An unexpected error occurred');
   }
 }
@@ -129,13 +129,13 @@ export async function getUnpaidBills(kioskLocation?: string | null): Promise<Ser
     const { data, error } = await query.order('created_at', { ascending: true });
 
     if (error) {
-      console.error('getUnpaidBills failed:', error);
+      console.warn('getUnpaidBills failed:', error);
       return serviceError('E9001', 'Failed to fetch unpaid bills');
     }
 
     return { success: true, data: (data || []) as CashierOrder[] };
   } catch (error) {
-    console.error('getUnpaidBills unexpected error:', error);
+    console.warn('getUnpaidBills unexpected error:', error);
     return serviceError('E9001', 'An unexpected error occurred');
   }
 }
@@ -370,6 +370,7 @@ export async function processManualEwalletPayment(
         status: 'success',
         provider_reference: `${method}:${referenceNumber}`,
         processed_by: cashierId,
+        completed_at: new Date().toISOString(),
       })
       .select('id')
       .single();
@@ -1026,8 +1027,7 @@ export async function voidBill(input: {
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createAdminClient() as any;
+    const admin = createAdminClient();
 
     // Verify PIN belongs to this cashier
     const { data: profile, error: profileError } = await admin
@@ -1237,6 +1237,112 @@ export async function getShiftSummary(
 }
 
 // ============================================================
+// F-C09: Shift Collection Submission
+// ============================================================
+
+/**
+ * Check whether the authenticated cashier has submitted their collection for today.
+ */
+export async function hasSubmittedShiftCollection(): Promise<{
+  submitted: boolean;
+  submittedAt: string | null;
+}> {
+  try {
+    const supabase = await createServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { submitted: false, submittedAt: null };
+
+    const today = new Date().toISOString().split('T')[0];
+    const { data } = await supabase
+      .from('shift_collections')
+      .select('submitted_at')
+      .eq('cashier_id', user.id)
+      .eq('date', today)
+      .maybeSingle();
+
+    return { submitted: !!data, submittedAt: data?.submitted_at ?? null };
+  } catch {
+    return { submitted: false, submittedAt: null };
+  }
+}
+
+/**
+ * Submit a shift collection — one-shot, atomic via DB function.
+ * Closes the shift and snapshots totals into shift_collections.
+ */
+export async function submitShiftCollection(shiftId: string, overrideCashierId?: string): Promise<ServiceResult<{ submittedAt: string }>> {
+  try {
+    const idCheck = validateId(shiftId);
+    if (!idCheck.valid) return serviceError('E2001', idCheck.error);
+
+    const admin = createAdminClient();
+    let cashierId: string;
+    if (overrideCashierId) {
+      cashierId = overrideCashierId;
+    } else {
+      const supabase = await createServerClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return serviceError('E1001', 'Not authenticated');
+      cashierId = user.id;
+    }
+
+    // Get cashier name
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('full_name')
+      .eq('id', cashierId)
+      .single();
+
+    // Get current shift details for totals
+    const detailsResult = await getShiftDetails(shiftId, overrideCashierId);
+    if (!detailsResult.success) return serviceError('E9001', 'Failed to compute shift totals');
+    const { totals } = detailsResult.data;
+
+    const { data: submittedAt, error } = await admin.rpc('submit_shift', {
+      p_shift_id: shiftId,
+      p_cashier_id: cashierId,
+      p_cashier_name: profile?.full_name ?? 'Unknown',
+      p_gross_total: totals.grossTotal,
+      p_cash_total: totals.byMethod.cash.total,
+      p_gcash_total: totals.byMethod.gcash.total,
+      p_ewallet_total: totals.byMethod.ewallet.total,
+      p_card_total: totals.byMethod.card.total,
+      p_refunds_total: totals.refundsTotal,
+      p_deductions_total: totals.deductionsTotal,
+      p_net_cash: totals.netCash,
+      p_total_orders: totals.totalOrders,
+    });
+
+    if (error) {
+      if (error.message?.includes('E3102')) {
+        return serviceError('E3102', 'Shift is already closed');
+      }
+      console.error('submitShiftCollection RPC failed:', error);
+      return serviceError('E9001', 'Failed to submit collection');
+    }
+
+    await logAuditEvent({
+      table_name: 'shift_collections',
+      action: 'submit',
+      record_id: shiftId,
+      new_data: {
+        cashier: profile?.full_name,
+        grossTotal: totals.grossTotal,
+        netCash: totals.netCash,
+        deductionsTotal: totals.deductionsTotal,
+      },
+    });
+
+    revalidatePath('/collections');
+    revalidatePath('/payments');
+    return { success: true, data: { submittedAt: submittedAt as string } };
+  } catch (error) {
+    console.error('submitShiftCollection unexpected error:', error);
+    return serviceError('E9001', 'An unexpected error occurred');
+  }
+}
+
+// ============================================================
 // Verify Admin PIN (used by kiosk location reset)
 // ============================================================
 
@@ -1259,5 +1365,562 @@ export async function verifyAdminPin(
     return { success: match };
   } catch {
     return { success: false };
+  }
+}
+
+// ============================================================
+// F-C10: Shift Management (Collections)
+// ============================================================
+
+export interface Shift {
+  id: string;
+  cashier_id: string;
+  started_at: string;
+  ended_at: string | null;
+  submitted_at: string | null;
+  status: 'open' | 'closed';
+  notes: string | null;
+}
+
+export interface ShiftDeduction {
+  id: string;
+  shift_id: string;
+  amount: number;
+  description: string;
+  created_at: string;
+  created_by: string | null;
+}
+
+export interface ShiftPaymentRow {
+  id: string;
+  order_id: string;
+  method: string;
+  amount: number;
+  status: string;
+  completed_at: string;
+  order_number: string;
+}
+
+export interface ShiftTotals {
+  grossTotal: number;
+  byMethod: {
+    cash: { count: number; total: number };
+    gcash: { count: number; total: number };
+    ewallet: { count: number; total: number };
+    card: { count: number; total: number };
+    bill_later: { count: number; total: number };
+  };
+  refundsTotal: number;
+  deductionsTotal: number;
+  netCash: number;
+  totalOrders: number;
+}
+
+export interface ShiftDetails {
+  shift: Shift;
+  cashierName: string;
+  payments: ShiftPaymentRow[];
+  deductions: ShiftDeduction[];
+  totals: ShiftTotals;
+}
+
+/**
+ * Start a new shift for the authenticated cashier.
+ * Fails with E3101 if an open shift already exists (enforced by DB partial unique index).
+ */
+export async function startShift(overrideCashierId?: string): Promise<ServiceResult<Shift>> {
+  try {
+    const admin = createAdminClient();
+    let cashierId: string;
+
+    if (overrideCashierId) {
+      const idCheck = validateId(overrideCashierId);
+      if (!idCheck.valid) return serviceError('E1001', 'Invalid cashier ID');
+      const { data: profile } = await admin.from('profiles').select('id, role, is_active').eq('id', overrideCashierId).single();
+      if (!profile?.is_active || !['cashier', 'admin'].includes(profile.role ?? '')) {
+        return serviceError('E1001', 'Cashier account not found or inactive');
+      }
+      cashierId = overrideCashierId;
+    } else {
+      const supabase = await createServerClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return serviceError('E1001', 'Not authenticated');
+      cashierId = user.id;
+    }
+
+    const { data, error } = await admin
+      .from('shifts')
+      .insert({ cashier_id: cashierId, status: 'open' })
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === '23505') {
+        return serviceError('E3101', 'You already have an open shift. Submit it before starting a new one.');
+      }
+      console.error('startShift failed:', error);
+      return serviceError('E9001', 'Failed to start shift');
+    }
+
+    await logAuditEvent({
+      table_name: 'shifts',
+      action: 'start',
+      record_id: data.id,
+      new_data: { cashier_id: cashierId, started_at: data.started_at },
+    });
+
+    revalidatePath('/payments');
+    revalidatePath('/collections');
+    return { success: true, data: data as Shift };
+  } catch (error) {
+    console.error('startShift unexpected error:', error);
+    return serviceError('E9001', 'An unexpected error occurred');
+  }
+}
+
+/**
+ * Get the currently open shift for the authenticated cashier, or null if none.
+ */
+export async function getOpenShift(overrideCashierId?: string): Promise<ServiceResult<Shift | null>> {
+  try {
+    const admin = createAdminClient();
+    let cashierId: string;
+
+    if (overrideCashierId) {
+      const idCheck = validateId(overrideCashierId);
+      if (!idCheck.valid) return serviceError('E1001', 'Invalid cashier ID');
+      const { data: profile } = await admin.from('profiles').select('id, role, is_active').eq('id', overrideCashierId).single();
+      if (!profile?.is_active || !['cashier', 'admin'].includes(profile.role ?? '')) {
+        return serviceError('E1001', 'Cashier account not found or inactive');
+      }
+      cashierId = overrideCashierId;
+    } else {
+      const supabase = await createServerClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return serviceError('E1001', 'Not authenticated');
+      cashierId = user.id;
+    }
+
+    const { data, error } = await admin
+      .from('shifts')
+      .select('*')
+      .eq('cashier_id', cashierId)
+      .eq('status', 'open')
+      .maybeSingle();
+
+    if (error) {
+      console.error('getOpenShift failed:', error);
+      return serviceError('E9001', 'Failed to fetch shift status');
+    }
+
+    return { success: true, data: data as Shift | null };
+  } catch (error) {
+    console.error('getOpenShift unexpected error:', error);
+    return serviceError('E9001', 'An unexpected error occurred');
+  }
+}
+
+/**
+ * Get the most recently closed shift for the authenticated cashier (for history display).
+ */
+export async function getMostRecentClosedShift(overrideCashierId?: string): Promise<ServiceResult<Shift | null>> {
+  try {
+    const admin = createAdminClient();
+    let cashierId: string;
+
+    if (overrideCashierId) {
+      const idCheck = validateId(overrideCashierId);
+      if (!idCheck.valid) return serviceError('E1001', 'Invalid cashier ID');
+      const { data: profile } = await admin.from('profiles').select('id, role, is_active').eq('id', overrideCashierId).single();
+      if (!profile?.is_active || !['cashier', 'admin'].includes(profile.role ?? '')) {
+        return serviceError('E1001', 'Cashier account not found or inactive');
+      }
+      cashierId = overrideCashierId;
+    } else {
+      const supabase = await createServerClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return serviceError('E1001', 'Not authenticated');
+      cashierId = user.id;
+    }
+
+    const { data, error } = await admin
+      .from('shifts')
+      .select('*')
+      .eq('cashier_id', cashierId)
+      .eq('status', 'closed')
+      .order('submitted_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error('getMostRecentClosedShift failed:', error);
+      return serviceError('E9001', 'Failed to fetch shift history');
+    }
+
+    return { success: true, data: data as Shift | null };
+  } catch (error) {
+    console.error('getMostRecentClosedShift unexpected error:', error);
+    return serviceError('E9001', 'An unexpected error occurred');
+  }
+}
+
+/**
+ * Get submitted shift_collections for a cashier, newest first (max 50).
+ */
+export async function getShiftCollections(overrideCashierId?: string): Promise<ServiceResult<import('@/types/payment').ShiftCollectionRecord[]>> {
+  try {
+    const admin = createAdminClient();
+    let cashierId: string;
+
+    if (overrideCashierId) {
+      const idCheck = validateId(overrideCashierId);
+      if (!idCheck.valid) return serviceError('E1001', 'Invalid cashier ID');
+      cashierId = overrideCashierId;
+    } else {
+      const supabase = await createServerClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return serviceError('E1001', 'Not authenticated');
+      cashierId = user.id;
+    }
+
+    const { data, error } = await admin
+      .from('shift_collections')
+      .select('id, remittance_number, cashier_id, cashier_name, date, submitted_at, shift_started_at, shift_ended_at, total_orders, total_revenue, cash_total, gcash_total, ewallet_total, card_total, refunds_total, deductions_total, net_cash, shift_id')
+      .eq('cashier_id', cashierId)
+      .order('submitted_at', { ascending: false })
+      .limit(50);
+
+    if (error) {
+      console.error('getShiftCollections failed:', error);
+      return serviceError('E9001', 'Failed to fetch collection history');
+    }
+
+    return { success: true, data: (data ?? []) as import('@/types/payment').ShiftCollectionRecord[] };
+  } catch (error) {
+    console.error('getShiftCollections unexpected error:', error);
+    return serviceError('E9001', 'An unexpected error occurred');
+  }
+}
+
+/**
+ * Check if the authenticated cashier has an open shift (used for sign-out gate).
+ */
+export async function hasOpenShift(): Promise<{ hasOpen: boolean; shiftId: string | null }> {
+  try {
+    const supabase = await createServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { hasOpen: false, shiftId: null };
+
+    const { data } = await supabase
+      .from('shifts')
+      .select('id')
+      .eq('cashier_id', user.id)
+      .eq('status', 'open')
+      .maybeSingle();
+
+    return { hasOpen: !!data, shiftId: data?.id ?? null };
+  } catch {
+    return { hasOpen: false, shiftId: null };
+  }
+}
+
+/**
+ * Get full shift details including payments (via RPC) and deductions.
+ * Computes totals server-side.
+ */
+export async function getShiftDetails(shiftId: string, overrideCashierId?: string): Promise<ServiceResult<ShiftDetails>> {
+  try {
+    const idCheck = validateId(shiftId);
+    if (!idCheck.valid) return serviceError('E2001', idCheck.error);
+
+    const admin = createAdminClient();
+    let callerId: string;
+
+    if (overrideCashierId) {
+      const idCheck2 = validateId(overrideCashierId);
+      if (!idCheck2.valid) return serviceError('E1001', 'Invalid cashier ID');
+      callerId = overrideCashierId;
+    } else {
+      const supabase = await createServerClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return serviceError('E1001', 'Not authenticated');
+      callerId = user.id;
+    }
+
+    // Fetch shift + cashier name — ownership check uses callerId
+    const { data: shift, error: shiftError } = await admin
+      .from('shifts')
+      .select('*, profiles(full_name)')
+      .eq('id', shiftId)
+      .eq('cashier_id', callerId)
+      .single();
+
+    if (shiftError || !shift) {
+      return serviceError('E9001', 'Shift not found or access denied');
+    }
+
+    const cashierName = (shift.profiles as { full_name: string } | null)?.full_name ?? 'Unknown';
+    const shiftCashierId = (shift as unknown as { cashier_id: string }).cashier_id;
+
+    const shiftStartedAt = new Date((shift as unknown as { started_at: string }).started_at);
+    const shiftEndedAt = (shift as unknown as { ended_at: string | null }).ended_at;
+    const collectionEndUtc = shiftEndedAt ? new Date(shiftEndedAt) : new Date();
+
+    const [paymentsResult, deductionsResult] = await Promise.all([
+      admin
+        .from('payments')
+        .select('id, order_id, method, amount, status, completed_at, created_at, orders(order_number)')
+        .eq('processed_by', shiftCashierId)
+        .gte('created_at', shiftStartedAt.toISOString())
+        .lte('created_at', collectionEndUtc.toISOString()),
+      admin
+        .from('shift_deductions')
+        .select('*')
+        .eq('shift_id', shiftId)
+        .order('created_at', { ascending: true }),
+    ]);
+
+    if (paymentsResult.error) {
+      console.error('[getShiftDetails] payments query failed:', JSON.stringify(paymentsResult.error));
+      return serviceError('E9001', 'Failed to fetch shift payments');
+    }
+    if (deductionsResult.error) {
+      console.error('getShiftDetails deductions failed:', deductionsResult.error);
+      return serviceError('E9001', 'Failed to fetch deductions');
+    }
+
+    const payments = (paymentsResult.data ?? []).map((p) => ({
+      id: p.id,
+      order_id: p.order_id,
+      method: p.method,
+      amount: p.amount,
+      status: p.status,
+      completed_at: p.completed_at ?? p.created_at,
+      order_number: (p.orders as { order_number: string } | null)?.order_number ?? '',
+    })) as ShiftPaymentRow[];
+
+    const deductions = deductionsResult.data;
+
+    // Compute totals
+    const paymentRows = payments;
+    const deductionRows = (deductions ?? []) as ShiftDeduction[];
+
+    const byMethod = {
+      cash: { count: 0, total: 0 },
+      gcash: { count: 0, total: 0 },
+      ewallet: { count: 0, total: 0 },
+      card: { count: 0, total: 0 },
+      bill_later: { count: 0, total: 0 },
+    };
+    let refundsTotal = 0;
+
+    for (const p of paymentRows) {
+      if (p.status === 'refunded') {
+        refundsTotal += p.amount;
+        continue;
+      }
+      if (p.status !== 'success') continue;
+      const key = p.method as keyof typeof byMethod;
+      if (key in byMethod) {
+        byMethod[key].count++;
+        byMethod[key].total += p.amount;
+      }
+    }
+
+    const grossTotal = Object.values(byMethod).reduce((s, m) => s + m.total, 0);
+    const deductionsTotal = deductionRows.reduce((s, d) => s + Number(d.amount), 0);
+    const cashRefunds = paymentRows
+      .filter((p) => p.status === 'refunded' && p.method === 'cash')
+      .reduce((s, p) => s + p.amount, 0);
+    const netCash = byMethod.cash.total - cashRefunds - deductionsTotal;
+    const totalOrders = paymentRows.filter((p) => p.status === 'success').length;
+
+    return {
+      success: true,
+      data: {
+        shift: {
+          id: shift.id,
+          cashier_id: shift.cashier_id,
+          started_at: shift.started_at,
+          ended_at: shift.ended_at,
+          submitted_at: shift.submitted_at,
+          status: shift.status as 'open' | 'closed',
+          notes: shift.notes,
+        },
+        cashierName,
+        payments: paymentRows,
+        deductions: deductionRows,
+        totals: { grossTotal, byMethod, refundsTotal, deductionsTotal, netCash, totalOrders },
+      },
+    };
+  } catch (error) {
+    console.error('getShiftDetails unexpected error:', error);
+    return serviceError('E9001', 'An unexpected error occurred');
+  }
+}
+
+/**
+ * Add a deduction to an open shift.
+ */
+export async function addDeduction(
+  shiftId: string,
+  amount: number,
+  description: string,
+  overrideCashierId?: string
+): Promise<ServiceResult<ShiftDeduction>> {
+  try {
+    const idCheck = validateId(shiftId);
+    if (!idCheck.valid) return serviceError('E2001', idCheck.error);
+    if (amount <= 0) return serviceError('E2001', 'Amount must be greater than zero');
+    if (!description.trim()) return serviceError('E2001', 'Description is required');
+
+    const admin = createAdminClient();
+    let cashierId: string;
+    if (overrideCashierId) {
+      cashierId = overrideCashierId;
+    } else {
+      const supabase = await createServerClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return serviceError('E1001', 'Not authenticated');
+      cashierId = user.id;
+    }
+
+    // Verify shift is open and owned by this cashier
+    const { data: shift } = await admin
+      .from('shifts')
+      .select('id, status')
+      .eq('id', shiftId)
+      .eq('cashier_id', cashierId)
+      .single();
+
+    if (!shift) return serviceError('E9001', 'Shift not found');
+    if (shift.status !== 'open') return serviceError('E3102', 'Shift is already closed');
+
+    const { data, error } = await admin
+      .from('shift_deductions')
+      .insert({
+        shift_id: shiftId,
+        amount,
+        description: description.trim(),
+        created_by: cashierId,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('addDeduction failed:', error);
+      return serviceError('E9001', 'Failed to add deduction');
+    }
+
+    revalidatePath('/collections');
+    return { success: true, data: data as ShiftDeduction };
+  } catch (error) {
+    console.error('addDeduction unexpected error:', error);
+    return serviceError('E9001', 'An unexpected error occurred');
+  }
+}
+
+/**
+ * Update an existing deduction (only while shift is open).
+ */
+export async function updateDeduction(
+  id: string,
+  amount: number,
+  description: string,
+  overrideCashierId?: string
+): Promise<ServiceResult<ShiftDeduction>> {
+  try {
+    const idCheck = validateId(id);
+    if (!idCheck.valid) return serviceError('E2001', idCheck.error);
+    if (amount <= 0) return serviceError('E2001', 'Amount must be greater than zero');
+    if (!description.trim()) return serviceError('E2001', 'Description is required');
+
+    const admin = createAdminClient();
+    let cashierId: string;
+    if (overrideCashierId) {
+      cashierId = overrideCashierId;
+    } else {
+      const supabase = await createServerClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return serviceError('E1001', 'Not authenticated');
+      cashierId = user.id;
+    }
+
+    const { data: existing } = await admin
+      .from('shift_deductions')
+      .select('id, shifts(cashier_id, status)')
+      .eq('id', id)
+      .single();
+
+    if (!existing) return serviceError('E9001', 'Deduction not found');
+    const parentShift = (existing.shifts as { cashier_id: string; status: string } | null);
+    if (parentShift?.cashier_id !== cashierId) return serviceError('E1001', 'Access denied');
+    if (parentShift?.status !== 'open') return serviceError('E3102', 'Shift is already closed');
+
+    const { data, error } = await admin
+      .from('shift_deductions')
+      .update({ amount, description: description.trim() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('updateDeduction failed:', error);
+      return serviceError('E9001', 'Failed to update deduction');
+    }
+
+    revalidatePath('/collections');
+    return { success: true, data: data as ShiftDeduction };
+  } catch (error) {
+    console.error('updateDeduction unexpected error:', error);
+    return serviceError('E9001', 'An unexpected error occurred');
+  }
+}
+
+/**
+ * Delete a deduction (only while shift is open).
+ */
+export async function deleteDeduction(id: string, overrideCashierId?: string): Promise<ServiceResult<void>> {
+  try {
+    const idCheck = validateId(id);
+    if (!idCheck.valid) return serviceError('E2001', idCheck.error);
+
+    const admin = createAdminClient();
+    let cashierId: string;
+    if (overrideCashierId) {
+      cashierId = overrideCashierId;
+    } else {
+      const supabase = await createServerClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return serviceError('E1001', 'Not authenticated');
+      cashierId = user.id;
+    }
+
+    const { data: existing } = await admin
+      .from('shift_deductions')
+      .select('id, shifts(cashier_id, status)')
+      .eq('id', id)
+      .single();
+
+    if (!existing) return serviceError('E9001', 'Deduction not found');
+    const parentShift = (existing.shifts as { cashier_id: string; status: string } | null);
+    if (parentShift?.cashier_id !== cashierId) return serviceError('E1001', 'Access denied');
+    if (parentShift?.status !== 'open') return serviceError('E3102', 'Shift is already closed');
+
+    const { error } = await admin
+      .from('shift_deductions')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('deleteDeduction failed:', error);
+      return serviceError('E9001', 'Failed to delete deduction');
+    }
+
+    revalidatePath('/collections');
+    return { success: true, data: undefined };
+  } catch (error) {
+    console.error('deleteDeduction unexpected error:', error);
+    return serviceError('E9001', 'An unexpected error occurred');
   }
 }

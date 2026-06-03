@@ -25,22 +25,28 @@ export function BurgerLoader({ isLoading, message, variant = 'light' }: BurgerLo
       )}
     >
       <Image
-        src={isDark ? '/burger-loading-white.gif' : '/burger-loading.gif'}
+        src={'/burger-loading-white.gif'}
         alt="Loading…"
         width={120}
         height={120}
-        className="object-contain drop-shadow-md"
+        className="object-contain"
         unoptimized
       />
       {message && (
-        <p
-          className={cn(
-            'text-sm font-medium',
-            isDark ? 'text-neutral-200' : 'text-neutral-600'
-          )}
-        >
-          {message}
-        </p>
+        <div className={cn(
+          'px-5 py-2.5 rounded-full',
+          isDark ? 'bg-white/10' : 'bg-stone-100'
+        )}>
+          <p
+            className={cn(
+              'text-sm font-semibold tracking-wide',
+              isDark ? 'text-neutral-200' : 'text-stone-600'
+            )}
+            style={{ fontFamily: "'Inter', sans-serif", letterSpacing: '0.03em' }}
+          >
+            {message}
+          </p>
+        </div>
       )}
     </div>
   );

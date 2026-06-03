@@ -50,7 +50,7 @@ export function useRealtimeUnpaidBills(
       setOrders(result.data);
       setError(null);
     } else {
-      console.error('Failed to fetch unpaid bills:', result.error);
+      console.warn('Failed to fetch unpaid bills:', result.error);
       setError(result.error);
     }
     setIsLoading(false);

@@ -36,6 +36,8 @@ export function PaymentForm({
   const [activeTab, setActiveTab] = useState<PaymentTab>('cash');
   const [isProcessing, setIsProcessing] = useState(false);
   const isExpired = order.expires_at && new Date(order.expires_at) < new Date();
+  const discountAmount = order.discount_amount ?? 0;
+  const originalAmount = discountAmount > 0 ? order.total_amount + discountAmount : undefined;
 
   const handlePaymentComplete = useCallback((paymentId: string, changeGiven?: number) => {
     setIsProcessing(true);
@@ -123,6 +125,7 @@ export function PaymentForm({
         {activeTab === 'cash' && (
           <CashCalculator
             totalAmount={order.total_amount}
+            originalAmount={originalAmount}
             onConfirm={(amountTendered) => handlePaymentComplete('cash', amountTendered)}
             isProcessing={false}
           />
@@ -142,6 +145,7 @@ export function PaymentForm({
             <ManualEwalletPayment
               orderId={order.id}
               totalAmount={order.total_amount}
+              originalAmount={originalAmount}
               method="gcash"
               cashierId={cashierId}
               onPaymentComplete={handlePaymentComplete}
@@ -153,6 +157,7 @@ export function PaymentForm({
           <ManualEwalletPayment
             orderId={order.id}
             totalAmount={order.total_amount}
+            originalAmount={originalAmount}
             method="gotyme"
             cashierId={cashierId}
             onPaymentComplete={handlePaymentComplete}
@@ -163,6 +168,7 @@ export function PaymentForm({
           <ManualEwalletPayment
             orderId={order.id}
             totalAmount={order.total_amount}
+            originalAmount={originalAmount}
             method="maya"
             cashierId={cashierId}
             onPaymentComplete={handlePaymentComplete}
@@ -173,6 +179,7 @@ export function PaymentForm({
           <ManualEwalletPayment
             orderId={order.id}
             totalAmount={order.total_amount}
+            originalAmount={originalAmount}
             method="other_banks"
             cashierId={cashierId}
             onPaymentComplete={handlePaymentComplete}

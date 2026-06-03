@@ -5,11 +5,10 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, ArrowRight, BellRing } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowRight, BellRing, Delete } from 'lucide-react';
 import { useCartStore, type OrderType } from '@/stores/cart-store';
 import { ORDER_TYPE_CONFIG } from '@/lib/constants/order-types';
 import { useKioskLocation } from '@/hooks/use-kiosk-location';
-import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -47,6 +46,7 @@ export default function OrderTypePage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
 
+
   const handleOrderTypeSelect = useCallback((type: OrderType) => {
     setOrderType(type);
     const config = ORDER_TYPE_CONFIG[type];
@@ -59,9 +59,7 @@ export default function OrderTypePage() {
   }, [setOrderType, router]);
 
   const needsTable = orderType ? ORDER_TYPE_CONFIG[orderType].requiresTable : false;
-  const needsRoom = orderType ? ORDER_TYPE_CONFIG[orderType].requiresRoom : false;
   const inputValue = needsTable ? (tableNumber || '') : (roomNumber || '');
-  const inputLabel = needsTable ? 'Table Number' : 'Room Number';
   const inputPlaceholder = needsTable ? 'Enter your table number' : 'Enter your room number';
   const dialogTitle = needsTable ? 'Enter Your Table Number' : 'Enter Your Room Number';
   const dialogDescription = needsTable
@@ -70,18 +68,25 @@ export default function OrderTypePage() {
 
   const canContinue = inputValue.trim().length > 0;
 
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (needsTable) setTableNumber(e.target.value);
-    else setRoomNumber(e.target.value);
-  }, [needsTable, setTableNumber, setRoomNumber]);
+  const handleNumPad = useCallback((digit: string) => {
+    if (inputValue.length >= 4) return;
+    const next = inputValue + digit;
+    if (needsTable) setTableNumber(next);
+    else setRoomNumber(next);
+  }, [inputValue, needsTable, setTableNumber, setRoomNumber]);
 
-  const handleContinue = useCallback(() => {
-    if (canContinue) { setDialogOpen(false); setIsNavigating(true); router.push('/menu'); }
+  const handleBackspace = useCallback(() => {
+    const next = inputValue.slice(0, -1);
+    if (needsTable) setTableNumber(next);
+    else setRoomNumber(next);
+  }, [inputValue, needsTable, setTableNumber, setRoomNumber]);
+
+  const handleContinue = useCallback(async () => {
+    if (!canContinue) return;
+    setDialogOpen(false);
+    setIsNavigating(true);
+    router.push('/menu');
   }, [canContinue, router]);
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && canContinue) handleContinue();
-  }, [canContinue, handleContinue]);
 
   const visibleTypes = Object.values(ORDER_TYPE_CONFIG).filter(
     (cfg) => location === 'restaurant' ? cfg.value !== 'ocean_view' : true
@@ -262,45 +267,71 @@ export default function OrderTypePage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent
           showCloseButton
-          className="max-w-md sm:max-w-lg rounded-2xl border-stone-200 p-6 sm:p-8"
+          className="max-w-sm rounded-2xl border-stone-200 p-5 sm:p-6"
         >
           <DialogHeader className="text-center sm:text-center">
             <DialogTitle className="text-xl sm:text-2xl font-bold text-stone-800 tracking-tight">
               {dialogTitle}
             </DialogTitle>
-            <DialogDescription className="text-sm sm:text-base text-stone-500">
+            <DialogDescription className="text-sm text-stone-500">
               {dialogDescription}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="mt-2 sm:mt-4">
-            <Input
-              id="location-input"
-              type="text"
-              value={inputValue}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              placeholder={inputPlaceholder}
-              className="h-28 sm:h-36 !py-0 flex items-center text-7xl sm:text-8xl lg:text-9xl font-bold text-center rounded-xl border-stone-300 focus-visible:border-amber-500 focus-visible:ring-amber-500/30 placeholder:text-stone-300 placeholder:text-2xl placeholder:font-normal leading-[7rem] sm:leading-[9rem]"
-              autoFocus
-            />
+          {/* Number display */}
+          <div className="mt-3 h-20 flex items-center justify-center rounded-xl border-2 border-amber-400 bg-amber-50/40 select-none">
+            {inputValue ? (
+              <span className="text-6xl font-bold text-stone-900 tabular-nums tracking-tight">
+                {inputValue}
+              </span>
+            ) : (
+              <span className="text-lg font-normal text-stone-300">{inputPlaceholder}</span>
+            )}
           </div>
 
+          {/* Number pad */}
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            {['1','2','3','4','5','6','7','8','9'].map((digit) => (
+              <button
+                key={digit}
+                onClick={() => handleNumPad(digit)}
+                className="h-14 rounded-xl bg-stone-100 hover:bg-amber-50 active:bg-amber-100 active:scale-95 text-2xl font-bold text-stone-800 transition-all duration-100 border border-stone-200"
+              >
+                {digit}
+              </button>
+            ))}
+            {/* Bottom row */}
+            <button
+              onClick={handleBackspace}
+              className="h-14 rounded-xl bg-stone-100 hover:bg-red-50 active:bg-red-100 active:scale-95 transition-all duration-100 border border-stone-200 flex items-center justify-center"
+              aria-label="Backspace"
+            >
+              <Delete className="w-5 h-5 text-stone-500" strokeWidth={2} />
+            </button>
+            <button
+              onClick={() => handleNumPad('0')}
+              className="h-14 rounded-xl bg-stone-100 hover:bg-amber-50 active:bg-amber-100 active:scale-95 text-2xl font-bold text-stone-800 transition-all duration-100 border border-stone-200"
+            >
+              0
+            </button>
+            <div />
+          </div>
+
+          {/* Continue button */}
           <button
-            onClick={handleContinue}
+            onClick={() => handleContinue()}
             disabled={!canContinue}
             className={cn(
-              'mt-4 sm:mt-6 w-full inline-flex items-center justify-center gap-2 sm:gap-3',
+              'mt-3 w-full inline-flex items-center justify-center gap-2',
               'bg-gradient-to-r from-orange-500 to-orange-600 text-white',
-              'px-8 py-4 sm:py-5 rounded-xl sm:rounded-2xl',
-              'text-base sm:text-lg font-bold',
-              'shadow-xl shadow-orange-500/25 hover:shadow-orange-500/40',
+              'px-8 py-4 rounded-xl',
+              'text-base font-bold',
+              'shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40',
               'hover:scale-[1.02] active:scale-[0.98] transition-all',
-              'disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:hover:scale-100',
+              'disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:hover:scale-100',
             )}
           >
-            <span>Continue to Menu</span>
-            <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.5} />
+            <span>Continue to Menu</span><ChevronRight className="w-5 h-5" strokeWidth={2.5} />
           </button>
         </DialogContent>
       </Dialog>

@@ -112,10 +112,11 @@ export function MenuItemCard({ item, onAddToCart, onItemClick, compact = false }
         {/* Add Button */}
         <button
           onClick={handleAddToCart}
-          className="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 lg:w-12 lg:h-12 bg-amber-500 hover:bg-amber-600 text-white rounded-lg sm:rounded-xl flex items-center justify-center active:scale-95 transition-all shadow-md"
+          className="flex-shrink-0 flex items-center justify-center bg-orange-500 hover:bg-orange-600 text-white rounded-full active:scale-95 transition-all shadow-lg"
+          style={{ width: 68, height: 68, minWidth: 68, minHeight: 68 }}
           aria-label={`Add ${item.name} to cart`}
         >
-          <Plus className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.5} />
+          <Plus className="w-10 h-10" strokeWidth={2.5} />
         </button>
       </div>
     );
@@ -205,21 +206,23 @@ export function MenuItemCard({ item, onAddToCart, onItemClick, compact = false }
           </div>
         )}
 
-        {/* Price & Add Button - responsive */}
-        <div className="flex items-center justify-between mt-auto pt-2 sm:pt-3 lg:pt-4 border-t border-stone-100">
-          <span className="text-xs sm:text-sm lg:text-base font-black text-stone-900">
+        {/* Price */}
+        <div className="mt-auto pt-2 border-t border-stone-100">
+          <span className="text-sm lg:text-base font-black text-stone-900">
             {formatCurrency(Number(item.base_price))}
           </span>
-
-          <button
-            onClick={handleAddToCart}
-            className="flex items-center gap-1 sm:gap-2 h-9 sm:h-10 lg:h-12 px-3 sm:px-4 lg:px-5 bg-amber-500 hover:bg-amber-600 text-white text-xs sm:text-sm font-bold rounded-lg sm:rounded-xl active:scale-95 transition-all shadow-md"
-            aria-label={`Add ${item.name} to cart`}
-          >
-            <Plus className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2.5} />
-            <span className="hidden sm:inline">Add</span>
-          </button>
         </div>
+
+        {/* Add Button — full width for easy kiosk tap */}
+        <button
+          onClick={handleAddToCart}
+          className="mt-2 w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 active:scale-[0.97] text-white font-bold rounded-xl transition-all shadow-md"
+          style={{ height: 60 }}
+          aria-label={`Add ${item.name} to cart`}
+        >
+          <Plus className="w-6 h-6" strokeWidth={3} />
+          <span className="text-base tracking-wide">ADD</span>
+        </button>
       </div>
     </div>
   );

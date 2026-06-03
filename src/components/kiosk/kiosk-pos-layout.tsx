@@ -8,18 +8,20 @@ import {
   Coffee, Flame, Fish, Leaf, Wheat, Star, GlassWater,
   Beef, Cookie, ChefHat, Sandwich, Soup, Egg, Sunrise,
   Drumstick, Salad, ToggleLeft, CheckCircle2, XCircle,
+  PlayCircle, Loader2,
   type LucideIcon,
 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { useStaffSessionStore } from '@/stores/staff-session-store';
 // Cross-module: staff views embedded for staff signed-in on kiosk
 import { CashierPosClient } from '@/components/cashier/cashier-pos-client';
 import { RecentOrdersClient } from '@/components/cashier/recent-orders-client';
-import { ShiftSummaryView } from '@/components/cashier/shift-summary-view';
+import { CollectionsView } from '@/components/cashier/collections-view';
 import { WaiterOrderQueue } from '@/components/waiter/waiter-order-queue';
-import { getRecentCompletedOrders, getShiftSummary } from '@/services/payment-service';
+import { getRecentCompletedOrders, getOpenShift, getShiftDetails, getMostRecentClosedShift, startShift, getShiftCollections } from '@/services/payment-service';
 import { toggleMenuItemAvailability } from '@/services/menu-service';
-import type { RecentOrder, ShiftSummary } from '@/types/payment';
+import type { RecentOrder, Shift, ShiftPaymentRow, ShiftDeduction, ShiftTotals, ShiftCollectionRecord } from '@/types/payment';
 import { ItemDetailSheet } from './item-detail-sheet';
 import { EmployeePinDialog } from './employee-pin-dialog';
 import { KioskNavSidebar } from './kiosk-nav-sidebar';
@@ -34,7 +36,7 @@ import type { Database } from '@/lib/supabase/types';
 
 type Category = Database['public']['Tables']['categories']['Row'];
 type MenuItem = Database['public']['Tables']['menu_items']['Row'] & {
-  category: { id: string; name: string } | null;
+  category: { id: string; name: string; requires_kitchen: boolean } | null;
 };
 
 import type { CashierOrder } from '@/types/payment';
@@ -107,11 +109,21 @@ export function KioskPosLayout({ categories, menuItems, initialPendingOrders = [
   const [detailOpen, setDetailOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [activeView, setActiveView] = useState<'menu' | 'orders' | 'payments'>(initialView ?? 'menu');
-  const [cashierTab, setCashierTab] = useState<'payments' | 'recent' | 'reports' | 'menu-status'>('payments');
+  const [cashierTab, setCashierTab] = useState<'payments' | 'recent' | 'collections' | 'menu-status'>('payments');
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
-  const [shiftSummary, setShiftSummary] = useState<ShiftSummary | null>(null);
+  const [collectionsDetails, setCollectionsDetails] = useState<{
+    shift: Shift | null;
+    payments: ShiftPaymentRow[];
+    deductions: ShiftDeduction[];
+    totals: ShiftTotals;
+    lastClosedShift: Shift | null;
+    collectionHistory: ShiftCollectionRecord[];
+  } | null>(null);
   const [recentLoading, setRecentLoading] = useState(false);
-  const [reportsLoading, setReportsLoading] = useState(false);
+  const [collectionsLoading, setCollectionsLoading] = useState(false);
+  const [kioskShiftChecked, setKioskShiftChecked] = useState(false);
+  const [startShiftDialogOpen, setStartShiftDialogOpen] = useState(false);
+  const [startingShift, setStartingShift] = useState(false);
   // Optimistic availability map — shared between kiosk menu + Menu Status tab
   const [itemAvailability, setItemAvailability] = useState<Record<string, boolean>>(
     () => Object.fromEntries(menuItems.map((i) => [i.id, i.is_available ?? true]))
@@ -125,6 +137,29 @@ export function KioskPosLayout({ categories, menuItems, initialPendingOrders = [
   const session = useStaffSessionStore((s) => s.session);
   const staffRole = session?.role;
   const { location: kioskLocation } = useKioskLocation();
+
+  const loadCollectionsData = useCallback(async (cashierId?: string) => {
+    setCollectionsLoading(true);
+    const emptyTotals: ShiftTotals = { grossTotal: 0, byMethod: { cash: { count: 0, total: 0 }, gcash: { count: 0, total: 0 }, ewallet: { count: 0, total: 0 }, card: { count: 0, total: 0 }, bill_later: { count: 0, total: 0 } }, refundsTotal: 0, deductionsTotal: 0, netCash: 0, totalOrders: 0 };
+    const [shiftResult, lastClosedResult, historyResult] = await Promise.all([
+      getOpenShift(cashierId),
+      getMostRecentClosedShift(cashierId),
+      getShiftCollections(cashierId),
+    ]);
+    const lastClosed = lastClosedResult.success ? lastClosedResult.data : null;
+    const history = historyResult.success ? historyResult.data : [];
+    if (shiftResult.success && shiftResult.data) {
+      const detailsResult = await getShiftDetails(shiftResult.data.id, cashierId);
+      if (detailsResult.success) {
+        setCollectionsDetails({ shift: detailsResult.data.shift, payments: detailsResult.data.payments, deductions: detailsResult.data.deductions, totals: detailsResult.data.totals, lastClosedShift: lastClosed, collectionHistory: history });
+      } else {
+        setCollectionsDetails({ shift: shiftResult.data, payments: [], deductions: [], totals: emptyTotals, lastClosedShift: lastClosed, collectionHistory: history });
+      }
+    } else {
+      setCollectionsDetails({ shift: null, payments: [], deductions: [], totals: emptyTotals, lastClosedShift: lastClosed, collectionHistory: history });
+    }
+    setCollectionsLoading(false);
+  }, []);
 
   // Ocean View cashier sees only ocean_view orders; restaurant cashier sees all.
   // Server-side fetch returns all orders (no localStorage access on server), so filter client-side.
@@ -143,6 +178,38 @@ export function KioskPosLayout({ categories, menuItems, initialPendingOrders = [
       setCashierTab('menu-status');
     }
   }, [staffRole]);
+
+  // Reset shift check when a new staff member signs in
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setKioskShiftChecked(false);
+  }, [session?.id]);
+
+  // Show start-shift dialog when cashier enters payments view with no open shift
+  useEffect(() => {
+    if (activeView !== 'payments') return;
+    if (!session || (session.role !== 'cashier' && session.role !== 'admin')) return;
+    if (kioskShiftChecked) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setKioskShiftChecked(true);
+    getOpenShift(session?.id ?? undefined).then((result) => {
+      if (result.success && !result.data) {
+        setStartShiftDialogOpen(true);
+      }
+    });
+  }, [activeView, session, kioskShiftChecked]);
+
+  const handleKioskStartShift = async () => {
+    setStartingShift(true);
+    const result = await startShift(session?.id ?? undefined);
+    setStartingShift(false);
+    if (result.success) {
+      setStartShiftDialogOpen(false);
+      toast.success('Shift started');
+    } else {
+      toast.error(result.error ?? 'Failed to start shift');
+    }
+  };
 
   const addItem = useCartStore((state) => state.addItem);
 
@@ -253,12 +320,12 @@ export function KioskPosLayout({ categories, menuItems, initialPendingOrders = [
         <div className="kiosk-payments-embed flex-1 flex flex-col overflow-hidden bg-[#FAF7F2]">
           {/* Tab bar */}
           <div className="flex-shrink-0 flex items-center h-11 px-3 bg-white border-b border-stone-100 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
-            {(['payments', 'recent', 'reports', 'menu-status'] as const).filter((tab) => {
+            {(['payments', 'recent', 'collections', 'menu-status'] as const).filter((tab) => {
               if (tab === 'menu-status') return staffRole === 'cashier' || staffRole === 'admin' || staffRole === 'kitchen';
-              if (tab === 'payments' || tab === 'recent' || tab === 'reports') return staffRole !== 'kitchen';
+              if (tab === 'payments' || tab === 'recent' || tab === 'collections') return staffRole !== 'kitchen';
               return true;
             }).map((tab) => {
-              const labels: Record<string, string> = { payments: 'Payments', recent: 'Recent Orders', reports: 'Reports', 'menu-status': 'Menu Status' };
+              const labels: Record<string, string> = { payments: 'Payments', recent: 'Recent Orders', collections: 'Collections', 'menu-status': 'Menu Status' };
               const isTabActive = cashierTab === tab;
               return (
                 <button
@@ -271,11 +338,8 @@ export function KioskPosLayout({ categories, menuItems, initialPendingOrders = [
                       if (r.success) setRecentOrders(r.data);
                       setRecentLoading(false);
                     }
-                    if (tab === 'reports' && !shiftSummary) {
-                      setReportsLoading(true);
-                      const r = await getShiftSummary(undefined, session?.full_name);
-                      if (r.success) setShiftSummary(r.data);
-                      setReportsLoading(false);
+                    if (tab === 'collections') {
+                      await loadCollectionsData(session?.id ?? undefined);
                     }
                   }}
                   className={cn(
@@ -310,12 +374,25 @@ export function KioskPosLayout({ categories, menuItems, initialPendingOrders = [
                 ? <div className="flex items-center justify-center h-full text-stone-400 text-sm">Loading…</div>
                 : <RecentOrdersClient initialOrders={recentOrders} />
             )}
-            {cashierTab === 'reports' && (
-              reportsLoading
-                ? <div className="flex items-center justify-center h-full text-stone-400 text-sm">Loading…</div>
-                : shiftSummary
-                  ? <div className="pos-reports-container"><h2 className="pos-reports-title">Shift Report</h2><ShiftSummaryView summary={shiftSummary} /></div>
-                  : <div className="flex items-center justify-center h-full text-stone-400 text-sm">No report data</div>
+            {cashierTab === 'collections' && (
+              <div className="h-full overflow-y-auto">
+                {collectionsLoading
+                  ? <div className="flex items-center justify-center h-full text-stone-400 text-sm">Loading…</div>
+                  : collectionsDetails
+                    ? <CollectionsView
+                        shift={collectionsDetails.shift}
+                        cashierName={session?.full_name ?? 'Staff'}
+                        payments={collectionsDetails.payments}
+                        initialDeductions={collectionsDetails.deductions}
+                        totals={collectionsDetails.totals}
+                        lastClosedShift={collectionsDetails.lastClosedShift}
+                        collectionHistory={collectionsDetails.collectionHistory}
+                        showStartShiftButton={false}
+                        overrideCashierId={session?.id ?? undefined}
+                        onShiftSubmitted={() => loadCollectionsData(session?.id ?? undefined)}
+                      />
+                    : null}
+              </div>
             )}
             {cashierTab === 'menu-status' && (
               <MenuStatusGrid
@@ -540,6 +617,31 @@ export function KioskPosLayout({ categories, menuItems, initialPendingOrders = [
         }}
       />
 
+      {/* ── Start Shift prompt (no open shift when cashier enters payments) ── */}
+      <Dialog open={startShiftDialogOpen} onOpenChange={setStartShiftDialogOpen}>
+        <DialogContent className="bg-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3 text-stone-800">
+              <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <PlayCircle className="w-5 h-5 text-amber-600" />
+              </div>
+              Start Your Shift
+            </DialogTitle>
+            <DialogDescription className="text-stone-500">
+              No open shift found. You need to start a shift before processing payments.
+            </DialogDescription>
+          </DialogHeader>
+          <button
+            onClick={handleKioskStartShift}
+            disabled={startingShift}
+            className="mt-2 w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-semibold text-sm transition-colors disabled:opacity-60"
+          >
+            {startingShift ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlayCircle className="w-4 h-4" />}
+            {startingShift ? 'Starting…' : 'Start Shift'}
+          </button>
+        </DialogContent>
+      </Dialog>
+
       </div>
     </div>
   );
@@ -648,10 +750,13 @@ interface MenuStatusGridProps {
 function MenuStatusGrid({ categories, menuItems, availability, togglingIds, onToggle }: MenuStatusGridProps) {
   const [filter, setFilter] = useState<MenuStatusFilter>('all');
 
-  const availableCount = menuItems.filter((i) => availability[i.id] ?? i.is_available).length;
-  const unavailableCount = menuItems.length - availableCount;
+  // Only show items from non-kitchen categories (e.g. beverages, soft drinks)
+  const nonKitchenItems = menuItems.filter((i) => i.category?.requires_kitchen === false);
 
-  const visibleItems = menuItems.filter((item) => {
+  const availableCount = nonKitchenItems.filter((i) => availability[i.id] ?? i.is_available).length;
+  const unavailableCount = nonKitchenItems.length - availableCount;
+
+  const visibleItems = nonKitchenItems.filter((item) => {
     const isAvail = availability[item.id] ?? item.is_available;
     if (filter === 'available') return isAvail;
     if (filter === 'unavailable') return !isAvail;
@@ -666,7 +771,7 @@ function MenuStatusGrid({ categories, menuItems, availability, togglingIds, onTo
     .filter((g) => g.items.length > 0);
 
   const FILTERS: { key: MenuStatusFilter; label: string; count: number }[] = [
-    { key: 'all', label: 'All', count: menuItems.length },
+    { key: 'all', label: 'All', count: nonKitchenItems.length },
     { key: 'available', label: 'Available', count: availableCount },
     { key: 'unavailable', label: 'Unavailable', count: unavailableCount },
   ];

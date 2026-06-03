@@ -13,6 +13,7 @@ export type EwalletMethod = 'gcash' | 'gotyme' | 'maya' | 'other_banks';
 interface ManualEwalletPaymentProps {
   orderId: string;
   totalAmount: number;
+  originalAmount?: number;
   method: EwalletMethod;
   cashierId: string;
   onPaymentComplete: (paymentId: string) => void;
@@ -28,6 +29,7 @@ const METHOD_META: Record<EwalletMethod, { label: string; logo?: string }> = {
 export function ManualEwalletPayment({
   orderId,
   totalAmount,
+  originalAmount,
   method,
   cashierId,
   onPaymentComplete,
@@ -81,6 +83,11 @@ export function ManualEwalletPayment({
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-stone-400 mb-2">
             Amount Due
           </p>
+          {originalAmount && originalAmount > totalAmount && (
+            <p className="text-[20px] font-bold text-emerald-500/60 tabular-nums line-through leading-none mb-1">
+              {formatCurrency(originalAmount)}
+            </p>
+          )}
           <p className="text-[42px] font-black text-emerald-700 tabular-nums leading-none">
             {formatCurrency(totalAmount)}
           </p>

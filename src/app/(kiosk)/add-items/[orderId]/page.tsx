@@ -31,7 +31,7 @@ export default async function AddItemsMenuPage({ params }: AddItemsMenuPageProps
 
   const { data: menuItems } = await supabase
     .from('menu_items')
-    .select('*, category:categories(id, name)')
+    .select('*, category:categories(id, name, requires_kitchen)')
     .eq('is_available', true)
     .is('deleted_at', null)
     .order('display_order');

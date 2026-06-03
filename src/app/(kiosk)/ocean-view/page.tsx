@@ -10,11 +10,12 @@ import {
 import Link from 'next/link';
 import { useCartStore } from '@/stores/cart-store';
 import { cn } from '@/lib/utils';
+import { BurgerLoader } from '@/components/shared/burger-loader';
 import { KioskAdminOverlay } from '@/components/kiosk/kiosk-admin-overlay';
 import { OceanViewIdentifierDialog } from '@/components/kiosk/ocean-view-identifier-dialog';
 import { EmployeePinDialog } from '@/components/kiosk/employee-pin-dialog';
+import { StaffSignOutDialog } from '@/components/kiosk/staff-signout-dialog';
 import { useStaffSessionStore } from '@/stores/staff-session-store';
-import { clearKioskSession } from '@/services/user-service';
 
 const CAROUSEL_IMAGES = [
   '/ocean-view/1.png',
@@ -33,10 +34,12 @@ export default function OceanViewPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [adminOverlayOpen, setAdminOverlayOpen] = useState(false);
   const [identifierDialogOpen, setIdentifierDialogOpen] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const [logoTapCount, setLogoTapCount] = useState(0);
   const [tapTimer, setTapTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
-  const { session, clearSession } = useStaffSessionStore();
+  const [signOutDialogOpen, setSignOutDialogOpen] = useState(false);
+  const { session } = useStaffSessionStore();
   const showOrders = session?.role === 'waiter' || session?.role === 'cashier';
   const showPayments = session?.role === 'cashier';
   const hasSideButtons = showOrders || showPayments;
@@ -76,6 +79,11 @@ export default function OceanViewPage() {
     setIdentifierDialogOpen(true);
   }, []);
 
+  const handleNavigate = useCallback((href: string) => {
+    setIsNavigating(true);
+    router.push(href);
+  }, [router]);
+
   const handleIdentifierConfirm = useCallback((tableNumber: string | null, guestName: string | null) => {
     setOrderType('ocean_view');
     if (tableNumber) setTableNumber(tableNumber);
@@ -91,6 +99,7 @@ export default function OceanViewPage() {
         isMounted ? 'opacity-100' : 'opacity-0'
       )}
     >
+      <BurgerLoader isLoading={isNavigating} message="Loading…" variant="dark" />
       {/* ── CAROUSEL BACKGROUNDS ── */}
       {CAROUSEL_IMAGES.map((src, index) => (
         <div
@@ -230,22 +239,22 @@ export default function OceanViewPage() {
           {hasSideButtons && (
             <div className="flex flex-row gap-3">
               {showOrders && (
-                <Link
-                  href="/menu?view=orders"
+                <button
+                  onClick={() => handleNavigate('/menu?view=orders')}
                   className="flex flex-col items-center justify-center gap-2 bg-white/15 backdrop-blur-md border border-white/30 hover:bg-white/25 active:scale-[0.97] text-white px-8 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 h-[70px] min-w-[120px]"
                 >
                   <ClipboardList className="w-6 h-6" strokeWidth={1.75} />
                   <span className="text-[13px] font-semibold whitespace-nowrap">Orders</span>
-                </Link>
+                </button>
               )}
               {showPayments && (
-                <Link
-                  href="/menu?view=payments"
+                <button
+                  onClick={() => handleNavigate('/menu?view=payments')}
                   className="flex flex-col items-center justify-center gap-2 bg-white/15 backdrop-blur-md border border-white/30 hover:bg-white/25 active:scale-[0.97] text-white px-8 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 h-[70px] min-w-[120px]"
                 >
                   <CreditCard className="w-6 h-6" strokeWidth={1.75} />
                   <span className="text-[13px] font-semibold whitespace-nowrap">Payments</span>
-                </Link>
+                </button>
               )}
             </div>
           )}
@@ -256,8 +265,8 @@ export default function OceanViewPage() {
       <div className="absolute top-5 right-6 z-20">
         {session ? (
           <button
-            onClick={async () => { await clearKioskSession(session.id); clearSession(); }}
-            title="Click to change employee"
+            onClick={() => setSignOutDialogOpen(true)}
+            title="Click to sign out"
             className="flex items-center gap-1.5 bg-white/15 backdrop-blur-md border border-white/25 hover:border-white/50 text-white pl-1.5 pr-3 py-1.5 rounded-full shadow-md hover:shadow-lg transition-all duration-200 active:scale-[0.97]"
           >
             <div className="w-8 h-8 rounded-full bg-orange-500/80 flex items-center justify-center flex-shrink-0">
@@ -281,8 +290,8 @@ export default function OceanViewPage() {
       </div>
 
       <KioskAdminOverlay isOpen={adminOverlayOpen} onClose={() => setAdminOverlayOpen(false)} />
-
       <EmployeePinDialog open={pinDialogOpen} onOpenChange={setPinDialogOpen} kioskType="ocean_view" />
+      <StaffSignOutDialog open={signOutDialogOpen} onOpenChange={setSignOutDialogOpen} kioskType="ocean_view" />
 
       <OceanViewIdentifierDialog
         open={identifierDialogOpen}

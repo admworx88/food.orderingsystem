@@ -4,11 +4,11 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Receipt, Clock, CreditCard, Ban } from 'lucide-react';
 import { PendingOrdersList } from './pending-orders-list';
-import { UnpaidBillsList } from './unpaid-bills-list';
 import { OrderDetailPanel } from './order-detail-panel';
 import { PaymentDialog } from './payment-dialog';
 import { ReceiptPreview } from './receipt-preview';
 import { VoidBillDialog } from './void-bill-dialog';
+import { StartShiftGate } from './start-shift-gate';
 import { useRealtimePendingOrders } from '@/hooks/use-realtime-pending-orders';
 import { useRealtimeUnpaidBills } from '@/hooks/use-realtime-unpaid-bills';
 import {
@@ -18,7 +18,6 @@ import {
 import { generateBIRReceipt } from '@/services/bir-service';
 import { EXPIRY_POLL_INTERVAL_MS } from '@/lib/constants/payment-methods';
 import { formatCurrency } from '@/lib/utils/currency';
-import { cn } from '@/lib/utils';
 import type { CashierOrder, BIRReceiptData } from '@/types/payment';
 
 interface CashierPosClientProps {
@@ -30,10 +29,10 @@ interface CashierPosClientProps {
   kioskTheme?: boolean;
   kioskLocation?: string | null;
   initialSelectedOrderId?: string;
+  hasOpenShift?: boolean;
 }
 
 type ViewState = 'payment' | 'receipt';
-type QueueTab = 'pending' | 'unpaid';
 
 export function CashierPosClient({
   initialOrders,
@@ -44,18 +43,17 @@ export function CashierPosClient({
   kioskTheme,
   kioskLocation,
   initialSelectedOrderId,
+  hasOpenShift = true,
 }: CashierPosClientProps) {
   const { orders: pendingOrders, refetch: refetchPending } = useRealtimePendingOrders({ initialData: initialOrders, kioskLocation });
   const { orders: unpaidBills, refetch: refetchUnpaid } = useRealtimeUnpaidBills({ initialData: initialUnpaidBills, kioskLocation });
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(initialSelectedOrderId ?? null);
   const [viewState, setViewState] = useState<ViewState>('payment');
   const [receiptData, setReceiptData] = useState<BIRReceiptData | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [activeTab, setActiveTab] = useState<QueueTab>('pending');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isVoidDialogOpen, setIsVoidDialogOpen] = useState(false);
 
-  const orders = activeTab === 'pending' ? pendingOrders : unpaidBills;
+  const orders = useMemo(() => [...pendingOrders, ...unpaidBills], [pendingOrders, unpaidBills]);
 
   const effectiveSelectedId = useMemo(() => {
     if (selectedOrderId && orders.find((o) => o.id === selectedOrderId)) {
@@ -80,26 +78,23 @@ export function CashierPosClient({
   }, []);
 
   const handlePaymentComplete = useCallback(
-    async (methodOrId: string, amountTenderedOrChange?: number) => {
-      if (!selectedOrder) return;
+    async (methodOrId: string, amountTenderedOrChange?: number): Promise<boolean> => {
+      if (!selectedOrder) return false;
 
       if (methodOrId === 'cash' && amountTenderedOrChange !== undefined) {
-        setIsProcessing(true);
         const result = await processCashPayment({
           orderId: selectedOrder.id,
           amountTendered: amountTenderedOrChange,
           cashierId,
           cashierName,
         });
-        setIsProcessing(false);
 
         if (result.success) {
           toast.success(
             `Payment received! Change: ${formatCurrency(result.data.changeGiven)}`
           );
-          // Immediately flush paid order from queue without waiting for realtime
-          if (activeTab === 'pending') refetchPending();
-          else refetchUnpaid();
+          refetchPending();
+          refetchUnpaid();
 
           const receiptResult = await generateBIRReceipt(selectedOrder.id);
           if (receiptResult.success) {
@@ -108,31 +103,35 @@ export function CashierPosClient({
           } else {
             toast.error('Payment successful but receipt generation failed');
           }
+          return true;
         } else {
           toast.error(result.error);
+          return false;
         }
       } else {
-        // Digital / reference-number payment
-        if (activeTab === 'pending') refetchPending();
-        else refetchUnpaid();
+        // Digital / reference-number payment — already processed, show success immediately
+        refetchPending();
+        refetchUnpaid();
 
-        const receiptResult = await generateBIRReceipt(selectedOrder.id);
-        if (receiptResult.success) {
-          setReceiptData(receiptResult.data);
-          setViewState('receipt');
-        }
+        // Generate receipt in background so success dialog is not delayed
+        generateBIRReceipt(selectedOrder.id).then((receiptResult) => {
+          if (receiptResult.success) {
+            setReceiptData(receiptResult.data);
+            setViewState('receipt');
+          }
+        });
+        return true;
       }
     },
-    [selectedOrder, cashierId, cashierName, activeTab, refetchPending, refetchUnpaid]
+    [selectedOrder, cashierId, cashierName, refetchPending, refetchUnpaid]
   );
 
   const handleNewTransaction = useCallback(() => {
     setViewState('payment');
     setReceiptData(null);
     setIsDialogOpen(false);
-    const currentOrders = activeTab === 'pending' ? pendingOrders : unpaidBills;
-    setSelectedOrderId(currentOrders.length > 0 ? currentOrders[0].id : null);
-  }, [activeTab, pendingOrders, unpaidBills]);
+    setSelectedOrderId(orders.length > 0 ? orders[0].id : null);
+  }, [orders]);
 
   const handleDiscountApplied = useCallback(() => {
     toast.success('Discount applied — order total updated');
@@ -142,75 +141,28 @@ export function CashierPosClient({
     setIsVoidDialogOpen(false);
     setViewState('payment');
     setReceiptData(null);
-    if (activeTab === 'pending') refetchPending();
-    else refetchUnpaid();
-  }, [activeTab, refetchPending, refetchUnpaid]);
+    refetchPending();
+    refetchUnpaid();
+  }, [refetchPending, refetchUnpaid]);
 
-  const handleTabChange = useCallback((tab: QueueTab) => {
-    setActiveTab(tab);
-    setSelectedOrderId(null);
-    setViewState('payment');
-    setReceiptData(null);
-    setIsDialogOpen(false);
-  }, []);
+  if (hasOpenShift === false) {
+    return <StartShiftGate />;
+  }
 
   return (
     <div className="pos-two-panel">
       {/* Left panel: Order queue */}
       <div className="pos-queue-panel">
-        <div className="pos-queue-tabs">
-          <button
-            onClick={() => handleTabChange('pending')}
-            className={cn(
-              'pos-queue-tab',
-              activeTab === 'pending' && 'pos-queue-tab-active'
-            )}
-          >
-            Pending
-            {pendingOrders.length > 0 && (
-              <span className="pos-queue-tab-count">
-                {pendingOrders.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => handleTabChange('unpaid')}
-            className={cn(
-              'pos-queue-tab',
-              activeTab === 'unpaid' && 'pos-queue-tab-active'
-            )}
-          >
-            Unpaid Bills
-            {unpaidBills.length > 0 && (
-              <span className="pos-queue-tab-count">
-                {unpaidBills.length}
-              </span>
-            )}
-          </button>
-        </div>
-
         <div className="flex-1 overflow-hidden">
-          {activeTab === 'pending' ? (
-            <PendingOrdersList
-              orders={pendingOrders}
-              selectedOrderId={effectiveSelectedId}
-              onSelectOrder={(id) => {
-                setSelectedOrderId(id);
-                setViewState('payment');
-                setReceiptData(null);
-              }}
-            />
-          ) : (
-            <UnpaidBillsList
-              orders={unpaidBills}
-              selectedOrderId={effectiveSelectedId}
-              onSelectOrder={(id) => {
-                setSelectedOrderId(id);
-                setViewState('payment');
-                setReceiptData(null);
-              }}
-            />
-          )}
+          <PendingOrdersList
+            orders={orders}
+            selectedOrderId={effectiveSelectedId}
+            onSelectOrder={(id) => {
+              setSelectedOrderId(id);
+              setViewState('payment');
+              setReceiptData(null);
+            }}
+          />
         </div>
       </div>
 

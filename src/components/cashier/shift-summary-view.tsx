@@ -1,17 +1,49 @@
 'use client';
 
-import { Banknote, Smartphone, CreditCard, XCircle, Clock, RotateCcw } from 'lucide-react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Banknote, Smartphone, CreditCard, XCircle, Clock, RotateCcw, CheckCircle2, Loader2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/currency';
+import { submitShiftCollection, getOpenShift } from '@/services/payment-service';
 import type { ShiftSummary } from '@/types/payment';
 
 interface ShiftSummaryViewProps {
   summary: ShiftSummary;
+  /** When undefined, the submit/status section is hidden (e.g. kiosk POS overlay context) */
+  isSubmitted?: boolean;
+  submittedAt?: string | null;
 }
 
 /**
  * F-C09: Shift summary - Terminal Command Center theme
  */
-export function ShiftSummaryView({ summary }: ShiftSummaryViewProps) {
+export function ShiftSummaryView({ summary, isSubmitted, submittedAt }: ShiftSummaryViewProps) {
+  const router = useRouter();
+  const showCollectionSection = isSubmitted !== undefined;
+  const [submitted, setSubmitted] = useState(isSubmitted ?? false);
+  const [submittedTime, setSubmittedTime] = useState(submittedAt ?? null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    setError('');
+    const shiftResult = await getOpenShift();
+    if (!shiftResult.success || !shiftResult.data) {
+      setSubmitting(false);
+      setError('No open shift found. Start a shift from the Payments tab first.');
+      return;
+    }
+    const result = await submitShiftCollection(shiftResult.data.id);
+    setSubmitting(false);
+    if (result.success) {
+      setSubmitted(true);
+      setSubmittedTime(result.data.submittedAt);
+      router.refresh();
+    } else {
+      setError(result.error);
+    }
+  };
   return (
     <div className="pos-report-grid">
       {/* Header info */}
@@ -149,6 +181,51 @@ export function ShiftSummaryView({ summary }: ShiftSummaryViewProps) {
           <div className="pos-report-footer-count">orders</div>
         </div>
       </div>
+
+      {/* Submit Collection — only shown on the standalone Reports page */}
+      {showCollectionSection && (
+      <div className="pos-collection-submit-area">
+        {submitted ? (
+          <div className="pos-collection-submitted">
+            <CheckCircle2 className="w-5 h-5 text-[var(--pos-mint)]" />
+            <div>
+              <p className="pos-collection-submitted-label">Collection Submitted</p>
+              {submittedTime && (
+                <p className="pos-collection-submitted-time">
+                  {new Date(submittedTime).toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                  })}
+                </p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="pos-collection-submit-group">
+            <div>
+              <p className="pos-collection-submit-label">End of Shift</p>
+              <p className="pos-collection-submit-desc">
+                Submit your collection report to close the shift and enable sign-out.
+              </p>
+            </div>
+            {error && <p className="pos-collection-error">{error}</p>}
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="pos-collection-submit-btn"
+            >
+              {submitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4" />
+              )}
+              {submitting ? 'Submitting…' : 'Submit & Close Shift'}
+            </button>
+          </div>
+        )}
+      </div>
+      )}
     </div>
   );
 }

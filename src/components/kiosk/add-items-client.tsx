@@ -7,7 +7,7 @@ import type { Database } from '@/lib/supabase/types';
 
 type Category = Database['public']['Tables']['categories']['Row'];
 type MenuItem = Database['public']['Tables']['menu_items']['Row'] & {
-  category: { id: string; name: string } | null;
+  category: { id: string; name: string; requires_kitchen: boolean } | null;
 };
 
 interface ExistingOrderInfo {

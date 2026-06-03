@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Clock, MapPin, AlertTriangle } from 'lucide-react';
+import { Clock, MapPin, AlertTriangle, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/utils/currency';
 import { ExpirationCountdown } from './expiration-countdown';
@@ -21,7 +21,7 @@ const ORDER_TYPE_LABELS: Record<string, string> = {
 };
 
 /**
- * Pending orders queue - Terminal Command Center theme
+ * Unified payment queue — pending_payment + bill_later orders
  */
 export function PendingOrdersList({
   orders,
@@ -35,18 +35,19 @@ export function PendingOrdersList({
     return () => clearInterval(interval);
   }, []);
 
+  const noExpiry = (o: CashierOrder) => o.payment_method === 'bill_later' || o.payment_method === 'cash';
   const activeOrders = orders.filter(
-    (o) => !o.expires_at || new Date(o.expires_at).getTime() > now
+    (o) => noExpiry(o) || !o.expires_at || new Date(o.expires_at).getTime() > now
   );
   const expiredOrders = orders.filter(
-    (o) => o.expires_at && new Date(o.expires_at).getTime() <= now
+    (o) => !noExpiry(o) && o.expires_at && new Date(o.expires_at).getTime() <= now
   );
 
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="pos-queue-header">
-        <h2 className="pos-queue-title">Pending Orders</h2>
+        <h2 className="pos-queue-title">Payment Queue</h2>
         <p className="pos-queue-subtitle">
           {activeOrders.length} order{activeOrders.length !== 1 ? 's' : ''} awaiting payment
         </p>
@@ -64,8 +65,11 @@ export function PendingOrdersList({
         {/* Active orders */}
         {activeOrders.map((order, index) => {
           const isSelected = order.id === selectedOrderId;
+          const isBillLater = order.payment_method === 'bill_later';
+          const isCash = order.payment_method === 'cash';
+          const hasNoTimer = isBillLater || isCash;
           const expiresAt = order.expires_at;
-          const minutesLeft = expiresAt
+          const minutesLeft = !hasNoTimer && expiresAt
             ? (new Date(expiresAt).getTime() - now) / 60_000
             : null;
           const isUrgent = minutesLeft !== null && minutesLeft < 2;
@@ -81,7 +85,7 @@ export function PendingOrdersList({
               )}
               onClick={() => onSelectOrder(order.id)}
             >
-              {/* Row 1: Order number + Timer */}
+              {/* Row 1: Order number + Timer or Bill Later badge */}
               <div className="flex items-center justify-between mb-2">
                 <span className={cn(
                   'pos-order-number',
@@ -89,7 +93,14 @@ export function PendingOrdersList({
                 )}>
                   #{order.order_number}
                 </span>
-                <ExpirationCountdown expiresAt={order.expires_at} />
+                {isBillLater ? (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                    <Wallet className="w-2.5 h-2.5" />
+                    Bill Later
+                  </span>
+                ) : isCash ? null : (
+                  <ExpirationCountdown expiresAt={order.expires_at} />
+                )}
               </div>
 
               {/* Row 2: Type · Location + Kiosk badge */}

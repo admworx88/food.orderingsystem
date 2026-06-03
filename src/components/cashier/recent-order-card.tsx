@@ -48,7 +48,7 @@ function formatTime(dateStr: string | null): string {
 export function RecentOrderCard({ order, isSelected, onSelect }: RecentOrderCardProps) {
   const itemCount = order.order_items.reduce((sum, item) => sum + item.quantity, 0);
   const isRefunded = order.payment_status === 'refunded';
-  const statusKey = isRefunded ? 'cancelled' : order.status;
+  const statusKey = isRefunded ? 'cancelled' : 'paid';
   const status = STATUS_CONFIG[statusKey] ?? { label: order.status.toUpperCase(), badge: 'bg-gray-100 text-gray-600', bar: 'bg-gray-400' };
   const payment = order.payments[0];
   const location = order.kiosk_location

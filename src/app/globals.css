@@ -1182,6 +1182,22 @@
     flex-shrink: 0;
   }
 
+  /* Served state badge (item picked up by waiter) — grayed out */
+  .kds-item-served-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 6px;
+    background: rgba(113, 113, 122, 0.15);
+    color: #52525b;
+    flex-shrink: 0;
+  }
+
   /* Responsive ready badge - smaller on laptops */
   .kds-item-ready-badge-responsive {
     gap: 3px;
@@ -4280,6 +4296,209 @@
 .pos-report-footer-count {
   font-size: 11px;
   color: var(--pos-text-muted);
+}
+
+/* Collection Submit Area */
+.pos-collection-submit-area {
+  padding: 20px;
+  border-top: 1px solid var(--pos-border);
+  background: var(--pos-elevated);
+  border-radius: 0 0 12px 12px;
+}
+
+.pos-collection-submit-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pos-collection-submit-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pos-text);
+  margin-bottom: 2px;
+}
+
+.pos-collection-submit-desc {
+  font-size: 12px;
+  color: var(--pos-text-muted);
+  line-height: 1.5;
+}
+
+.pos-collection-error {
+  font-size: 12px;
+  color: var(--pos-red);
+}
+
+.pos-collection-submit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--pos-mint);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  align-self: flex-start;
+}
+
+.pos-collection-submit-btn:hover {
+  opacity: 0.88;
+}
+
+.pos-collection-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pos-collection-submitted {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pos-collection-submitted-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pos-mint);
+}
+
+.pos-collection-submitted-time {
+  font-size: 11px;
+  color: var(--pos-text-muted);
+  margin-top: 1px;
+}
+
+/* Sign-out button */
+.pos-signout-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--pos-border-bright);
+  border-radius: 8px;
+  color: var(--pos-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.pos-signout-btn:hover {
+  border-color: var(--pos-red);
+  color: var(--pos-red);
+  background: var(--pos-red-glow);
+}
+
+.pos-signout-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Shift gate dialog */
+.pos-gate-dialog {
+  position: relative;
+  background: var(--pos-surface);
+  border: 1px solid var(--pos-border-bright);
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+}
+
+.pos-gate-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--pos-text-muted);
+  cursor: pointer;
+}
+
+.pos-gate-close:hover {
+  background: var(--pos-elevated);
+  color: var(--pos-text);
+}
+
+.pos-gate-icon-wrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: var(--pos-amber-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.pos-gate-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--pos-text);
+  margin-bottom: 10px;
+}
+
+.pos-gate-desc {
+  font-size: 13px;
+  color: var(--pos-text-secondary);
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.pos-gate-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.pos-gate-primary-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: var(--pos-mint);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.pos-gate-primary-btn:hover {
+  opacity: 0.88;
+}
+
+.pos-gate-secondary-btn {
+  padding: 10px 18px;
+  background: transparent;
+  border: 1px solid var(--pos-border-bright);
+  border-radius: 8px;
+  color: var(--pos-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.pos-gate-secondary-btn:hover {
+  border-color: var(--pos-text-muted);
+  color: var(--pos-text-secondary);
 }
 
 /* ============================================

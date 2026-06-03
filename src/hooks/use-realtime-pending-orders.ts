@@ -49,7 +49,7 @@ export function useRealtimePendingOrders(
       setOrders(result.data);
       setError(null);
     } else {
-      console.error('Failed to fetch pending orders:', result.error);
+      console.warn('Failed to fetch pending orders:', result.error);
       setError(result.error);
     }
     setIsLoading(false);

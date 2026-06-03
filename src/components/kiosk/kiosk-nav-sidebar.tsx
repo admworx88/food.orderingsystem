@@ -18,7 +18,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
 const KDS_NAV_ITEM: NavItem = { icon: MonitorCheck, label: 'KDS', href: '/orders' };
 
 function getNavItems(role: string | undefined): NavItem[] {
-  if (!role) return [ALL_NAV_ITEMS[0], ALL_NAV_ITEMS[2]];
+  if (!role) return [ALL_NAV_ITEMS[0]];
   if (role === 'kitchen') return [ALL_NAV_ITEMS[0], KDS_NAV_ITEM, ALL_NAV_ITEMS[2]]; // Menu, KDS, Payments
   if (role === 'waiter') return ALL_NAV_ITEMS.slice(0, 2);
   if (role === 'cashier' || role === 'admin') return ALL_NAV_ITEMS;
@@ -39,7 +39,7 @@ export function KioskNavSidebar({ activeLabel, onNavClick }: KioskNavSidebarProp
 
   return (
     <nav
-      className="w-[76px] flex-shrink-0 flex flex-col items-center pt-3 pb-3"
+      className="w-[76px] flex-shrink-0 h-full flex flex-col items-center pt-3 pb-3"
       style={{ background: '#1A3D2B' }}
     >
       <div className="flex flex-col items-center gap-1 w-full px-2">

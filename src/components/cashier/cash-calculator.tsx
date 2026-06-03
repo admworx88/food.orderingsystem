@@ -8,11 +8,12 @@ import { cn } from '@/lib/utils';
 
 interface CashCalculatorProps {
   totalAmount: number;
+  originalAmount?: number;
   onConfirm: (amountTendered: number) => void;
   isProcessing: boolean;
 }
 
-export function CashCalculator({ totalAmount, onConfirm, isProcessing }: CashCalculatorProps) {
+export function CashCalculator({ totalAmount, originalAmount, onConfirm, isProcessing }: CashCalculatorProps) {
   const [inputValue, setInputValue] = useState('');
 
   const amountTendered = parseFloat(inputValue) || 0;
@@ -48,6 +49,11 @@ export function CashCalculator({ totalAmount, onConfirm, isProcessing }: CashCal
           {/* Amount Due */}
           <div className="rounded-2xl bg-emerald-50 border border-emerald-100 px-4 py-3">
             <p className="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-600/70 mb-1">Amount Due</p>
+            {originalAmount && originalAmount > totalAmount && (
+              <p className="text-[16px] font-bold text-emerald-500/60 tabular-nums line-through leading-none mb-0.5">
+                {formatCurrency(originalAmount)}
+              </p>
+            )}
             <p className="text-[30px] font-black text-emerald-700 tabular-nums leading-none">
               {formatCurrency(totalAmount)}
             </p>

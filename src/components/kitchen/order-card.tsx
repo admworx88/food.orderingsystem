@@ -344,7 +344,7 @@ export function OrderCard({ order, onStatusUpdated, isHistorical = false, hideSt
                     )}
                   </button>
                 ) : isItemServed ? (
-                  <span className="kds-item-ready-badge kds-item-ready-badge-responsive">
+                  <span className="kds-item-served-badge kds-item-ready-badge-responsive">
                     <Check className="w-2.5 h-2.5 lg:w-3 lg:h-3" />
                     SERVED
                   </span>

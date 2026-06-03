@@ -14,7 +14,7 @@ export default async function KioskMenuPage({ searchParams }: { searchParams: Pr
       .order('display_order'),
     supabase
       .from('menu_items')
-      .select('*, category:categories(id, name)')
+      .select('*, category:categories(id, name, requires_kitchen)')
       .is('deleted_at', null)
       .order('display_order'),
     getPendingOrders(),
