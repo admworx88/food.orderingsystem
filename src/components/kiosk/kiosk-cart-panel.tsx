@@ -49,6 +49,8 @@ export function KioskCartPanel({ addItemsContext }: { addItemsContext?: AddItems
     getServiceCharge,
     getTotal,
     getItemCount,
+    taxRate,
+    serviceChargeRate,
   } = useCartStore();
 
   const [hydrated, setHydrated] = useState(false);
@@ -333,14 +335,18 @@ export function KioskCartPanel({ addItemsContext }: { addItemsContext?: AddItems
                 <span className="font-semibold">-{formatCurrency(discountAmount)}</span>
               </div>
             )}
-            <div className="flex justify-between text-xs text-stone-500">
-              <span>Service (10%)</span>
-              <span className="font-medium text-stone-700">{formatCurrency(serviceCharge)}</span>
-            </div>
-            <div className="flex justify-between text-xs text-stone-500">
-              <span>VAT (12%)</span>
-              <span className="font-medium text-stone-700">{formatCurrency(tax)}</span>
-            </div>
+            {serviceCharge > 0 && (
+              <div className="flex justify-between text-xs text-stone-500">
+                <span>Service ({Math.round(serviceChargeRate * 100)}%)</span>
+                <span className="font-medium text-stone-700">{formatCurrency(serviceCharge)}</span>
+              </div>
+            )}
+            {tax > 0 && (
+              <div className="flex justify-between text-xs text-stone-500">
+                <span>VAT ({Math.round(taxRate * 100)}%)</span>
+                <span className="font-medium text-stone-700">{formatCurrency(tax)}</span>
+              </div>
+            )}
             <div className="flex justify-between pt-2 border-t border-stone-200 mt-2">
               <span className="text-sm font-bold text-stone-800">Total</span>
               <span className="text-lg font-bold text-stone-900 tabular-nums">{formatCurrency(total)}</span>

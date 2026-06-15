@@ -4,6 +4,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import bcrypt from 'bcryptjs';
 import {
   createUserSchema,
   updateUserRoleSchema,
@@ -174,7 +175,7 @@ export async function createStaffUser(input: CreateUserInput): Promise<ServiceRe
         full_name: validated.full_name,
         role: validated.role as UserRole,
         is_active: true,
-        pin_hash: validated.pin ?? null,
+        pin_hash: validated.pin ? await bcrypt.hash(validated.pin, 10) : null,
       })
       .eq('id', authData.user.id)
       .select()
@@ -382,7 +383,7 @@ export async function updateStaffPin(
     const adminClient = createAdminClient();
     const { error } = await adminClient
       .from('profiles')
-      .update({ pin_hash: pin })
+      .update({ pin_hash: pin ? await bcrypt.hash(pin, 10) : null })
       .eq('id', userId);
 
     if (error) throw error;
@@ -449,14 +450,27 @@ export async function resolveStaffPin(
     // Use admin client — profiles table has no anon SELECT policy; kiosk has no auth session.
     const admin = createAdminClient();
 
-    const { data, error } = await admin
+    // Fetch all active staff with pin_hash set — compare in JS because bcrypt hashes
+    // cannot be used as a DB filter (each hash is unique even for the same PIN).
+    const { data: candidates, error } = await admin
       .from('profiles')
-      .select('id, full_name, role')
-      .eq('pin_hash', pin)
+      .select('id, full_name, role, pin_hash')
       .eq('is_active', true)
-      .single();
+      .not('pin_hash', 'is', null);
 
-    if (error || !data) {
+    if (error) {
+      return { success: false, error: 'Incorrect PIN. Please try again.' };
+    }
+
+    let data: { id: string; full_name: string; role: string } | null = null;
+    for (const candidate of candidates ?? []) {
+      if (candidate.pin_hash && await bcrypt.compare(pin, candidate.pin_hash)) {
+        data = { id: candidate.id, full_name: candidate.full_name, role: candidate.role };
+        break;
+      }
+    }
+
+    if (!data) {
       return { success: false, error: 'Incorrect PIN. Please try again.' };
     }
 

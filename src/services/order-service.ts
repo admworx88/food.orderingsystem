@@ -8,6 +8,7 @@ import { headers } from 'next/headers';
 import type { Database } from '@/lib/supabase/types';
 import { orderInputSchema, promoCodeInputSchema, addItemsInputSchema, orderLookupSchema, type OrderInput } from '@/lib/validators/order';
 import { checkAndRecordOrderAttempt } from '@/lib/utils/rate-limiter';
+import { getAllSettings } from '@/services/settings-service';
 
 // Type definitions
 type Order = Database['public']['Tables']['orders']['Row'];
@@ -668,10 +669,14 @@ export async function createOrder(
       // If promo validation fails, we proceed without discount (don't block the order)
     }
 
-    // 7. Calculate tax and service charge on discounted subtotal
+    // 7. Calculate tax and service charge on discounted subtotal (rates from settings)
+    const settingsResult = await getAllSettings();
+    const settingsMap = settingsResult.success ? settingsResult.data : {};
+    const taxRate = typeof settingsMap.tax_rate === 'number' ? settingsMap.tax_rate : 0;
+    const serviceChargeRate = typeof settingsMap.service_charge === 'number' ? settingsMap.service_charge : 0;
     const discountedSubtotal = calculatedSubtotal - discountAmount;
-    const taxAmount = Math.round(discountedSubtotal * 0.12 * 100) / 100; // 12% VAT
-    const serviceCharge = Math.round(discountedSubtotal * 0.10 * 100) / 100; // 10%
+    const taxAmount = Math.round(discountedSubtotal * taxRate * 100) / 100;
+    const serviceCharge = Math.round(discountedSubtotal * serviceChargeRate * 100) / 100;
     const totalAmount = Math.round((discountedSubtotal + taxAmount + serviceCharge) * 100) / 100;
 
     // 8. Order status depends on payment method:
@@ -807,16 +812,19 @@ export async function createOrder(
       // Non-critical — order is created, event logging failure is acceptable
     }
 
-    // 13. Increment promo code usage count (atomic operation via RPC)
-    // Uses database function to prevent race conditions with concurrent orders
+    // 13. Atomically increment promo code usage — RPC returns false if the cap was
+    //     already hit by a concurrent order (TOCTOU guard lives in the DB function).
     if (promoCodeId) {
-      const { error: incrementError } = await supabase.rpc('increment_promo_usage', {
+      const { data: incremented, error: incrementError } = await supabase.rpc('increment_promo_usage', {
         promo_id: promoCodeId,
       });
 
       if (incrementError) {
         console.error('createOrder: Failed to increment promo usage:', incrementError);
-        // Non-critical error - order is already created, just log it
+      } else if (incremented === false) {
+        // Concurrent order consumed the last available use — remove the discount
+        // The order is already inserted; log the race condition but do not fail the order.
+        console.warn('createOrder: Promo code usage limit reached by concurrent order, discount not applied:', promoCodeId);
       }
     }
 
@@ -1634,9 +1642,13 @@ export async function addItemsToOrder(
       }
     }
 
+    const addItemsSettingsResult = await getAllSettings();
+    const addItemsMap = addItemsSettingsResult.success ? addItemsSettingsResult.data : {};
+    const addItemsTaxRate = typeof addItemsMap.tax_rate === 'number' ? addItemsMap.tax_rate : 0;
+    const addItemsScRate = typeof addItemsMap.service_charge === 'number' ? addItemsMap.service_charge : 0;
     const discountedSubtotal = newSubtotal - discountAmount;
-    const taxAmount = Math.round(discountedSubtotal * 0.12 * 100) / 100;
-    const serviceCharge = Math.round(discountedSubtotal * 0.10 * 100) / 100;
+    const taxAmount = Math.round(discountedSubtotal * addItemsTaxRate * 100) / 100;
+    const serviceCharge = Math.round(discountedSubtotal * addItemsScRate * 100) / 100;
     const totalAmount = Math.round((discountedSubtotal + taxAmount + serviceCharge) * 100) / 100;
 
     // 8. Update order totals. Only advance to 'preparing' if the order is still in 'paid'
@@ -1695,25 +1707,29 @@ export async function addItemsToOrder(
   }
 }
 
-export async function updateOrderEwalletDetails(
-  orderId: string,
-  provider: string,
-  reference: string
-): Promise<ServiceResult<void>> {
-  const supabase = await createServerClient();
+export async function getAddItemsPageData(orderId: string) {
+  const supabase = createAdminClient();
   try {
-    const { error } = await supabase
+    const { data: order, error: orderError } = await supabase
       .from('orders')
-      .update({ ewallet_provider: provider, ewallet_reference: reference })
-      .eq('id', orderId);
+      .select('id, order_number, table_number, status, order_type, subtotal, total_amount, payment_method, order_items(id, item_name, quantity, unit_price, total_price, status)')
+      .eq('id', orderId)
+      .is('deleted_at', null)
+      .single();
 
-    if (error) {
-      console.error('updateOrderEwalletDetails failed:', error);
-      return { success: false, error: 'Failed to save e-wallet details. Please try again.' };
+    if (orderError || !order) return { success: false, error: 'Order not found' };
+    if (order.order_type !== 'dine_in' || !['paid', 'preparing', 'ready'].includes(order.status)) {
+      return { success: false, error: 'Order is not eligible for adding items' };
     }
-    return { success: true, data: undefined };
+
+    const [{ data: categories }, { data: menuItems }] = await Promise.all([
+      supabase.from('categories').select('*').eq('is_active', true).order('display_order'),
+      supabase.from('menu_items').select('*, category:categories(id, name, requires_kitchen)').eq('is_available', true).is('deleted_at', null).order('display_order'),
+    ]);
+
+    return { success: true, data: { order, categories: categories ?? [], menuItems: menuItems ?? [] } };
   } catch (error) {
-    console.error('updateOrderEwalletDetails failed:', error);
+    console.error('getAddItemsPageData failed:', error);
     return { success: false, error: 'An unexpected error occurred.' };
   }
 }

@@ -74,6 +74,11 @@ interface CartStore {
   clearCart: () => void;
   setDetailSheetOpen: (open: boolean) => void;
 
+  // Rate state (fetched from settings on mount)
+  taxRate: number;
+  serviceChargeRate: number;
+  setRates: (taxRate: number, serviceChargeRate: number) => void;
+
   // Computed getters
   getItemCount: () => number;
   getSubtotal: () => number;
@@ -99,6 +104,8 @@ const initialState = {
   addToOrderNumber: null,
   existingOrderItems: [],
   isDetailSheetOpen: false,
+  taxRate: 0,
+  serviceChargeRate: 0,
 };
 
 export const useCartStore = create<CartStore>()(
@@ -211,6 +218,8 @@ export const useCartStore = create<CartStore>()(
 
       setDetailSheetOpen: (open) => set({ isDetailSheetOpen: open }),
 
+      setRates: (taxRate, serviceChargeRate) => set({ taxRate, serviceChargeRate }),
+
       clearCart: () => set(initialState),
 
       // Computed values
@@ -225,13 +234,13 @@ export const useCartStore = create<CartStore>()(
       getTaxAmount: () => {
         const subtotal = get().getSubtotal();
         const discounted = subtotal - get().discountAmount;
-        return discounted * 0.12; // 12% VAT
+        return discounted * get().taxRate;
       },
 
       getServiceCharge: () => {
         const subtotal = get().getSubtotal();
         const discounted = subtotal - get().discountAmount;
-        return discounted * 0.1; // 10% service charge
+        return discounted * get().serviceChargeRate;
       },
 
       getTotal: () => {

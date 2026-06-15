@@ -2,6 +2,7 @@
 
 import { createServerClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import type { Database } from '@/lib/supabase/types';
@@ -345,21 +346,7 @@ export async function processManualEwalletPayment(
 
     const nextStatus = isBillLater ? order.status : 'paid';
 
-    const { error: updateError } = await admin
-      .from('orders')
-      .update({
-        payment_status: 'paid',
-        payment_method: dbMethod,
-        status: nextStatus,
-        paid_at: new Date().toISOString(),
-      })
-      .eq('id', orderId);
-
-    if (updateError) {
-      console.error('processManualEwalletPayment order update failed:', updateError);
-      return serviceError('E3001', 'Payment processing failed. Please try again.');
-    }
-
+    // Insert payment record first — if this fails, the order remains unpaid (safe state)
     // provider_reference stores "brand:refNumber" so analytics can distinguish GoTyme vs Maya
     const { data: payment, error: paymentError } = await admin
       .from('payments')
@@ -377,7 +364,22 @@ export async function processManualEwalletPayment(
 
     if (paymentError || !payment) {
       console.error('processManualEwalletPayment payment record failed:', paymentError);
-      return serviceError('E3001', 'Payment recorded but failed to create payment record.');
+      return serviceError('E3001', 'Payment processing failed. Please try again.');
+    }
+
+    const { error: updateError } = await admin
+      .from('orders')
+      .update({
+        payment_status: 'paid',
+        payment_method: dbMethod,
+        status: nextStatus,
+        paid_at: new Date().toISOString(),
+      })
+      .eq('id', orderId);
+
+    if (updateError) {
+      console.error('processManualEwalletPayment order update failed:', updateError);
+      return serviceError('E3001', 'Payment record created but order status update failed. Please contact support.');
     }
 
     revalidatePath('/(cashier)/payments', 'page');
@@ -678,7 +680,7 @@ export async function applySeniorPwdDiscount(
       metadata: {
         discount_type: discountType,
         id_number: idNumber,
-        discount_rate: SENIOR_PWD_DISCOUNT_RATE,
+        discount_rate: pwdRate,
         discount_amount: discountAmount,
       },
     });
@@ -843,8 +845,13 @@ export async function processRefund(
       return serviceError('E1001', 'No manager accounts configured');
     }
 
-    // Simple PIN comparison (in production, use bcrypt hash comparison)
-    const pinMatch = managers.some((m) => m.pin_hash === managerPin);
+    let pinMatch = false;
+    for (const m of managers) {
+      if (m.pin_hash && await bcrypt.compare(managerPin, m.pin_hash)) {
+        pinMatch = true;
+        break;
+      }
+    }
     if (!pinMatch) {
       return serviceError('E1001', 'Invalid manager PIN');
     }
@@ -1029,16 +1036,15 @@ export async function voidBill(input: {
   try {
     const admin = createAdminClient();
 
-    // Verify PIN belongs to this cashier
+    // Verify PIN belongs to this cashier — fetch by ID, compare hash in JS
     const { data: profile, error: profileError } = await admin
       .from('profiles')
-      .select('id, full_name, role')
-      .eq('pin_hash', cashierPin)
+      .select('id, full_name, role, pin_hash')
       .eq('id', cashierId)
       .eq('is_active', true)
       .single();
 
-    if (profileError || !profile) {
+    if (profileError || !profile || !profile.pin_hash || !(await bcrypt.compare(cashierPin, profile.pin_hash))) {
       return serviceError('E1001', 'Incorrect PIN. Please try again.');
     }
 
@@ -1153,9 +1159,10 @@ export async function getShiftSummary(
   try {
     const supabase = await createServerClient();
 
-    const targetDate = date || new Date().toISOString().split('T')[0];
-    const startOfDay = `${targetDate}T00:00:00.000Z`;
-    const endOfDay = `${targetDate}T23:59:59.999Z`;
+    const targetDate = date || new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Manila' }).split(' ')[0];
+    // Use PHT (UTC+8) boundaries — the business operates in Philippine Standard Time
+    const startOfDay = new Date(`${targetDate}T00:00:00+08:00`).toISOString();
+    const endOfDay = new Date(`${targetDate}T23:59:59.999+08:00`).toISOString();
 
     // Prefer staffName passed from kiosk session; fall back to Supabase auth user
     let cashierName = staffName || 'Unknown';
@@ -1361,8 +1368,12 @@ export async function verifyAdminPin(
       return { success: false };
     }
 
-    const match = admins.some((a) => a.pin_hash === pin);
-    return { success: match };
+    for (const a of admins) {
+      if (a.pin_hash && await bcrypt.compare(pin, a.pin_hash)) {
+        return { success: true };
+      }
+    }
+    return { success: false };
   } catch {
     return { success: false };
   }

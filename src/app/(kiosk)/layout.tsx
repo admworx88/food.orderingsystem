@@ -12,6 +12,7 @@ import { KioskSetupScreen } from '@/components/kiosk/kiosk-setup-screen';
 import { KioskPinDialog } from '@/components/kiosk/kiosk-pin-dialog';
 import { LocaleProvider, useLocale } from '@/lib/i18n/locale-context';
 import { useCartStore } from '@/stores/cart-store';
+import { getKioskRates } from '@/services/settings-service';
 import { useKioskLocation } from '@/hooks/use-kiosk-location';
 import { useNetworkStatus } from '@/hooks/use-network-status';
 import { NetworkOfflineDialog } from '@/components/shared/network-offline-dialog';
@@ -105,7 +106,14 @@ function KioskLayoutInner({ children }: KioskLayoutProps) {
     getItemCount,
     getTotal,
     isDetailSheetOpen,
+    setRates,
   } = useCartStore();
+
+  useEffect(() => {
+    getKioskRates().then(({ taxRate, serviceChargeRate }) => {
+      setRates(taxRate, serviceChargeRate);
+    });
+  }, [setRates]);
 
   const cartItemCount = getItemCount();
   const cartTotal = getTotal();

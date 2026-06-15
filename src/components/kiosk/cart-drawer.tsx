@@ -38,10 +38,6 @@ interface CartDrawerProps {
   onCheckout: () => void;
 }
 
-// Tax rates per PRD
-const TAX_RATE = 0.12; // 12% VAT
-const SERVICE_CHARGE_RATE = 0.10; // 10% service charge
-
 export function CartDrawer({
   isOpen,
   onClose,
@@ -53,13 +49,17 @@ export function CartDrawer({
   onCheckout,
 }: CartDrawerProps) {
   const [removingIndex, setRemovingIndex] = useState<number | null>(null);
-  const existingOrderItems = useCartStore((state) => state.existingOrderItems);
+  const { existingOrderItems, taxRate, serviceChargeRate } = useCartStore((state) => ({
+    existingOrderItems: state.existingOrderItems,
+    taxRate: state.taxRate,
+    serviceChargeRate: state.serviceChargeRate,
+  }));
 
-  // Calculate totals
+  // Calculate totals using rates from settings
   const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
   const discountedSubtotal = subtotal - discountAmount;
-  const taxAmount = discountedSubtotal * TAX_RATE;
-  const serviceCharge = discountedSubtotal * SERVICE_CHARGE_RATE;
+  const taxAmount = discountedSubtotal * taxRate;
+  const serviceCharge = discountedSubtotal * serviceChargeRate;
   const grandTotal = discountedSubtotal + taxAmount + serviceCharge;
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -199,12 +199,16 @@ export function CartDrawer({
                       isDiscount
                     />
                   )}
-                  <SummaryRow label="VAT (12%)" value={taxAmount} subtle />
-                  <SummaryRow
-                    label="Service Charge (10%)"
-                    value={serviceCharge}
-                    subtle
-                  />
+                  {taxAmount > 0 && (
+                    <SummaryRow label={`VAT (${Math.round(taxRate * 100)}%)`} value={taxAmount} subtle />
+                  )}
+                  {serviceCharge > 0 && (
+                    <SummaryRow
+                      label={`Service Charge (${Math.round(serviceChargeRate * 100)}%)`}
+                      value={serviceCharge}
+                      subtle
+                    />
+                  )}
                   <div className="h-px bg-gradient-to-r from-transparent via-stone-200 to-transparent" />
                   <div className="flex items-center justify-between py-1">
                     <span className="text-lg font-bold text-stone-900">

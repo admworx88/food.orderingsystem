@@ -1,0 +1,37 @@
+{
+  "name": "arena-blanca-desktop",
+  "version": "1.0.0",
+  "description": "Arena Blanca Restaurant Ordering System — Windows Desktop App",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:dir": "electron-builder --win --dir"
+  },
+  "build": {
+    "appId": "com.arenablanca.ordering",
+    "productName": "Arena Blanca",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/arenalogo.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^36.0.0",
+    "electron-builder": "^25.0.0"
+  }
+}

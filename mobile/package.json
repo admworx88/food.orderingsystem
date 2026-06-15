@@ -1,0 +1,19 @@
+{
+  "name": "arena-blanca-mobile",
+  "version": "1.0.0",
+  "description": "Arena Blanca Restaurant Ordering System — Android App",
+  "scripts": {
+    "sync": "npx cap sync",
+    "open:android": "npx cap open android",
+    "build:android": "npx cap build android",
+    "gen:icons": "npx capacitor-assets generate --android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/core": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.0",
+    "@capacitor/cli": "^7.0.0"
+  }
+}

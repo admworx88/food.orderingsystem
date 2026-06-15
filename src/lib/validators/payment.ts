@@ -21,7 +21,7 @@ export const refundSchema = z.object({
     message: 'Refund reason is required',
   }),
   reasonText: z.string().max(500).optional(),
-  managerPin: z.string().length(4, 'Manager PIN must be 4 digits').regex(/^\d{4}$/, 'PIN must be numeric'),
+  managerPin: z.string().min(4).max(6).regex(/^\d{4,6}$/, 'PIN must be 4–6 digits'),
   isPartial: z.boolean(),
   itemIds: z.array(z.string().uuid()).optional(),
 }).refine(

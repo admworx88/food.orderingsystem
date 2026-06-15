@@ -45,6 +45,8 @@ export default function CheckoutPage() {
     promoCode,
     promoCodeId,
     discountAmount,
+    taxRate,
+    serviceChargeRate,
     applyPromoCode,
     removePromoCode,
     guestPhone,
@@ -441,15 +443,19 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            <div className="flex justify-between text-xs sm:text-sm text-stone-600">
-              <span>Tax (12%)</span>
-              <span className="font-semibold">{formatCurrency(tax)}</span>
-            </div>
+            {tax > 0 && (
+              <div className="flex justify-between text-xs sm:text-sm text-stone-600">
+                <span>Tax ({Math.round(taxRate * 100)}%)</span>
+                <span className="font-semibold">{formatCurrency(tax)}</span>
+              </div>
+            )}
 
-            <div className="flex justify-between text-xs sm:text-sm text-stone-600">
-              <span>Service Charge (10%)</span>
-              <span className="font-semibold">{formatCurrency(serviceCharge)}</span>
-            </div>
+            {serviceCharge > 0 && (
+              <div className="flex justify-between text-xs sm:text-sm text-stone-600">
+                <span>Service Charge ({Math.round(serviceChargeRate * 100)}%)</span>
+                <span className="font-semibold">{formatCurrency(serviceCharge)}</span>
+              </div>
+            )}
           </div>
 
           <div className="border-t-2 border-stone-300 pt-3 lg:pt-4">
