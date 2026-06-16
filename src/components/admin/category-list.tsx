@@ -28,10 +28,12 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import Image from 'next/image';
 import { GripVertical, Pencil, Trash2, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { reorderCategories } from '@/services/menu-service';
 import { CategoryFormDialog } from './category-form-dialog';
+import { normalizeImageUrl } from '@/lib/utils/image';
 import type { Database } from '@/lib/supabase/types';
 
 type Category = Database['public']['Tables']['categories']['Row'];
@@ -77,8 +79,8 @@ function SortableRow({ category }: SortableRowProps) {
       <TableCell className="font-medium">
         <div className="flex items-center gap-3">
           {category.image_url ? (
-            <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 shrink-0">
-              <img src={category.image_url} alt={category.name} className="w-full h-full object-cover" />
+            <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-200 shrink-0">
+              <Image src={normalizeImageUrl(category.image_url) || ''} alt={category.name} fill className="object-cover" sizes="40px" />
             </div>
           ) : (
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shrink-0">

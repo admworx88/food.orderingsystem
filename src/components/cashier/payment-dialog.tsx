@@ -40,14 +40,14 @@ export function PaymentDialog({
   const [isSuccess, setIsSuccess] = useState(false);
   const [paidOrder, setPaidOrder] = useState<CashierOrder | null>(null);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!isOpen) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsSuccess(false);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPaidOrder(null);
     }
   }, [isOpen]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handlePaymentProcess = useCallback(async (methodOrId: string, amountTendered?: number) => {
     if (!order) return;

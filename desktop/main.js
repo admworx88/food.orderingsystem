@@ -1,7 +1,7 @@
 const { app, BrowserWindow, session } = require('electron');
 const path = require('path');
 
-const APP_URL = 'https://food-orderingsystem-staging.vercel.app/orders';
+const APP_URL = 'https://food-orderingsystem-prod.vercel.app/orders';
 
 function createWindow() {
   const win = new BrowserWindow({

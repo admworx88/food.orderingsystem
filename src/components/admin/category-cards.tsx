@@ -1,10 +1,12 @@
 'use client';
 
+import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Pencil, Trash2, FolderOpen, Hash } from 'lucide-react';
 import { CategoryFormDialog } from './category-form-dialog';
+import { normalizeImageUrl } from '@/lib/utils/image';
 import type { Database } from '@/lib/supabase/types';
 
 type Category = Database['public']['Tables']['categories']['Row'];
@@ -36,10 +38,12 @@ export function CategoryCards({ categories }: CategoryCardsProps) {
           {/* Header with gradient */}
           <div className="h-24 bg-gradient-to-br from-amber-500 to-amber-600 relative">
             {category.image_url ? (
-              <img
-                src={category.image_url}
+              <Image
+                src={normalizeImageUrl(category.image_url) || ''}
                 alt={category.name}
-                className="absolute inset-0 w-full h-full object-cover"
+                fill
+                className="object-cover"
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
               />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center">

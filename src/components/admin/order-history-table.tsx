@@ -47,13 +47,6 @@ function formatOrderType(type: string): string {
   }
 }
 
-function formatStatus(status: string): string {
-  return status
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
-
 function getOrderTypeIcon(type: string) {
   switch (type) {
     case 'dine_in':

@@ -162,6 +162,8 @@ function KioskLayoutInner({ children }: KioskLayoutProps) {
       window.removeEventListener('keydown', handleInteraction);
       clearInterval(idleChecker);
     };
+  // Intentional: only re-register on lastInteraction change, not on every route/cart change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastInteraction]);
 
   // Suppress child render until location is known — prevents flash of wrong page

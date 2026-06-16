@@ -99,7 +99,7 @@ export function DeletedItemsList({ items }: DeletedItemsListProps) {
                         width={48}
                         height={48}
                         className="w-full h-full object-cover grayscale"
-                        onError={(e) => {
+                        onError={() => {
                           console.error('Image load error (deleted items):', item.name, item.image_url);
                         }}
                       />

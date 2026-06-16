@@ -37,7 +37,6 @@ export function KioskCartPanel({ addItemsContext }: { addItemsContext?: AddItems
     roomNumber,
     guestName,
     promoCode,
-    promoCodeId,
     discountAmount,
     updateQuantity,
     removeItem,

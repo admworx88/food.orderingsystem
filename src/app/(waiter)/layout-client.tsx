@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useSyncExternalStore, useCallback } from 'react';
+import { useSyncExternalStore, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -38,60 +38,6 @@ function useWaiterSoundPreference() {
 
   const value = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   return value === 'true';
-}
-
-/**
- * Diamond icon mark - elegant brand element
- */
-function DiamondMark() {
-  return (
-    <svg
-      className="waiter-diamond"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M2.7 10.3a2.41 2.41 0 0 0 0 3.41l7.59 7.59a2.41 2.41 0 0 0 3.41 0l7.59-7.59a2.41 2.41 0 0 0 0-3.41l-7.59-7.59a2.41 2.41 0 0 0-3.41 0Z" />
-      <path d="M12 8v8" />
-      <path d="M8 12h8" />
-    </svg>
-  );
-}
-
-function LiveClock() {
-  const [time, setTime] = useState<{ main: string; ampm: string }>({
-    main: '',
-    ampm: '',
-  });
-
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      });
-
-      // Split time and AM/PM
-      const [main, ampm] = timeStr.split(' ');
-      setTime({ main: main || '--:--', ampm: ampm || '' });
-    };
-
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="waiter-clock">
-      {time.main}
-      <span className="waiter-clock-ampm">{time.ampm}</span>
-    </div>
-  );
 }
 
 interface WaiterLayoutClientProps {

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-> **Version**: 3.0 | **Last Updated**: May 28, 2026 | **Status**: Phases 1–4 Complete
+> **Version**: 4.0 | **Last Updated**: Jun 16, 2026 | **Status**: Phases 1–4 + Collections/Shifts Complete
 
 This file provides guidance to Claude Code when working with this repository.
 
@@ -12,16 +12,18 @@ When using compact, focus on test output and code changes.
 ## Commands
 
 ```bash
-npm run dev              # Start dev server (port 3000, Turbopack)
+npm run dev              # Start dev server (port 3000)
 npm run build            # Production build + type check
 npm run lint             # ESLint
 npm run type-check       # TypeScript only (tsc --noEmit)
 npm run supabase:push    # Apply migrations (use this, NOT reset)
-npm run supabase:types   # Regenerate DB types after schema changes
+npm run supabase:types   # Regenerate DB types — requires local Supabase running (see note)
 npm run supabase:reset   # ⚠️ WIPES ALL DATA — dev only
 ```
 
 **Use `npm`** (not pnpm/yarn) — project uses `package-lock.json`.
+
+> **`supabase:types` note**: The script uses `--local`, so it requires a running local Supabase instance. For this remote-first project (`https://ucoipcmzmdazqxvceyux.supabase.co`), you may need to run `npx supabase gen types typescript --project-ref ucoipcmzmdazqxvceyux > src/lib/supabase/types.ts` instead if the local stack is not running.
 
 ---
 
@@ -34,14 +36,18 @@ Arena Blanca Resort — hotel restaurant ordering system with 5 isolated interfa
 | Kiosk | `/(kiosk)` | Public | Ordering UI shared by guests, cashiers, and waiters |
 | Kitchen | `/(kitchen)` | Staff (kitchen) | Real-time Kitchen Display System |
 | Waiter | `/(waiter)` | Staff (waiter) | Item-level service tracking |
-| Cashier | `/(cashier)` | Staff (cashier) | Payment processing & POS |
+| Cashier | `/(cashier)` | Staff (cashier) | Payment processing, POS, shift collections |
 | Admin | `/admin` | Admin only | Menu, analytics, settings |
 
 **Kiosk is the shared ordering UI.** Guests order anonymously. Cashiers and waiters sign in via staff PIN (top-right "Staff Sign-in" button on welcome screen) to take walk-in orders on behalf of guests. Kitchen staff who sign in are auto-redirected to `/orders`.
 
-**What's implemented (Phases 1–4):** Full kiosk ordering, KDS, waiter item tracking, cashier POS with cash/GCash/card payments, BIR receipts, refunds, admin dashboard, promo codes, audit log, sales reports, allergen/nutrition display, multi-language (EN/TL), realtime dashboard.
+**What's implemented (Phases 1–4 + Collections):** Full kiosk ordering (restaurant + ocean view), KDS with availability toggling, waiter item tracking, cashier POS with cash/GCash/card payments, BIR receipts, refunds, shift lifecycle with remittance export, admin dashboard, promo codes, audit log, sales reports, allergen/nutrition display, multi-language (EN/TL), realtime dashboard, network offline detection.
 
-**Phase 5 (pending):** Playwright E2E tests, load testing, security audit, Vercel production deployment.
+**Sub-projects at repo root (separate codebases):**
+- `desktop/` — Electron 36 desktop app (Windows/Mac wrapper)
+- `mobile/` — Capacitor 7 Android app
+
+**Phase 5 (pending):** Playwright E2E tests, load testing, security audit.
 
 Before working on a module, read the agent doc first:
 
@@ -93,9 +99,9 @@ If ANY ambiguity, describe the interaction back in one sentence before writing c
 
 | Module | Shows | Actions | Never |
 |--------|-------|---------|-------|
-| Kitchen (KDS) | `preparing`, `ready` | Mark Ready | Handle `served` |
+| Kitchen (KDS) | `preparing`, `ready` | Mark Ready, toggle item availability | Handle `served` |
 | Waiter | `ready`, `preparing`, `served` | Mark Served | Handle preparation |
-| Cashier | `pending_payment`, `unpaid` | Process payment | Handle service status |
+| Cashier | `pending_payment`, `unpaid` | Process payment, shift collections | Handle service status |
 
 ---
 
@@ -107,11 +113,14 @@ If ANY ambiguity, describe the interaction back in one sentence before writing c
 src/app/
   (kiosk)/            → Guest ordering (public, route group)
     page.tsx           → Welcome screen
+    order-type/        → Dine-in / Takeaway / Bill Later selection
+    ocean-view/        → Ocean View order type entry (identifier dialog)
     menu/              → Category grid + item list
     cart/              → Cart review
-    checkout/          → 4-step checkout
+    checkout/          → Multi-step checkout (single page, UI states)
     confirmation/      → Order number + Add More Items
     add-items/         → Add items to existing dine-in order
+      [orderId]/       → Menu browser for a specific order
   (kitchen)/          → KDS (staff, route group)
     orders/            → Real-time order queue
   (waiter)/           → Waiter service (staff, route group)
@@ -119,7 +128,7 @@ src/app/
   (cashier)/          → POS (staff, route group)
     payments/          → Main POS (pending queue + payment)
     recent/            → Recent Orders (split-panel, receipt access)
-    reports/           → Shift summary / reconciliation
+    collections/       → Shift lifecycle: start → payments → deductions → submit
   admin/              → Admin (regular folder — needs /admin URL prefix)
     page.tsx           → Dashboard (realtime stats, charts)
     menu-management/
@@ -128,7 +137,12 @@ src/app/
     promo-codes/
     reports/
     audit-log/
-  login/ signup/ unauthorized/
+    settings/          → Tax rates, service charge, BIR config, kiosk PIN
+  login/
+  signup/
+  forgot-password/     → Password recovery request
+  reset-password/      → Password reset (token from email)
+  unauthorized/
 
 src/components/
   ui/          → shadcn/ui primitives — do NOT edit directly
@@ -137,18 +151,19 @@ src/components/
   waiter/      → Waiter-specific
   cashier/     → Cashier-specific
   admin/       → Admin-specific
-  auth/        → login-form, signup-form
-  shared/      → Cross-module shared components
+  auth/        → login-form, signup-form, forgot-password-form, reset-password-form
+  shared/      → Cross-module shared components (burger-loader, network-offline-dialog, fullscreen-toggle)
 
 src/services/        → Server Actions (ALL DB mutations go here)
   order-service.ts   → Order CRUD
-  payment-service.ts → Cash, digital, refund, shift summary
+  payment-service.ts → Cash, digital, refund, shift lifecycle, deductions
   bir-service.ts     → BIR receipt generation
   menu-service.ts    → Menu CRUD
   analytics-service.ts → Reporting queries
   auth-service.ts    → Authentication
-  user-service.ts    → User management
+  user-service.ts    → User management, staff PIN resolution, kiosk sessions
   promo-service.ts   → Promo code validation + CRUD
+  settings-service.ts → Tax/service charge rates, BIR config, kiosk PIN management
 
 src/stores/
   cart-store.ts           → Cart state + localStorage persistence (Zustand)
@@ -160,29 +175,44 @@ src/hooks/
   use-realtime-pending-orders.ts  → Cashier pending orders
   use-realtime-unpaid-bills.ts    → Cashier bill_later orders
   use-realtime-dashboard.ts       → Admin realtime dashboard
+  use-realtime-reconnection.ts    → Shared exponential-backoff reconnection utility
+  use-elapsed-timer.ts            → KDS elapsed time tracker per order
+  use-kiosk-location.ts           → localStorage kiosk location ('restaurant' | 'ocean_view')
+  use-network-status.ts           → Real connectivity check via HEAD ping to /arenalogo.png
 
 src/lib/
   supabase/
     client.ts   → createBrowserClient() — client components ONLY
     server.ts   → createServerClient() — Server Components + Server Actions
-    admin.ts    → createAdminClient() — webhooks/admin scripts ONLY (service role)
+    admin.ts    → createAdminClient() — service role; used for webhooks, admin scripts,
+                  AND shift/deduction operations called from kiosk (no Supabase auth session)
     types.ts    → Auto-generated DB types
-  validators/   → Zod schemas (auth, category, menu-item, order, promo-code, user)
+  validators/   → Zod schemas (auth, category, menu-item, order, payment, promo-code, user)
   utils/
-    cn.ts             → className merger
+    cn.ts             → className merger (import from '@/lib/utils' barrel — most code uses this)
     currency.ts       → formatCurrency() — Philippine Peso
+    image.ts          → normalizeImageUrl(), getOptimizedImageUrl()
     item-status.ts    → Item status helpers
     rate-limiter.ts   → Rate limiting
   constants/
     order-status.ts   → Order status enums and maps
+    order-types.ts    → Order type configs, getAllowedPaymentMethods(), formatOrderType()
     item-status.ts    → Item status enum, labels, colors
     payment-methods.ts → Payment configs and quick amounts
     allergens.ts      → Allergen constants
     locales.ts        → i18n locale constants
+  exports/            → Client-side remittance export utilities (lazy-imported)
+    remittance-types.ts → RemittanceData interface
+    remittance-pdf.ts   → generateRemittancePDF() via jsPDF + jspdf-autotable
+    remittance-xlsx.ts  → generateRemittanceXLSX() via xlsx (3-sheet workbook)
+    download.ts         → downloadBlob() helper
   i18n/         → LocaleProvider + useLocale() hook, EN/TL dictionaries (kiosk-only)
 
-src/types/      → TypeScript types (auth, dashboard, order)
-supabase/migrations/ → Timestamped SQL files (35 migrations applied)
+src/types/      → TypeScript types (auth, dashboard, order, payment)
+  payment.ts    → Shift, ShiftDeduction, ShiftPaymentRow, ShiftTotals, ShiftDetails,
+                  CashierOrder, RecentOrder, BIRReceiptData, ShiftSummary
+
+supabase/migrations/ → Timestamped SQL files (63 migrations as of Jun 2026)
 ```
 
 **Admin uses a regular folder** (not a route group) — needs the `/admin` URL prefix.
@@ -194,7 +224,7 @@ supabase/migrations/ → Timestamped SQL files (35 migrations applied)
 3. **Supabase client discipline:**
    - `createBrowserClient()` → browser/client components
    - `createServerClient()` → Server Components + Server Actions
-   - `createAdminClient()` → webhooks/admin scripts ONLY — **NEVER in a client component**
+   - `createAdminClient()` → service role; required for: webhooks, admin scripts, and **kiosk-originated shift/deduction operations** where no Supabase auth session exists
 4. **Validate on both sides.** Zod schemas used on client for UX AND re-validated in Server Actions. Never trust client-submitted prices — re-fetch from DB.
 5. **Route groups are boundaries.** `src/components/kiosk/` must NOT import from `src/components/admin/`. Shared code goes in `src/components/shared/`.
 6. **Realtime on `orders` and `order_items` only.** Don't add realtime to other tables without discussing performance implications.
@@ -217,7 +247,7 @@ supabase/migrations/ → Timestamped SQL files (35 migrations applied)
 ### React / Next.js 16
 - Named exports for components (`export function MenuGrid()`), except `page.tsx`/`layout.tsx` (Next.js requires default).
 - Props interfaces named `{ComponentName}Props`, defined above the component.
-- Use `cn()` from `src/lib/utils/cn.ts` for conditional classes. No inline styles.
+- Use `cn()` from `@/lib/utils` (barrel) for conditional classes. Import path is `@/lib/utils`, not `@/lib/utils/cn`.
 - **`params` and `searchParams` are async** — always `await` them:
   ```typescript
   export default async function Page({ params }: { params: Promise<{ id: string }> }) {
@@ -332,7 +362,7 @@ export async function createOrder(input: OrderInput) {
 |-------|----------|
 | E1xxx | Authentication |
 | E2xxx | Orders |
-| E3xxx | Payments |
+| E3xxx | Payments / Shifts (E3101 open shift exists, E3102 shift closed, E3110 no open shift) |
 | E4xxx | Menu |
 | E5xxx | Promo Codes |
 | E9xxx | System |
@@ -367,11 +397,16 @@ if (result.success) {
 
 The kiosk welcome screen has a **Staff Sign-in** button (top-right). Staff enter a 4–6 digit PIN resolved via `resolveStaffPin()` in `user-service.ts`. On success, their session is stored in `staffSessionStore` and their name shows as a chip. The session ID is passed as `takenBy` when `createOrder()` is called — this tracks which cashier or waiter placed the order.
 
+Staff sessions are also persisted server-side in the `kiosk_active_sessions` DB table (migration `20260530000000`). `clearKioskSession()` in `user-service.ts` clears the DB record on sign-out, triggered by `StaffSignOutDialog`.
+
 - **Cashier / Waiter**: session set → proceed through kiosk flow normally
 - **Kitchen**: session set → auto-redirected to `/orders`
 - **Guest** (no sign-in): `takenBy` is `null`
 
-Components: `EmployeePinDialog` (sign-in), `KioskAdminOverlay` (5-tap logo → admin location change).
+Components: `EmployeePinDialog` (sign-in), `StaffSignOutDialog` (PIN-verified sign-out), `KioskAdminOverlay` (5-tap logo → admin location change).
+
+### Dual Identity — Important
+Kiosk staff sessions use `profiles.id` (PIN-resolved UUID). Cashier interface uses `supabase.auth.getUser().id` (auth UUID). These may differ for accounts created before Auth was linked. All shift and deduction service functions accept an optional `overrideCashierId?: string` — when provided (kiosk context), they use `createAdminClient()` and bypass auth UID resolution.
 
 ---
 
@@ -381,11 +416,39 @@ Components: `EmployeePinDialog` (sign-in), `KioskAdminOverlay` (5-tap logo → a
 Guest/Staff (kiosk) → "Pay at Counter" → pending_payment (15 min timeout) → Cashier pays → paid → Kitchen
 Guest/Staff (kiosk) → eWallet/Card     → reference number entered → paid → Kitchen
 Guest/Staff (kiosk) → "Bill Later"     → paid (bill_later) → Kitchen → Cashier settles later
+Ocean View guests   → ocean_view order type → identifier (table # or name) → same flow above
 
 paid → preparing (kitchen) → ready (kitchen done) → served (waiter)
 ```
 
 **Valid transitions**: `pending_payment` → `paid` | `cancelled` · `paid` → `preparing` · `preparing` → `ready` · `ready` → `served`
+
+**Order types**: `dine_in`, `takeaway`, `bill_later`, `ocean_view`
+
+---
+
+## Shift / Collections Lifecycle (Cashier)
+
+The cashier's Collections tab (`/collections`) manages the end-of-shift remittance flow:
+
+```
+Start Shift  →  Process payments (Payments tab unlocked)
+             →  Add/edit/delete deductions (petty cash, supplies)
+             →  View Draft remittance → Export PDF / Export XLSX
+             →  Submit Collections (one-shot — shift closes, read-only after)
+             →  Sign-out blocked until shift submitted
+```
+
+**Key rules:**
+- One open shift per cashier enforced by a partial unique index on `shifts(cashier_id) WHERE status='open'`
+- Submit calls `submit_shift` RPC atomically (INSERT into `shift_collections` + UPDATE `shifts`)
+- Closed shifts are read-only — deductions frozen, submit button disabled
+- Net Cash to Remit = Cash − Refunds − Deductions (digital totals shown separately)
+- Sign-out gate blocks if `hasOpenShift()` is true — redirects to `/collections`
+
+**New tables**: `shifts`, `shift_deductions` (with `shift_id` FK); `shift_collections` augmented with `shift_id`, `deductions_total`, `net_cash`, `shift_started_at`, `shift_ended_at`.
+
+**Export dependencies** (lazy-imported): `jspdf`, `jspdf-autotable`, `xlsx`
 
 ---
 
@@ -446,6 +509,8 @@ Module-specific code NEVER imports from another module's directory.
 - **Don't modify `src/components/ui/`** — wrap shadcn/ui components in module-specific ones
 - **Don't `await` params synchronously** — Next.js 16: `const { id } = await params`
 - **Don't run `supabase db reset`** in normal development — use `supabase:push`
+- **Don't import `cn` from `@/lib/utils/cn`** — use `@/lib/utils` (the barrel export)
+- **Don't touch `desktop/` or `mobile/`** unless explicitly working on those sub-projects — they are separate codebases with their own `package.json`
 
 ---
 
@@ -461,10 +526,16 @@ Module-specific code NEVER imports from another module's directory.
 | `Hydration mismatch` | Server/client HTML differs | Check for browser-only APIs |
 | `ReferenceError: document is not defined` | Server component using client API | Add `'use client'` |
 | Realtime `CHANNEL_ERROR: undefined` | HTTP 431 header too large | Set `max_header_length = 8192` in `supabase/config.toml` `[realtime]` |
+| `supabase:types` produces wrong/empty types | Script uses `--local` but local stack not running | Run `npx supabase gen types typescript --project-ref ucoipcmzmdazqxvceyux > src/lib/supabase/types.ts` |
+| `E3101` — open shift already exists | Cashier clicked Start Shift twice | DB partial-unique index prevents double-open; surface toast |
+| `E3110` — no open shift | Payment attempted without starting shift | Redirect cashier to `/collections` → Start Shift |
+| Collections shows empty payments | UUID mismatch (auth UID ≠ profiles.id) | Pass `overrideCashierId` (PIN UUID) from kiosk session; service uses `createAdminClient()` |
 
 **Supabase is REMOTE** for this project: `https://ucoipcmzmdazqxvceyux.supabase.co`. Not local.
 
 **Browser client key**: `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` (not `NEXT_PUBLIC_SUPABASE_ANON_KEY`).
+
+**Vercel env var**: Must be `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` — not `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (missing `_DEFAULT` causes 500 on production).
 
 ---
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -180,11 +181,13 @@ export function MenuItemForm({
 
         {imagePreview ? (
           <div className="relative group">
-            <div className="aspect-video bg-slate-100 rounded-xl overflow-hidden border-2 border-slate-200">
-              <img
+            <div className="relative aspect-video bg-slate-100 rounded-xl overflow-hidden border-2 border-slate-200">
+              <Image
                 src={imagePreview}
                 alt="Preview"
-                className="w-full h-full object-cover"
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 560px"
               />
             </div>
             <button

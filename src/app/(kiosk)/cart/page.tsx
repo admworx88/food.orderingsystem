@@ -10,7 +10,6 @@ import { formatCurrency } from '@/lib/utils/currency';
 import { normalizeImageUrl } from '@/lib/utils/image';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
 import { PageSubHeader } from '@/components/kiosk/page-sub-header';
 import { KioskNavSidebar } from '@/components/kiosk/kiosk-nav-sidebar';
 

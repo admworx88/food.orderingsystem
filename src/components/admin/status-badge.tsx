@@ -4,7 +4,6 @@ type OrderStatus = 'pending_payment' | 'paid' | 'preparing' | 'ready' | 'served'
 type GenericStatus = 'active' | 'inactive' | 'expired' | 'upcoming';
 type UserRole = 'admin' | 'cashier' | 'kitchen' | 'waiter';
 type PaymentMethod = 'cash' | 'gcash' | 'card' | 'bill_later' | 'ewallet';
-type PromoStatus = 'active' | 'inactive' | 'expired' | 'upcoming';
 
 export type StatusVariant =
   | OrderStatus

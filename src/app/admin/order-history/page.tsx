@@ -2,8 +2,8 @@ import { Suspense } from 'react';
 import { getOrders, type OrderFilters } from '@/services/order-service';
 import { OrderHistoryTable } from '@/components/admin/order-history-table';
 import { OrderHistoryFilters } from '@/components/admin/order-history-filters';
-import { Pagination, PaginationInfo } from '@/components/shared/pagination';
-import { AlertCircle, ClipboardList, Loader2 } from 'lucide-react';
+import { PaginationInfo } from '@/components/shared/pagination';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
