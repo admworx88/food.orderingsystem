@@ -397,8 +397,7 @@ export async function processManualEwalletPayment(
 // ============================================================
 
 /**
- * Initiate a GCash payment via PayMongo.
- * Stubbed until PAYMONGO_SECRET_KEY is configured.
+ * GCash payment via digital gateway — gateway removed, pending replacement.
  */
 export async function createGcashPayment(
   input: unknown
@@ -407,94 +406,7 @@ export async function createGcashPayment(
   if (!parseResult.success) {
     return serviceError('E3003', parseResult.error.issues[0]?.message || 'Invalid payment input');
   }
-
-  const { orderId } = parseResult.data;
-
-  // Feature flag: check if PayMongo is configured
-  if (!process.env.PAYMONGO_SECRET_KEY) {
-    return serviceError('E3002', 'Digital payments are not configured. Please use cash payment.');
-  }
-
-  try {
-    const supabase = await createServerClient();
-
-    // Validate order
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .select('id, total_amount, status, payment_status, expires_at')
-      .eq('id', orderId)
-      .is('deleted_at', null)
-      .single();
-
-    if (orderError || !order) {
-      return serviceError('E2001', 'Order not found');
-    }
-
-    if (order.status !== 'pending_payment' || order.payment_status !== 'unpaid') {
-      return serviceError('E3007', 'Order is not pending payment');
-    }
-
-    if (order.expires_at && new Date(order.expires_at) < new Date()) {
-      return serviceError('E2003', 'Order has expired');
-    }
-
-    const amountCentavos = Math.round(order.total_amount * 100);
-
-    // Create PayMongo GCash source
-    const response = await fetch('https://api.paymongo.com/v1/sources', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'Authorization': `Basic ${Buffer.from(process.env.PAYMONGO_SECRET_KEY + ':').toString('base64')}`,
-      },
-      body: JSON.stringify({
-        data: {
-          attributes: {
-            amount: amountCentavos,
-            redirect: {
-              success: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/webhooks/paymongo/redirect?status=success&order_id=${orderId}`,
-              failed: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/webhooks/paymongo/redirect?status=failed&order_id=${orderId}`,
-            },
-            type: 'gcash',
-            currency: 'PHP',
-          },
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      console.error('PayMongo GCash source creation failed:', await response.text());
-      return serviceError('E3002', 'Failed to initiate GCash payment. Please try again.');
-    }
-
-    const sourceData = await response.json();
-    const sourceId = sourceData.data.id;
-    const checkoutUrl = sourceData.data.attributes.redirect.checkout_url;
-
-    // Insert pending payment record
-    await supabase.from('payments').insert({
-      order_id: orderId,
-      method: 'gcash',
-      amount: order.total_amount,
-      status: 'pending',
-      provider_reference: sourceId,
-    });
-
-    // Update order payment_status to processing
-    await supabase
-      .from('orders')
-      .update({ payment_status: 'processing', updated_at: new Date().toISOString() })
-      .eq('id', orderId);
-
-    return {
-      success: true,
-      data: { checkoutUrl, sourceId },
-    };
-  } catch (error) {
-    console.error('createGcashPayment unexpected error:', error);
-    return serviceError('E9001', 'An unexpected error occurred');
-  }
+  return serviceError('E3002', 'Digital payment gateway not configured. Please use cash or manual reference.');
 }
 
 // ============================================================
@@ -502,8 +414,7 @@ export async function createGcashPayment(
 // ============================================================
 
 /**
- * Create a card payment intent via PayMongo.
- * Stubbed until PAYMONGO_SECRET_KEY is configured.
+ * Card payment via digital gateway — gateway removed, pending replacement.
  */
 export async function createCardPaymentIntent(
   input: unknown
@@ -512,90 +423,7 @@ export async function createCardPaymentIntent(
   if (!parseResult.success) {
     return serviceError('E3003', parseResult.error.issues[0]?.message || 'Invalid payment input');
   }
-
-  const { orderId } = parseResult.data;
-
-  if (!process.env.PAYMONGO_SECRET_KEY) {
-    return serviceError('E3002', 'Digital payments are not configured. Please use cash payment.');
-  }
-
-  try {
-    const supabase = await createServerClient();
-
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .select('id, total_amount, status, payment_status, expires_at')
-      .eq('id', orderId)
-      .is('deleted_at', null)
-      .single();
-
-    if (orderError || !order) {
-      return serviceError('E2001', 'Order not found');
-    }
-
-    if (order.status !== 'pending_payment' || order.payment_status !== 'unpaid') {
-      return serviceError('E3007', 'Order is not pending payment');
-    }
-
-    if (order.expires_at && new Date(order.expires_at) < new Date()) {
-      return serviceError('E2003', 'Order has expired');
-    }
-
-    const amountCentavos = Math.round(order.total_amount * 100);
-
-    // Create PayMongo payment intent
-    const response = await fetch('https://api.paymongo.com/v1/payment_intents', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'Authorization': `Basic ${Buffer.from(process.env.PAYMONGO_SECRET_KEY + ':').toString('base64')}`,
-      },
-      body: JSON.stringify({
-        data: {
-          attributes: {
-            amount: amountCentavos,
-            payment_method_allowed: ['card'],
-            payment_method_options: { card: { request_three_d_secure: 'any' } },
-            currency: 'PHP',
-            description: `Order ${orderId}`,
-          },
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      console.error('PayMongo payment intent creation failed:', await response.text());
-      return serviceError('E3002', 'Failed to initiate card payment. Please try again.');
-    }
-
-    const intentData = await response.json();
-    const paymentIntentId = intentData.data.id;
-    const clientKey = intentData.data.attributes.client_key;
-
-    // Insert pending payment record
-    await supabase.from('payments').insert({
-      order_id: orderId,
-      method: 'card',
-      amount: order.total_amount,
-      status: 'pending',
-      provider_reference: paymentIntentId,
-    });
-
-    // Update order payment_status to processing
-    await supabase
-      .from('orders')
-      .update({ payment_status: 'processing', updated_at: new Date().toISOString() })
-      .eq('id', orderId);
-
-    return {
-      success: true,
-      data: { clientKey, paymentIntentId },
-    };
-  } catch (error) {
-    console.error('createCardPaymentIntent unexpected error:', error);
-    return serviceError('E9001', 'An unexpected error occurred');
-  }
+  return serviceError('E3002', 'Digital payment gateway not configured. Please use cash or manual reference.');
 }
 
 // ============================================================
@@ -940,32 +768,6 @@ export async function processRefund(
       },
     });
 
-    // If PayMongo payment, initiate refund via API
-    if (payment.method !== 'cash' && payment.provider_reference && process.env.PAYMONGO_SECRET_KEY) {
-      try {
-        await fetch(`https://api.paymongo.com/v1/refunds`, {
-          method: 'POST',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Authorization': `Basic ${Buffer.from(process.env.PAYMONGO_SECRET_KEY + ':').toString('base64')}`,
-          },
-          body: JSON.stringify({
-            data: {
-              attributes: {
-                amount: Math.round(refundAmount * 100),
-                payment_id: payment.provider_reference,
-                reason: 'requested_by_customer',
-              },
-            },
-          }),
-        });
-      } catch (paymongoError) {
-        console.error('PayMongo refund API failed:', paymongoError);
-        // Refund is already recorded locally — PayMongo sync can be retried
-      }
-    }
-
     revalidatePath('/(cashier)/payments', 'page');
 
     return {
@@ -1014,24 +816,19 @@ export async function cancelExpiredOrders(): Promise<ServiceResult<{ cancelledCo
 // F-C11: Void Bill (Cashier PIN confirmation)
 // ============================================================
 
-export async function voidBill(input: {
-  orderId: string;
-  cashierPin: string;
-  voidReason: string;
-  cashierId: string;
-  cashierName: string;
-}): Promise<ServiceResult<{ orderId: string }>> {
-  const { orderId, cashierPin, voidReason, cashierId, cashierName } = input;
-
-  if (!orderId || !cashierPin || !voidReason.trim()) {
-    return serviceError('E3005', 'Order ID, PIN, and void reason are required');
+export async function voidBill(input: unknown): Promise<ServiceResult<{ orderId: string }>> {
+  const voidBillSchema = z.object({
+    orderId: z.string().uuid('Invalid order ID'),
+    cashierPin: z.string().regex(/^\d{4,6}$/, 'PIN must be 4–6 digits'),
+    voidReason: z.string().min(5, 'Void reason must be at least 5 characters').max(500),
+    cashierId: z.string().uuid('Invalid cashier ID'),
+    cashierName: z.string().min(1).max(200),
+  });
+  const parsed = voidBillSchema.safeParse(input);
+  if (!parsed.success) {
+    return serviceError('E3005', parsed.error.issues[0]?.message ?? 'Invalid input');
   }
-  if (!/^\d{4,6}$/.test(cashierPin)) {
-    return serviceError('E1001', 'Invalid PIN format');
-  }
-  if (voidReason.trim().length < 5) {
-    return serviceError('E3005', 'Void reason must be at least 5 characters');
-  }
+  const { orderId, cashierPin, voidReason, cashierId } = parsed.data;
 
   try {
     const admin = createAdminClient();
@@ -1085,7 +882,7 @@ export async function voidBill(input: {
       new_data: {
         status: 'cancelled',
         void_reason: voidReason.trim(),
-        voided_by: cashierName,
+        voided_by: profile.full_name,
         voided_by_id: cashierId,
         voided_at: new Date().toISOString(),
       },
@@ -1340,8 +1137,8 @@ export async function submitShiftCollection(shiftId: string, overrideCashierId?:
       },
     });
 
-    revalidatePath('/collections');
-    revalidatePath('/payments');
+    revalidatePath('/(cashier)/collections', 'page');
+    revalidatePath('/(cashier)/payments', 'page');
     return { success: true, data: { submittedAt: submittedAt as string } };
   } catch (error) {
     console.error('submitShiftCollection unexpected error:', error);
@@ -1357,7 +1154,7 @@ export async function verifyAdminPin(
   pin: string
 ): Promise<{ success: boolean }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const { data: admins, error } = await supabase
       .from('profiles')
       .select('id, pin_hash')
@@ -1480,8 +1277,8 @@ export async function startShift(overrideCashierId?: string): Promise<ServiceRes
       new_data: { cashier_id: cashierId, started_at: data.started_at },
     });
 
-    revalidatePath('/payments');
-    revalidatePath('/collections');
+    revalidatePath('/(cashier)/payments', 'page');
+    revalidatePath('/(cashier)/collections', 'page');
     return { success: true, data: data as Shift };
   } catch (error) {
     console.error('startShift unexpected error:', error);
@@ -1823,7 +1620,7 @@ export async function addDeduction(
       return serviceError('E9001', 'Failed to add deduction');
     }
 
-    revalidatePath('/collections');
+    revalidatePath('/(cashier)/collections', 'page');
     return { success: true, data: data as ShiftDeduction };
   } catch (error) {
     console.error('addDeduction unexpected error:', error);
@@ -1880,7 +1677,7 @@ export async function updateDeduction(
       return serviceError('E9001', 'Failed to update deduction');
     }
 
-    revalidatePath('/collections');
+    revalidatePath('/(cashier)/collections', 'page');
     return { success: true, data: data as ShiftDeduction };
   } catch (error) {
     console.error('updateDeduction unexpected error:', error);
@@ -1928,7 +1725,7 @@ export async function deleteDeduction(id: string, overrideCashierId?: string): P
       return serviceError('E9001', 'Failed to delete deduction');
     }
 
-    revalidatePath('/collections');
+    revalidatePath('/(cashier)/collections', 'page');
     return { success: true, data: undefined };
   } catch (error) {
     console.error('deleteDeduction unexpected error:', error);

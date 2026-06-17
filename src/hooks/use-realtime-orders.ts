@@ -329,11 +329,13 @@ export function useRealtimeOrders(
   // reconnectTrigger intentionally drives reconnection; reconnection objects excluded (stable via refs)
   }, [fetchOrders, handleRealtimeChange, reconnectTrigger]);
 
-  // Safety-net poll — always active at 15s so missed realtime events never delay kitchen staff
+  // Safety-net poll — always active at 15s so missed realtime events never delay kitchen staff.
+  // Clears itself when realtimeFailed=true (fallback poll at 10s takes over) to avoid overlap.
   useEffect(() => {
+    if (realtimeFailed) return;
     const poll = setInterval(fetchOrders, 15_000);
     return () => clearInterval(poll);
-  }, [fetchOrders]);
+  }, [fetchOrders, realtimeFailed]);
 
   // Polling fallback — activates after realtime max retries exhausted; tightens to 10s
   useEffect(() => {

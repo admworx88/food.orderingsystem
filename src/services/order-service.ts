@@ -1139,8 +1139,8 @@ export async function updateItemToReady(
 
   const orderAutoUpdated = orderAfter?.status === 'ready';
 
-  revalidatePath('/orders');
-  revalidatePath('/service');
+  revalidatePath('/(kitchen)/orders', 'page');
+  revalidatePath('/(waiter)/service', 'page');
 
   return {
     success: true,
@@ -1213,8 +1213,8 @@ export async function updateItemToServed(
 
   const orderCompleted = orderAfter?.status === 'served';
 
-  revalidatePath('/orders');
-  revalidatePath('/service');
+  revalidatePath('/(kitchen)/orders', 'page');
+  revalidatePath('/(waiter)/service', 'page');
 
   return {
     success: true,
@@ -1261,8 +1261,8 @@ export async function markAllItemsReady(
 
   const orderAutoUpdated = orderAfter?.status === 'ready';
 
-  revalidatePath('/orders');
-  revalidatePath('/service');
+  revalidatePath('/(kitchen)/orders', 'page');
+  revalidatePath('/(waiter)/service', 'page');
 
   return {
     success: true,
@@ -1690,8 +1690,8 @@ export async function addItemsToOrder(
     });
 
     revalidatePath('/admin/order-history');
-    revalidatePath('/orders');
-    revalidatePath('/service');
+    revalidatePath('/(kitchen)/orders', 'page');
+    revalidatePath('/(waiter)/service', 'page');
 
     return {
       success: true,

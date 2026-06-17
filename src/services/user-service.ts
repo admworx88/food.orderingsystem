@@ -3,6 +3,8 @@
 import { createServerClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
+import { checkRateLimit, recordFailedAttempt, clearRateLimit } from '@/lib/utils/rate-limiter';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import {
@@ -443,6 +445,16 @@ export async function resolveStaffPin(
   kioskType: KioskType
 ): Promise<ServiceResult<{ id: string; full_name: string; role: string }>> {
   try {
+    // Rate limit by client IP to prevent brute-forcing 4-digit PINs
+    const headersList = await headers();
+    const clientIp = headersList.get('x-forwarded-for')?.split(',')[0]?.trim() ?? headersList.get('x-real-ip') ?? 'unknown';
+    const rateLimitKey = `pin:${clientIp}`;
+    const rateLimitStatus = checkRateLimit(rateLimitKey);
+    if (!rateLimitStatus.allowed) {
+      const minutes = Math.ceil((rateLimitStatus.retryAfterSeconds ?? 60) / 60);
+      return { success: false, error: `Too many PIN attempts. Try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.` };
+    }
+
     if (!pin || !/^\d{4,6}$/.test(pin)) {
       return { success: false, error: 'Invalid PIN format' };
     }
@@ -459,6 +471,7 @@ export async function resolveStaffPin(
       .not('pin_hash', 'is', null);
 
     if (error) {
+      recordFailedAttempt(rateLimitKey);
       return { success: false, error: 'Incorrect PIN. Please try again.' };
     }
 
@@ -471,6 +484,7 @@ export async function resolveStaffPin(
     }
 
     if (!data) {
+      recordFailedAttempt(rateLimitKey);
       return { success: false, error: 'Incorrect PIN. Please try again.' };
     }
 
@@ -492,6 +506,7 @@ export async function resolveStaffPin(
       .from('kiosk_active_sessions')
       .upsert({ profile_id: data.id, kiosk_type: kioskType, signed_in_at: new Date().toISOString() });
 
+    clearRateLimit(rateLimitKey);
     return { success: true, data };
   } catch (error) {
     console.error('resolveStaffPin failed:', error);
