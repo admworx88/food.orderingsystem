@@ -6,6 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, ArrowRight, BellRing, Delete } from 'lucide-react';
+import { toast } from 'sonner';
 import { useCartStore, type OrderType } from '@/stores/cart-store';
 import { ORDER_TYPE_CONFIG } from '@/lib/constants/order-types';
 import { useKioskLocation } from '@/hooks/use-kiosk-location';
@@ -252,6 +253,7 @@ export default function OrderTypePage() {
 
       {/* ── Call Staff — bottom left ── */}
       <motion.button
+        onClick={() => toast.success('Staff has been notified!', { duration: 3000 })}
         className="absolute bottom-6 left-6 z-20 flex items-center gap-2.5 bg-stone-800 hover:bg-stone-700 active:scale-[0.97] text-white pl-1.5 pr-5 py-1.5 rounded-full shadow-lg transition-all"
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}

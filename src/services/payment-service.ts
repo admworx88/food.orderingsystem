@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
 import type { Database } from '@/lib/supabase/types';
 import {
   cashPaymentSchema,
@@ -15,6 +16,7 @@ import {
 import type { CashierOrder, RecentOrder, ShiftSummary } from '@/types/payment';
 import { SENIOR_PWD_DISCOUNT_RATE } from '@/lib/constants/payment-methods';
 import { logAuditEvent } from '@/services/analytics-service';
+import { checkRateLimit, recordFailedAttempt, clearRateLimit } from '@/lib/utils/rate-limiter';
 
 // Database row types
 type Order = Database['public']['Tables']['orders']['Row'];
@@ -661,11 +663,20 @@ export async function processRefund(
       return serviceError('E3004', 'Only successful payments can be refunded');
     }
 
-    // Verify manager PIN
-    // Find any admin/manager user with matching pin_hash
+    // Rate-limit manager PIN attempts by IP
+    const headersList = await headers();
+    const clientIp = headersList.get('x-forwarded-for')?.split(',')[0]?.trim() ?? headersList.get('x-real-ip') ?? 'unknown';
+    const pinRateLimitKey = `refund-pin:${clientIp}`;
+    const rateLimitStatus = checkRateLimit(pinRateLimitKey);
+    if (!rateLimitStatus.allowed) {
+      const minutes = Math.ceil((rateLimitStatus.retryAfterSeconds ?? 60) / 60);
+      return serviceError('E1001', `Too many PIN attempts. Try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`);
+    }
+
+    // Verify manager PIN — find any active admin with a matching pin_hash
     const { data: managers, error: managerError } = await admin
       .from('profiles')
-      .select('id, pin_hash')
+      .select('id, pin_hash, full_name')
       .in('role', ['admin'])
       .eq('is_active', true);
 
@@ -673,16 +684,18 @@ export async function processRefund(
       return serviceError('E1001', 'No manager accounts configured');
     }
 
-    let pinMatch = false;
+    let matchedManagerId: string | null = null;
     for (const m of managers) {
       if (m.pin_hash && await bcrypt.compare(managerPin, m.pin_hash)) {
-        pinMatch = true;
+        matchedManagerId = m.id;
         break;
       }
     }
-    if (!pinMatch) {
+    if (!matchedManagerId) {
+      recordFailedAttempt(pinRateLimitKey);
       return serviceError('E1001', 'Invalid manager PIN');
     }
+    clearRateLimit(pinRateLimitKey);
 
     // Calculate refund amount
     let refundAmount = payment.amount;
@@ -751,13 +764,15 @@ export async function processRefund(
       });
     }
 
-    // Log to audit trail — user context unavailable from kiosk (no Supabase auth session)
-    const { data: { user } } = await createServerClient().then(s => s.auth.getUser()).catch(() => ({ data: { user: null } }));
+    // Log to audit trail — attribute to the cashier (auth session) if available,
+    // always record which manager approved via PIN in new_data.
+    const supabase = await createServerClient();
+    const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
     await admin.from('audit_log').insert({
       action: 'refund',
       table_name: 'payments',
       record_id: paymentId,
-      user_id: user?.id || null,
+      user_id: user?.id ?? matchedManagerId,
       old_data: { status: 'success', amount: payment.amount },
       new_data: {
         status: 'refunded',
@@ -765,6 +780,7 @@ export async function processRefund(
         reason,
         reason_text: reasonText || null,
         is_partial: isPartial,
+        approved_by_manager_id: matchedManagerId,
       },
     });
 

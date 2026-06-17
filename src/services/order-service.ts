@@ -420,42 +420,6 @@ export async function exportOrdersCSV(filters: OrderFilters = {}): Promise<Servi
   return { success: true, data: csv };
 }
 
-/**
- * Get order count by status (for dashboard stats).
- * Uses DB-level head-only count queries instead of fetching all rows.
- */
-export async function getOrderCountByStatus(): Promise<
-  ServiceResult<Record<string, number>>
-> {
-  const supabase = await createServerClient();
-  const statuses = ['pending_payment', 'paid', 'preparing', 'ready', 'served', 'cancelled'] as const;
-
-  try {
-    const results = await Promise.all(
-      statuses.map(async (status) => {
-        const { count, error } = await supabase
-          .from('orders')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', status)
-          .is('deleted_at', null);
-
-        if (error) throw error;
-        return [status, count ?? 0] as const;
-      })
-    );
-
-    const counts: Record<string, number> = {};
-    for (const [status, count] of results) {
-      counts[status] = count;
-    }
-
-    return { success: true, data: counts };
-  } catch (error) {
-    console.error('getOrderCountByStatus failed:', error);
-    return serviceError('E9001', 'Failed to fetch order counts');
-  }
-}
-
 // ==========================================
 // Phase 2: Order Submission & Promo Codes
 // ==========================================
@@ -524,6 +488,109 @@ export async function validatePromoCode(
   };
 }
 
+// ── Shared price-calculation helper ────────────────────────────────────────
+
+interface PricedItem {
+  menuItemId: string;
+  itemName: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  specialInstructions: string | null;
+  addons: Array<{ addonOptionId: string; addonName: string; additionalPrice: number }>;
+}
+
+type SupabaseTypedClient = Awaited<ReturnType<typeof createServerClient>>;
+
+/**
+ * Fetch DB prices for cart items and build the order-items data structure.
+ * Called by both createOrder and addItemsToOrder to avoid duplication.
+ */
+async function fetchAndPriceCartItems(
+  supabase: SupabaseTypedClient,
+  cartItems: Array<{ menuItemId: string; name?: string; quantity: number; addons: Array<{ id: string }>; specialInstructions?: string }>
+): Promise<ServiceResult<{ items: PricedItem[]; subtotal: number }>> {
+  const menuItemIds = cartItems.map((item) => item.menuItemId);
+
+  const { data: dbMenuItems, error: menuError } = await supabase
+    .from('menu_items')
+    .select('id, base_price, name, is_available, deleted_at')
+    .in('id', menuItemIds);
+
+  if (menuError || !dbMenuItems || dbMenuItems.length === 0) {
+    return serviceError('E4001', 'Failed to verify menu items');
+  }
+
+  const menuItemMap = new Map(dbMenuItems.map((item) => [item.id, item]));
+
+  for (const cartItem of cartItems) {
+    const dbItem = menuItemMap.get(cartItem.menuItemId);
+    if (!dbItem) {
+      return serviceError('E4001', `Menu item "${cartItem.name ?? cartItem.menuItemId}" not found`);
+    }
+    if (!dbItem.is_available || dbItem.deleted_at) {
+      return serviceError('E4002', `"${dbItem.name}" is no longer available`);
+    }
+  }
+
+  const allAddonIds = cartItems.flatMap((item) => item.addons.map((a) => a.id));
+  const addonPriceMap = new Map<string, { price: number; name: string }>();
+
+  if (allAddonIds.length > 0) {
+    const { data: dbAddons, error: addonError } = await supabase
+      .from('addon_options')
+      .select('id, additional_price, name, is_available')
+      .in('id', allAddonIds);
+
+    if (addonError) {
+      return serviceError('E4001', 'Failed to verify addon options');
+    }
+
+    for (const addon of dbAddons || []) {
+      if (!addon.is_available) {
+        return serviceError('E4002', `Addon "${addon.name}" is no longer available`);
+      }
+      addonPriceMap.set(addon.id, { price: addon.additional_price, name: addon.name });
+    }
+  }
+
+  let subtotal = 0;
+  const items: PricedItem[] = [];
+
+  for (const cartItem of cartItems) {
+    const dbItem = menuItemMap.get(cartItem.menuItemId)!;
+    const basePrice = Number(dbItem.base_price);
+    let addonsTotal = 0;
+    const itemAddons: PricedItem['addons'] = [];
+
+    for (const addon of cartItem.addons) {
+      const dbAddon = addonPriceMap.get(addon.id);
+      if (dbAddon) {
+        addonsTotal += dbAddon.price;
+        itemAddons.push({ addonOptionId: addon.id, addonName: dbAddon.name, additionalPrice: dbAddon.price });
+      }
+    }
+
+    const unitPrice = basePrice + addonsTotal;
+    const totalPrice = unitPrice * cartItem.quantity;
+    subtotal += totalPrice;
+
+    items.push({
+      menuItemId: cartItem.menuItemId,
+      itemName: dbItem.name,
+      quantity: cartItem.quantity,
+      unitPrice,
+      totalPrice,
+      specialInstructions: cartItem.specialInstructions || null,
+      addons: itemAddons,
+    });
+  }
+
+  return { success: true, data: { items, subtotal } };
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+
 /**
  * Create a new order from cart data.
  * Server-side price recalculation ensures integrity.
@@ -557,104 +624,10 @@ export async function createOrder(
   const supabase = await createServerClient();
 
   try {
-    // 2. Re-fetch menu item prices from DB (NEVER trust client prices)
-    const menuItemIds = validated.items.map((item) => item.menuItemId);
-    const { data: dbMenuItems, error: menuError } = await supabase
-      .from('menu_items')
-      .select('id, base_price, name, is_available, deleted_at')
-      .in('id', menuItemIds);
-
-    if (menuError) {
-      console.error('createOrder: Failed to fetch menu items:', menuError);
-      return { success: false, error: 'Failed to verify menu items' };
-    }
-
-    if (!dbMenuItems || dbMenuItems.length === 0) {
-      return serviceError('E4001', 'No valid menu items found');
-    }
-
-    // Build a map for quick lookup
-    const menuItemMap = new Map(dbMenuItems.map((item) => [item.id, item]));
-
-    // 3. Verify all items exist and are available
-    for (const cartItem of validated.items) {
-      const dbItem = menuItemMap.get(cartItem.menuItemId);
-      if (!dbItem) {
-        return serviceError('E4001', `Menu item "${cartItem.name}" not found`);
-      }
-      if (!dbItem.is_available || dbItem.deleted_at) {
-        return serviceError('E4002', `"${dbItem.name}" is no longer available`);
-      }
-    }
-
-    // 4. Fetch addon prices from DB if any addons are selected
-    const allAddonIds = validated.items.flatMap((item) => item.addons.map((a) => a.id));
-    const addonPriceMap = new Map<string, { price: number; name: string }>();
-
-    if (allAddonIds.length > 0) {
-      const { data: dbAddons, error: addonError } = await supabase
-        .from('addon_options')
-        .select('id, additional_price, name, is_available')
-        .in('id', allAddonIds);
-
-      if (addonError) {
-        console.error('createOrder: Failed to fetch addon options:', addonError);
-        return { success: false, error: 'Failed to verify addon options' };
-      }
-
-      for (const addon of dbAddons || []) {
-        if (!addon.is_available) {
-          return { success: false, error: `Addon "${addon.name}" is no longer available` };
-        }
-        addonPriceMap.set(addon.id, { price: addon.additional_price, name: addon.name });
-      }
-    }
-
-    // 5. Recalculate subtotal server-side
-    let calculatedSubtotal = 0;
-    const orderItemsData: Array<{
-      menuItemId: string;
-      itemName: string;
-      quantity: number;
-      unitPrice: number;
-      totalPrice: number;
-      specialInstructions: string | null;
-      addons: Array<{ addonOptionId: string; addonName: string; additionalPrice: number }>;
-    }> = [];
-
-    for (const cartItem of validated.items) {
-      const dbItem = menuItemMap.get(cartItem.menuItemId)!;
-      const basePrice = Number(dbItem.base_price);
-
-      let addonsTotal = 0;
-      const itemAddons: Array<{ addonOptionId: string; addonName: string; additionalPrice: number }> = [];
-
-      for (const addon of cartItem.addons) {
-        const dbAddon = addonPriceMap.get(addon.id);
-        if (dbAddon) {
-          addonsTotal += dbAddon.price;
-          itemAddons.push({
-            addonOptionId: addon.id,
-            addonName: dbAddon.name,
-            additionalPrice: dbAddon.price,
-          });
-        }
-      }
-
-      const unitPrice = basePrice + addonsTotal;
-      const totalPrice = unitPrice * cartItem.quantity;
-      calculatedSubtotal += totalPrice;
-
-      orderItemsData.push({
-        menuItemId: cartItem.menuItemId,
-        itemName: dbItem.name,
-        quantity: cartItem.quantity,
-        unitPrice,
-        totalPrice,
-        specialInstructions: cartItem.specialInstructions || null,
-        addons: itemAddons,
-      });
-    }
+    // 2–5. Re-fetch prices from DB and build order items (NEVER trust client prices)
+    const pricingResult = await fetchAndPriceCartItems(supabase, validated.items);
+    if (!pricingResult.success) return pricingResult;
+    const { items: orderItemsData, subtotal: calculatedSubtotal } = pricingResult.data;
 
     // 6. Re-validate promo code if provided
     let discountAmount = 0;
@@ -1447,97 +1420,11 @@ export async function addItemsToOrder(
       return serviceError('E2004', 'Cannot add items to this order — it may be served or cancelled');
     }
 
-    // 2. Re-fetch menu item prices from DB
+    // 2–4. Re-fetch prices from DB and build order items (NEVER trust client prices)
     const validated = parseResult.data;
-    const menuItemIds = validated.items.map((item) => item.menuItemId);
-    const { data: dbMenuItems, error: menuError } = await supabase
-      .from('menu_items')
-      .select('id, base_price, name, is_available, deleted_at')
-      .in('id', menuItemIds);
-
-    if (menuError || !dbMenuItems || dbMenuItems.length === 0) {
-      return serviceError('E4001', 'Failed to verify menu items');
-    }
-
-    const menuItemMap = new Map(dbMenuItems.map((item) => [item.id, item]));
-
-    for (const cartItem of validated.items) {
-      const dbItem = menuItemMap.get(cartItem.menuItemId);
-      if (!dbItem) {
-        return serviceError('E4001', `Menu item "${cartItem.name}" not found`);
-      }
-      if (!dbItem.is_available || dbItem.deleted_at) {
-        return serviceError('E4002', `"${dbItem.name}" is no longer available`);
-      }
-    }
-
-    // 3. Fetch addon prices
-    const allAddonIds = validated.items.flatMap((item) => item.addons.map((a) => a.id));
-    const addonPriceMap = new Map<string, { price: number; name: string }>();
-
-    if (allAddonIds.length > 0) {
-      const { data: dbAddons, error: addonError } = await supabase
-        .from('addon_options')
-        .select('id, additional_price, name, is_available')
-        .in('id', allAddonIds);
-
-      if (addonError) {
-        return { success: false, error: 'Failed to verify addon options' };
-      }
-
-      for (const addon of dbAddons || []) {
-        if (!addon.is_available) {
-          return { success: false, error: `Addon "${addon.name}" is no longer available` };
-        }
-        addonPriceMap.set(addon.id, { price: addon.additional_price, name: addon.name });
-      }
-    }
-
-    // 4. Calculate new items subtotal
-    let newItemsSubtotal = 0;
-    const orderItemsData: Array<{
-      menuItemId: string;
-      itemName: string;
-      quantity: number;
-      unitPrice: number;
-      totalPrice: number;
-      specialInstructions: string | null;
-      addons: Array<{ addonOptionId: string; addonName: string; additionalPrice: number }>;
-    }> = [];
-
-    for (const cartItem of validated.items) {
-      const dbItem = menuItemMap.get(cartItem.menuItemId)!;
-      const basePrice = Number(dbItem.base_price);
-
-      let addonsTotal = 0;
-      const itemAddons: Array<{ addonOptionId: string; addonName: string; additionalPrice: number }> = [];
-
-      for (const addon of cartItem.addons) {
-        const dbAddon = addonPriceMap.get(addon.id);
-        if (dbAddon) {
-          addonsTotal += dbAddon.price;
-          itemAddons.push({
-            addonOptionId: addon.id,
-            addonName: dbAddon.name,
-            additionalPrice: dbAddon.price,
-          });
-        }
-      }
-
-      const unitPrice = basePrice + addonsTotal;
-      const totalPrice = unitPrice * cartItem.quantity;
-      newItemsSubtotal += totalPrice;
-
-      orderItemsData.push({
-        menuItemId: cartItem.menuItemId,
-        itemName: dbItem.name,
-        quantity: cartItem.quantity,
-        unitPrice,
-        totalPrice,
-        specialInstructions: cartItem.specialInstructions || null,
-        addons: itemAddons,
-      });
-    }
+    const pricingResult = await fetchAndPriceCartItems(supabase, validated.items);
+    if (!pricingResult.success) return pricingResult;
+    const { items: orderItemsData, subtotal: newItemsSubtotal } = pricingResult.data;
 
     // 5. Insert new order items
     const orderItemInserts = orderItemsData.map((item) => ({

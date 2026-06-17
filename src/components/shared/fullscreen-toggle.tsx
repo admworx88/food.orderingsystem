@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Maximize, Minimize } from 'lucide-react';
-import { cn } from '@/lib/utils/cn';
+import { cn } from '@/lib/utils';
 
 interface FullscreenToggleProps {
   /** Visual variant: 'header' for kiosk header, 'welcome' for kiosk labeled pill, 'staff' for staff module headers */

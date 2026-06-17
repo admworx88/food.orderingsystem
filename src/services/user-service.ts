@@ -281,7 +281,7 @@ export async function updateStaffRole(
 
     if (error) throw error;
 
-    revalidatePath('/users');
+    revalidatePath('/admin/users');
     return { success: true, data };
   } catch (error) {
     console.error('updateStaffRole failed:', error);
