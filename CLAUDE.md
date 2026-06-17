@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-> **Version**: 4.0 | **Last Updated**: Jun 16, 2026 | **Status**: Phases 1–4 + Collections/Shifts Complete
+> **Version**: 4.1 | **Last Updated**: Jun 17, 2026 | **Status**: Phases 1–4 + Collections/Shifts Complete
 
 This file provides guidance to Claude Code when working with this repository.
 
@@ -212,7 +212,11 @@ src/types/      → TypeScript types (auth, dashboard, order, payment)
   payment.ts    → Shift, ShiftDeduction, ShiftPaymentRow, ShiftTotals, ShiftDetails,
                   CashierOrder, RecentOrder, BIRReceiptData, ShiftSummary
 
-supabase/migrations/ → Timestamped SQL files (63 migrations as of Jun 2026)
+supabase/migrations/ → Timestamped SQL files (64 migrations as of Jun 2026)
+
+src/proxy.ts         → Next.js 16 Proxy (replaces middleware.ts per Next.js 16 convention)
+                       Handles: Supabase session cookie refresh + x-pathname header injection.
+                       Does NOT handle auth — auth is in Server Layout Guards (see below).
 ```
 
 **Admin uses a regular folder** (not a route group) — needs the `/admin` URL prefix.
@@ -227,6 +231,7 @@ supabase/migrations/ → Timestamped SQL files (63 migrations as of Jun 2026)
    - `createAdminClient()` → service role; required for: webhooks, admin scripts, and **kiosk-originated shift/deduction operations** where no Supabase auth session exists
 4. **Validate on both sides.** Zod schemas used on client for UX AND re-validated in Server Actions. Never trust client-submitted prices — re-fetch from DB.
 5. **Route groups are boundaries.** `src/components/kiosk/` must NOT import from `src/components/admin/`. Shared code goes in `src/components/shared/`.
+6. **`proxy.ts` is the Next.js 16 equivalent of `middleware.ts`.** In Next.js 16, the file was renamed from `middleware.ts` → `src/proxy.ts` and the export from `middleware` → `proxy`. Do NOT create a `middleware.ts` — it will conflict. Auth is intentionally NOT in `proxy.ts` (CVE-2025-29927 fix); it lives in Server Layout Guards (`src/components/auth/auth-guard.tsx`).
 6. **Realtime on `orders` and `order_items` only.** Don't add realtime to other tables without discussing performance implications.
 
 ### Component Design
@@ -385,9 +390,9 @@ if (result.success) {
 - [ ] No Supabase service-role key in client code
 - [ ] Server Actions validate input with Zod before any DB operation
 - [ ] Prices re-calculated server-side — never trust client totals
-- [ ] PayMongo webhook signatures verified with HMAC
+- [ ] Digital payment gateway webhook signatures verified with HMAC (PayMongo removed — pending replacement)
 - [ ] RLS policies on every table
-- [ ] Admin routes protected by middleware role check
+- [ ] Admin routes protected by Server Layout Guards (`auth-guard.tsx`) — NOT proxy.ts (by design)
 - [ ] File uploads through Supabase Storage with size/type validation
 - [ ] No raw SQL — use Supabase query builder or typed RPCs
 
@@ -498,6 +503,8 @@ Module-specific code NEVER imports from another module's directory.
 
 ## What NOT To Do
 
+- **Don't create `middleware.ts`** — Next.js 16 renamed it to `proxy.ts`; creating `middleware.ts` will conflict with `src/proxy.ts`
+- **Don't put auth logic in `proxy.ts`** — auth lives in Server Layout Guards (`auth-guard.tsx`) per CVE-2025-29927 fix
 - **Don't create `tailwind.config.js`** — Tailwind v4 uses CSS-first config
 - **Don't use `@tailwind` directives** — use `@import "tailwindcss"`
 - **Don't use `tailwindcss` as PostCSS plugin** — use `@tailwindcss/postcss`
@@ -527,6 +534,7 @@ Module-specific code NEVER imports from another module's directory.
 | `ReferenceError: document is not defined` | Server component using client API | Add `'use client'` |
 | Realtime `CHANNEL_ERROR: undefined` | HTTP 431 header too large | Set `max_header_length = 8192` in `supabase/config.toml` `[realtime]` |
 | `supabase:types` produces wrong/empty types | Script uses `--local` but local stack not running | Run `npx supabase gen types typescript --project-ref ucoipcmzmdazqxvceyux > src/lib/supabase/types.ts` |
+| `Don't create middleware.ts` | Next.js 16 renamed it to `proxy.ts` | Use `src/proxy.ts` — creating `middleware.ts` will conflict |
 | `E3101` — open shift already exists | Cashier clicked Start Shift twice | DB partial-unique index prevents double-open; surface toast |
 | `E3110` — no open shift | Payment attempted without starting shift | Redirect cashier to `/collections` → Start Shift |
 | Collections shows empty payments | UUID mismatch (auth UID ≠ profiles.id) | Pass `overrideCashierId` (PIN UUID) from kiosk session; service uses `createAdminClient()` |
