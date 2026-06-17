@@ -17,7 +17,7 @@ interface KioskPinDialogProps {
   onSuccess: () => void;
 }
 
-const MAX_ATTEMPTS = 3;
+const MAX_ATTEMPTS = 5; // Matches server-side rate limiter in rate-limiter.ts
 
 export function KioskPinDialog({
   open,

@@ -15,7 +15,7 @@ import { useStaffSessionStore, type StaffRole } from '@/stores/staff-session-sto
 import { cn } from '@/lib/utils';
 import { BurgerLoader } from '@/components/shared/burger-loader';
 
-const MAX_ATTEMPTS = 3;
+const MAX_ATTEMPTS = 5; // Matches server-side rate limiter in rate-limiter.ts
 
 interface EmployeePinDialogProps {
   open: boolean;
