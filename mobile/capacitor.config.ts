@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Arena Blanca',
   webDir: 'www', // placeholder — not used since we load a remote URL
   server: {
-    url: 'https://food-orderingsystem-staging.vercel.app',
+    url: 'https://food-orderingsystem-prod.vercel.app',
     cleartext: false, // HTTPS only — no need for cleartext
     androidScheme: 'https',
   },

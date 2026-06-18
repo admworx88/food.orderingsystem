@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useMemo } from 'react';
+import { createContext, useContext, useState, useMemo, useEffect } from 'react';
 import type { Locale } from '@/lib/constants/locales';
 import { DEFAULT_LOCALE } from '@/lib/constants/locales';
 import { getDictionary, type Dictionary } from '@/lib/i18n';
@@ -31,7 +31,15 @@ interface LocaleProviderProps {
 }
 
 export function LocaleProvider({ children }: LocaleProviderProps) {
-  const [locale, setLocaleState] = useState<Locale>(getStoredLocale);
+  // Always start with DEFAULT_LOCALE so server and client initial renders match.
+  // Sync from localStorage after hydration to avoid React hydration mismatch
+  // (Android WebView persists localStorage across launches unlike desktop Electron).
+  const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
+
+  useEffect(() => {
+    const stored = getStoredLocale();
+    if (stored !== DEFAULT_LOCALE) setLocaleState(stored);
+  }, []);
 
   const setLocale = (newLocale: Locale) => {
     setLocaleState(newLocale);
