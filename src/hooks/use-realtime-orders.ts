@@ -48,6 +48,7 @@ export function useRealtimeOrders(
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
   const prevNewOrderCountRef = useRef<number>(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // eslint-disable-next-line react-hooks/purity
   const lastEventRef = useRef<number>(Date.now());
   const [reconnectTrigger, setReconnectTrigger] = useState(0);
   const [realtimeFailed, setRealtimeFailed] = useState(false);
@@ -257,7 +258,6 @@ export function useRealtimeOrders(
   }, [includeServed]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Initial fetch + subscription setup pattern
     fetchOrders();
 
     const supabase = getSupabase();
@@ -327,14 +327,15 @@ export function useRealtimeOrders(
       supabase.removeChannel(itemsChannel);
     };
   // reconnectTrigger intentionally drives reconnection; reconnection objects excluded (stable via refs)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchOrders, handleRealtimeChange, reconnectTrigger]);
 
-  // Safety-net poll — always active at 15s so missed realtime events never delay kitchen staff
+  // Safety-net poll — always active at 15s so missed realtime events never delay kitchen staff.
+  // Clears itself when realtimeFailed=true (fallback poll at 10s takes over) to avoid overlap.
   useEffect(() => {
+    if (realtimeFailed) return;
     const poll = setInterval(fetchOrders, 15_000);
     return () => clearInterval(poll);
-  }, [fetchOrders]);
+  }, [fetchOrders, realtimeFailed]);
 
   // Polling fallback — activates after realtime max retries exhausted; tightens to 10s
   useEffect(() => {

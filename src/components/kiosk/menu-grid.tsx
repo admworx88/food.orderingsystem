@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import Image from 'next/image';
 import { MenuItemCard } from './menu-item-card';
 import { ItemDetailSheet } from './item-detail-sheet';
 import { cn } from '@/lib/utils';
-import { ChevronDown, X, Filter } from 'lucide-react';
+import { normalizeImageUrl } from '@/lib/utils/image';
 import type { Database } from '@/lib/supabase/types';
 
 type Category = Database['public']['Tables']['categories']['Row'];
@@ -67,7 +68,6 @@ function getCategoryIcon(name: string): string {
 export function MenuGrid({ categories, menuItems }: MenuGridProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | 'all'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const menuScrollRef = useRef<HTMLDivElement>(null);
   const [detailItem, setDetailItem] = useState<MenuItem | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -79,7 +79,6 @@ export function MenuGrid({ categories, menuItems }: MenuGridProps) {
 
   const handleCategorySelect = (categoryId: string | 'all') => {
     setSelectedCategory(categoryId);
-    setMobileFilterOpen(false);
   };
 
   const filteredItems =
@@ -139,7 +138,9 @@ export function MenuGrid({ categories, menuItems }: MenuGridProps) {
                 )}
               >
                 {cat.image_url ? (
-                  <img src={cat.image_url} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                  <div className="relative w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
+                    <Image src={normalizeImageUrl(cat.image_url) || ''} alt="" fill className="object-cover" sizes="24px" />
+                  </div>
                 ) : (
                   <span className="text-base">{getCategoryIcon(cat.name)}</span>
                 )}
@@ -224,7 +225,9 @@ export function MenuGrid({ categories, menuItems }: MenuGridProps) {
                   )}
                 >
                   {cat.image_url ? (
-                    <img src={cat.image_url} alt="" className="w-8 h-8 flex-shrink-0 rounded-lg object-cover border border-stone-200" />
+                    <div className="relative w-8 h-8 flex-shrink-0 rounded-lg overflow-hidden border border-stone-200">
+                      <Image src={normalizeImageUrl(cat.image_url) || ''} alt="" fill className="object-cover" sizes="32px" />
+                    </div>
                   ) : (
                     <span className="w-8 h-8 flex-shrink-0 flex items-center justify-center text-lg rounded-lg bg-white shadow-sm border border-stone-200">
                       {getCategoryIcon(cat.name)}

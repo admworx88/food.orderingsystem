@@ -87,7 +87,7 @@ export function MenuItemCards({ items, categories }: MenuItemCardsProps) {
                 alt={item.name}
                 fill
                 className="object-cover"
-                onError={(e) => {
+                onError={() => {
                   console.error('Image load error (admin cards):', item.name, item.image_url);
                 }}
               />

@@ -90,6 +90,14 @@ export async function updateBirConfig(
   }
 }
 
+export async function getKioskRates(): Promise<{ taxRate: number; serviceChargeRate: number }> {
+  const result = await getAllSettings();
+  if (!result.success) return { taxRate: 0, serviceChargeRate: 0 };
+  const taxRate = typeof result.data.tax_rate === 'number' ? result.data.tax_rate : 0;
+  const serviceChargeRate = typeof result.data.service_charge === 'number' ? result.data.service_charge : 0;
+  return { taxRate, serviceChargeRate };
+}
+
 export async function validateKioskPin(pin: string): Promise<{ success: boolean }> {
   try {
     const supabase = await createServerClient();

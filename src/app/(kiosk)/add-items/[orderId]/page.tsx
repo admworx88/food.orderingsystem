@@ -1,6 +1,6 @@
-import { createAdminClient } from '@/lib/supabase/admin';
 import { redirect } from 'next/navigation';
 import { AddItemsClient } from '@/components/kiosk/add-items-client';
+import { getAddItemsPageData } from '@/services/order-service';
 
 interface AddItemsMenuPageProps {
   params: Promise<{ orderId: string }>;
@@ -8,33 +8,12 @@ interface AddItemsMenuPageProps {
 
 export default async function AddItemsMenuPage({ params }: AddItemsMenuPageProps) {
   const { orderId } = await params;
-  const supabase = createAdminClient();
+  const result = await getAddItemsPageData(orderId);
 
-  // Verify order exists and is active dine-in
-  const { data: order, error: orderError } = await supabase
-    .from('orders')
-    .select('id, order_number, table_number, status, order_type, subtotal, total_amount, payment_method, order_items(id, item_name, quantity, unit_price, total_price, status)')
-    .eq('id', orderId)
-    .is('deleted_at', null)
-    .single();
+  if (!result.success || !('data' in result) || !result.data) redirect('/add-items');
 
-  if (orderError || !order || order.order_type !== 'dine_in' || !['paid', 'preparing', 'ready'].includes(order.status)) {
-    redirect('/add-items');
-  }
-
-  // Fetch menu data
-  const { data: categories } = await supabase
-    .from('categories')
-    .select('*')
-    .eq('is_active', true)
-    .order('display_order');
-
-  const { data: menuItems } = await supabase
-    .from('menu_items')
-    .select('*, category:categories(id, name, requires_kitchen)')
-    .eq('is_available', true)
-    .is('deleted_at', null)
-    .order('display_order');
+  type PageData = (typeof result & { data: unknown })['data'];
+  const { order, categories, menuItems } = result.data as NonNullable<PageData>;
 
   return (
     <AddItemsClient
@@ -47,8 +26,8 @@ export default async function AddItemsMenuPage({ params }: AddItemsMenuPageProps
         totalAmount: order.total_amount,
         paymentMethod: order.payment_method,
       }}
-      categories={categories || []}
-      menuItems={menuItems || []}
+      categories={categories}
+      menuItems={menuItems}
     />
   );
 }

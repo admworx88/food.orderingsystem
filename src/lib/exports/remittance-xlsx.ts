@@ -1,9 +1,5 @@
 import type { RemittanceData } from './remittance-types';
 
-function formatPeso(amount: number): string {
-  return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
-}
-
 function formatPHTime(isoString: string): string {
   return new Intl.DateTimeFormat('en-PH', {
     timeZone: 'Asia/Manila',

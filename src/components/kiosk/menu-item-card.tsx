@@ -85,7 +85,7 @@ export function MenuItemCard({ item, onAddToCart, onItemClick, compact = false }
                 className={cn('object-cover', imageLoaded ? 'opacity-100' : 'opacity-0')}
                 sizes="96px"
                 onLoad={() => setImageLoaded(true)}
-                onError={(e) => {
+                onError={() => {
                   console.error('Image load error:', item.name, item.image_url);
                   setImageError(true);
                 }}
@@ -140,7 +140,7 @@ export function MenuItemCard({ item, onAddToCart, onItemClick, compact = false }
               )}
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               onLoad={() => setImageLoaded(true)}
-              onError={(e) => {
+              onError={() => {
                 console.error('Image load error (grid):', item.name, item.image_url);
                 setImageError(true);
               }}

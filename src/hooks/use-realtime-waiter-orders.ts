@@ -60,6 +60,7 @@ export function useRealtimeWaiterOrders(
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
   const prevReadyCountRef = useRef<number>(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // eslint-disable-next-line react-hooks/purity
   const lastEventRef = useRef<number>(Date.now());
 
   // Initialize audio element
@@ -300,7 +301,6 @@ export function useRealtimeWaiterOrders(
   }, [includeServed]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Initial fetch + subscription setup pattern
     fetchOrders();
 
     const supabase = getSupabase();
@@ -361,7 +361,6 @@ export function useRealtimeWaiterOrders(
       supabase.removeChannel(itemsChannel);
     };
   // reconnectTrigger intentionally drives reconnection; reconnection objects excluded (stable via refs)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchOrders, handleRealtimeChange, reconnectTrigger]);
 
   // Safety-net poll — always active at 15s so missed realtime events never delay waiter staff

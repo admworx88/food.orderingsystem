@@ -7,7 +7,6 @@ import {
   ArrowRight, UtensilsCrossed,
   UserCircle2, RefreshCw, ClipboardList, CreditCard,
 } from 'lucide-react';
-import Link from 'next/link';
 import { useCartStore } from '@/stores/cart-store';
 import { cn } from '@/lib/utils';
 import { BurgerLoader } from '@/components/shared/burger-loader';
@@ -35,7 +34,7 @@ export default function OceanViewPage() {
   const [adminOverlayOpen, setAdminOverlayOpen] = useState(false);
   const [identifierDialogOpen, setIdentifierDialogOpen] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
-  const [logoTapCount, setLogoTapCount] = useState(0);
+  const [, setLogoTapCount] = useState(0);
   const [tapTimer, setTapTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
   const [signOutDialogOpen, setSignOutDialogOpen] = useState(false);

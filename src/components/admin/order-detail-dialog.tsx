@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -122,13 +122,7 @@ export function OrderDetailDialog({
   const [loading, setLoading] = useState(false);
   const [order, setOrder] = useState<OrderWithDetails | null>(null);
 
-  useEffect(() => {
-    if (open && !order) {
-      loadOrderDetails();
-    }
-  }, [open]);
-
-  const loadOrderDetails = async () => {
+  const loadOrderDetails = useCallback(async () => {
     setLoading(true);
     try {
       const result = await getOrderDetails(orderId);
@@ -144,7 +138,15 @@ export function OrderDetailDialog({
     } finally {
       setLoading(false);
     }
-  };
+  }, [orderId]);
+
+  useEffect(() => {
+    if (open && !order) {
+      loadOrderDetails();
+    }
+    // Intentional: 'order' omitted — adding it causes infinite loop since loadOrderDetails sets order
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, loadOrderDetails]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

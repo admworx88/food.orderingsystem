@@ -101,7 +101,7 @@ export function MenuItemTable({ items, categories }: MenuItemTableProps) {
                       width={48}
                       height={48}
                       className="w-full h-full object-cover"
-                      onError={(e) => {
+                      onError={() => {
                         console.error('Image load error (admin table):', item.name, item.image_url);
                       }}
                     />

@@ -35,21 +35,18 @@ export function AddDeductionDialog({
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<{ amount?: string; description?: string }>({});
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (editingDeduction) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAmount(String(editingDeduction.amount));
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDescription(editingDeduction.description);
     } else {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAmount('');
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDescription('');
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setErrors({});
   }, [editingDeduction, open]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const validate = () => {
     const newErrors: typeof errors = {};

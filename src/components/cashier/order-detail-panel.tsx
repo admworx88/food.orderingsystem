@@ -1,6 +1,6 @@
 'use client';
 
-import { Phone, MapPin, Clock, AlertTriangle } from 'lucide-react';
+import { Phone, MapPin, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/currency';
 import { ExpirationCountdown } from './expiration-countdown';
 import type { CashierOrder } from '@/types/payment';

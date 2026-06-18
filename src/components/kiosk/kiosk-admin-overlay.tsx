@@ -15,7 +15,7 @@ interface KioskAdminOverlayProps {
 
 type Step = 'pin' | 'config';
 
-const MAX_ATTEMPTS = 3;
+const MAX_ATTEMPTS = 5; // Matches server-side rate limiter in rate-limiter.ts
 
 export function KioskAdminOverlay({ isOpen, onClose }: KioskAdminOverlayProps) {
   const router = useRouter();

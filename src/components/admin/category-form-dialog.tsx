@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import NextImage from 'next/image';
 import { Plus, Edit2, Trash2, X, Image as ImageIcon } from 'lucide-react';
 import { createCategory, updateCategory, deleteCategory, uploadMenuImage } from '@/services/menu-service';
 import { toast } from 'sonner';
@@ -254,11 +255,13 @@ export function CategoryFormDialog({ mode, category, trigger }: CategoryFormDial
 
             {imageUrl ? (
               <div className="relative group">
-                <div className="h-32 bg-slate-100 rounded-xl overflow-hidden border-2 border-slate-200">
-                  <img
+                <div className="relative h-32 bg-slate-100 rounded-xl overflow-hidden border-2 border-slate-200">
+                  <NextImage
                     src={imageUrl}
                     alt="Category preview"
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
+                    sizes="448px"
                   />
                 </div>
                 <button

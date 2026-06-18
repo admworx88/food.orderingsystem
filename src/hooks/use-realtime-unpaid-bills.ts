@@ -132,7 +132,7 @@ export function useRealtimeUnpaidBills(
         return [...prev, fullOrder];
       });
     }
-  }, []);
+  }, [kioskLocation]);
 
   useEffect(() => {
     // Skip initial fetch if server already provided data, but always refetch on reconnect
