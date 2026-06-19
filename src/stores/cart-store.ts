@@ -253,6 +253,7 @@ export const useCartStore = create<CartStore>()(
     }),
     {
       name: 'orderflow-cart',
+      skipHydration: true,
       partialize: (state) => ({
         items: state.items,
         orderType: state.orderType,

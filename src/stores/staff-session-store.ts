@@ -23,6 +23,6 @@ export const useStaffSessionStore = create<StaffSessionStore>()(
       setSession: (session) => set({ session }),
       clearSession: () => set({ session: null }),
     }),
-    { name: 'staff-session' }
+    { name: 'staff-session', skipHydration: true }
   )
 );

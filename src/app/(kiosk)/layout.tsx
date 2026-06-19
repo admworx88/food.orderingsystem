@@ -12,6 +12,7 @@ import { KioskSetupScreen } from '@/components/kiosk/kiosk-setup-screen';
 import { KioskPinDialog } from '@/components/kiosk/kiosk-pin-dialog';
 import { LocaleProvider, useLocale } from '@/lib/i18n/locale-context';
 import { useCartStore } from '@/stores/cart-store';
+import { useStaffSessionStore } from '@/stores/staff-session-store';
 import { getKioskRates } from '@/services/settings-service';
 import { useKioskLocation } from '@/hooks/use-kiosk-location';
 import { useNetworkStatus } from '@/hooks/use-network-status';
@@ -108,6 +109,15 @@ function KioskLayoutInner({ children }: KioskLayoutProps) {
     isDetailSheetOpen,
     setRates,
   } = useCartStore();
+
+  // Rehydrate Zustand persist stores after mount so SSR and first client render
+  // both start from initialState (no localStorage on server). Without this,
+  // useSyncExternalStore in Zustand v5 + React 19 causes error #185 (Too many
+  // re-renders) because the snapshot mismatch triggers cascading sync updates.
+  useEffect(() => {
+    useCartStore.persist.rehydrate();
+    useStaffSessionStore.persist.rehydrate();
+  }, []);
 
   useEffect(() => {
     getKioskRates().then(({ taxRate, serviceChargeRate }) => {
