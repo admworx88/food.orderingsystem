@@ -19,7 +19,7 @@ export default function GlobalError({
             <strong>Digest:</strong> {error.digest}
           </p>
         )}
-        <details style={{ marginTop: 12 }}>
+        <details open style={{ marginTop: 12 }}>
           <summary style={{ fontSize: 13, cursor: 'pointer' }}>Stack Trace</summary>
           <pre style={{ fontSize: 11, marginTop: 8, whiteSpace: 'pre-wrap', wordBreak: 'break-all', background: '#f5f5f5', padding: 8 }}>
             {error?.stack || 'No stack available'}

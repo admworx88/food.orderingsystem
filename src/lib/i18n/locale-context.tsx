@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useMemo, useEffect } from 'react';
+import { createContext, useContext, useState, useMemo, useEffect, useCallback } from 'react';
 import type { Locale } from '@/lib/constants/locales';
 import { DEFAULT_LOCALE } from '@/lib/constants/locales';
 import { getDictionary, type Dictionary } from '@/lib/i18n';
@@ -41,19 +41,21 @@ export function LocaleProvider({ children }: LocaleProviderProps) {
     if (stored !== DEFAULT_LOCALE) setLocaleState(stored);
   }, []);
 
-  const setLocale = (newLocale: Locale) => {
+  const setLocale = useCallback((newLocale: Locale) => {
     setLocaleState(newLocale);
     try {
       localStorage.setItem(STORAGE_KEY, newLocale);
     } catch {
       // localStorage unavailable
     }
-  };
+  }, []);
 
   const t = useMemo(() => getDictionary(locale), [locale]);
 
+  const contextValue = useMemo(() => ({ locale, setLocale, t }), [locale, setLocale, t]);
+
   return (
-    <LocaleContext.Provider value={{ locale, setLocale, t }}>
+    <LocaleContext.Provider value={contextValue}>
       {children}
     </LocaleContext.Provider>
   );

@@ -67,7 +67,11 @@ export function KioskWelcomeClient() {
   const [adminOverlayOpen, setAdminOverlayOpen] = useState(false);
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
   const [signOutDialogOpen, setSignOutDialogOpen] = useState(false);
-  const { session } = useStaffSessionStore();
+  // useStaffSessionStore uses Zustand persist which reads localStorage synchronously.
+  // Server renders session=null but client may already have a persisted session.
+  // Guard with `mounted` so server+client initial renders match (hydration-safe).
+  const sessionFromStore = useStaffSessionStore((s) => s.session);
+  const session = mounted ? sessionFromStore : null;
   const { location } = useKioskLocation();
   const isOceanView = location === 'ocean_view';
 
