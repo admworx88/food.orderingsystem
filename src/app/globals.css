@@ -4873,3 +4873,18 @@ border-color: rgba(249, 115, 22, 0.15);
 .kiosk-payments-embed .pos-success-glow {
 box-shadow: 0 0 20px 2px var(--pos-amber-glow);
 }
+
+/* ── Kiosk welcome page shine sweep animations (CSS, not Framer Motion) ── */
+/* Replaces repeat: Infinity motion.div elements to avoid React 19 / */
+/* Android WebView render cascade (error #185). */
+@keyframes kiosk-shine-card {
+0% { transform: translateX(-150%) skewX(-15deg); }
+20% { transform: translateX(400%) skewX(-15deg); }
+20.01% { transform: translateX(-150%) skewX(-15deg); }
+}
+
+@keyframes kiosk-shine-cta {
+0% { transform: translateX(-150%) skewX(-15deg); }
+37.5% { transform: translateX(450%) skewX(-15deg); }
+37.51% { transform: translateX(-150%) skewX(-15deg); }
+}

@@ -360,14 +360,21 @@ export function KioskWelcomeClient() {
                 animate={mounted ? 'show' : 'hidden'}
                 custom={0.5 + index * 0.08}
               >
-                {/* Shine sweep */}
-                <motion.div
-                  className="absolute top-0 h-full w-2/5 pointer-events-none"
-                  style={{ background: 'linear-gradient(105deg, transparent 25%, rgba(255,255,255,0.55) 50%, transparent 75%)', skewX: -15 }}
-                  initial={{ x: '-150%' }}
-                  animate={mounted ? { x: '400%' } : { x: '-150%' }}
-                  transition={{ duration: 1.1, repeat: Infinity, repeatDelay: 3.5 + index * 0.5, ease: 'easeInOut', delay: 1.4 + index * 0.25 }}
-                />
+                {/* Shine sweep — CSS animation replaces Framer Motion repeat:Infinity */}
+                {mounted && (
+                  <div
+                    className="absolute top-0 h-full w-2/5 pointer-events-none"
+                    style={{
+                      background: 'linear-gradient(105deg, transparent 25%, rgba(255,255,255,0.55) 50%, transparent 75%)',
+                      animationName: 'kiosk-shine-card',
+                      animationDuration: '5.5s',
+                      animationTimingFunction: 'ease-in-out',
+                      animationDelay: `${1.4 + index * 0.25}s`,
+                      animationIterationCount: 'infinite',
+                      animationFillMode: 'both',
+                    }}
+                  />
+                )}
                 <div className="w-10 h-10 flex-shrink-0 rounded-xl bg-orange-100 flex items-center justify-center">
                   <Icon className="w-5 h-5 text-orange-500" strokeWidth={1.75} />
                 </div>
@@ -396,14 +403,21 @@ export function KioskWelcomeClient() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
             >
-              {/* Shine sweep */}
-              <motion.div
-                className="absolute top-0 h-full w-1/3 pointer-events-none"
-                style={{ background: 'linear-gradient(105deg, transparent 25%, rgba(255,255,255,0.4) 50%, transparent 75%)', skewX: -15 }}
-                initial={{ x: '-150%' }}
-                animate={mounted ? { x: '450%' } : { x: '-150%' }}
-                transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 2.5, ease: 'easeInOut', delay: 2.0 }}
-              />
+              {/* Shine sweep — CSS animation replaces Framer Motion repeat:Infinity */}
+              {mounted && (
+                <div
+                  className="absolute top-0 h-full w-1/3 pointer-events-none"
+                  style={{
+                    background: 'linear-gradient(105deg, transparent 25%, rgba(255,255,255,0.4) 50%, transparent 75%)',
+                    animationName: 'kiosk-shine-cta',
+                    animationDuration: '4.0s',
+                    animationTimingFunction: 'ease-in-out',
+                    animationDelay: '2.0s',
+                    animationIterationCount: 'infinite',
+                    animationFillMode: 'both',
+                  }}
+                />
+              )}
               <div className="w-12 h-12 flex-shrink-0 rounded-full bg-white/20 flex items-center justify-center">
                 <UtensilsCrossed className="w-5 h-5 text-white" strokeWidth={2} />
               </div>
