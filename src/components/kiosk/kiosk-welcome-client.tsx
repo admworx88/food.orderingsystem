@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { motion } from 'framer-motion';
 import {
   UtensilsCrossed, Leaf, ChefHat, ArrowRight, Waves, Sparkles,
   UserCircle2, RefreshCw, CreditCard, ClipboardList, Plus,
@@ -16,7 +15,6 @@ import { useStaffSessionStore } from '@/stores/staff-session-store';
 import { useKioskLocation } from '@/hooks/use-kiosk-location';
 import { cn } from '@/lib/utils';
 
-
 const BRAND_HIGHLIGHTS = [
   { icon: Leaf, label: 'Fresh Ingredients', desc: 'Locally sourced daily' },
   { icon: Sparkles, label: 'Signature Dishes', desc: 'Filipino & international' },
@@ -24,40 +22,22 @@ const BRAND_HIGHLIGHTS = [
   { icon: ChefHat, label: 'Made to Order', desc: 'Cooked fresh for you' },
 ];
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 22 },
-  show: (delay: number = 0) => ({
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] as [number, number, number, number], delay },
-  }),
-};
+// Inline style helpers — CSS animations replace all Framer Motion usage.
+// Framer Motion v12 + React 19 on Android WebView causes error #185
+// (Too many re-renders) from internal useLayoutEffect cascades.
+function anim(name: string, duration: string, ease: string, delay: string): React.CSSProperties {
+  return {
+    animationName: name,
+    animationDuration: duration,
+    animationTimingFunction: ease,
+    animationDelay: delay,
+    animationFillMode: 'both',
+    animationIterationCount: '1',
+  };
+}
 
-const fadeIn = {
-  hidden: { opacity: 0 },
-  show: (delay: number = 0) => ({
-    opacity: 1,
-    transition: { duration: 0.5, ease: 'easeOut' as const, delay },
-  }),
-};
-
-const scaleIn = {
-  hidden: { opacity: 0, scale: 0.82 },
-  show: (delay: number = 0) => ({
-    opacity: 1,
-    scale: 1,
-    transition: { duration: 0.55, ease: [0.34, 1.4, 0.64, 1] as [number, number, number, number], delay },
-  }),
-};
-
-const dividerVariant = {
-  hidden: { opacity: 0, scaleX: 0 },
-  show: {
-    opacity: 1,
-    scaleX: 1,
-    transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as [number, number, number, number], delay: 0.45 },
-  },
-};
+const EASE_OUT = 'cubic-bezier(0.22, 1, 0.36, 1)';
+const EASE_SPRING = 'cubic-bezier(0.34, 1.4, 0.64, 1)';
 
 export function KioskWelcomeClient() {
   const router = useRouter();
@@ -67,9 +47,7 @@ export function KioskWelcomeClient() {
   const [adminOverlayOpen, setAdminOverlayOpen] = useState(false);
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
   const [signOutDialogOpen, setSignOutDialogOpen] = useState(false);
-  // useStaffSessionStore uses Zustand persist which reads localStorage synchronously.
-  // Server renders session=null but client may already have a persisted session.
-  // Guard with `mounted` so server+client initial renders match (hydration-safe).
+
   const sessionFromStore = useStaffSessionStore((s) => s.session);
   const session = mounted ? sessionFromStore : null;
   const { location } = useKioskLocation();
@@ -114,6 +92,7 @@ export function KioskWelcomeClient() {
       )}
     >
       <BurgerLoader isLoading={isNavigating} message="Loading…" />
+
       {/* ── Food doodle background ── */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
         <svg
@@ -254,12 +233,13 @@ export function KioskWelcomeClient() {
         </svg>
       </div>
 
-      {/* ── Food photo — absolutely positioned ── */}
-      <motion.div
+      {/* ── Food photo ── */}
+      <div
         className="absolute inset-y-0 right-0 w-[520px] xl:w-[600px] 2xl:w-[660px] pointer-events-none"
-        initial={{ opacity: 0, x: 220 }}
-        animate={mounted ? { opacity: 1, x: 0 } : { opacity: 0, x: 220 }}
-        transition={{ duration: 1.0, ease: [0.22, 1, 0.36, 1] as [number, number, number, number], delay: 0.05 }}
+        style={mounted
+          ? anim('kiosk-slide-right', '1.0s', EASE_OUT, '0.05s')
+          : { opacity: 0, transform: 'translateX(220px)' }
+        }
       >
         <Image
           src="/restaurant_kiosk_bg.png"
@@ -273,7 +253,7 @@ export function KioskWelcomeClient() {
           className="absolute -top-20 -right-20 w-56 h-56 rounded-full pointer-events-none opacity-90"
           style={{ background: 'radial-gradient(circle, rgba(249,115,22,0.18) 0%, rgba(249,115,22,0.06) 55%, transparent 70%)' }}
         />
-      </motion.div>
+      </div>
 
       {/* ── Gradient bridge ── */}
       <div className="absolute inset-y-0 right-[370px] xl:right-[440px] 2xl:right-[490px] w-[220px] bg-gradient-to-r from-[#FEF7EE] to-transparent pointer-events-none" />
@@ -283,12 +263,12 @@ export function KioskWelcomeClient() {
         <div className="w-full max-w-xl flex flex-col items-center text-center">
 
           {/* Logo */}
-          <motion.div
+          <div
             className="mb-5"
-            variants={scaleIn}
-            initial="hidden"
-            animate={mounted ? 'show' : 'hidden'}
-            custom={0}
+            style={mounted
+              ? anim('kiosk-scale-in', '0.55s', EASE_SPRING, '0s')
+              : { opacity: 0, transform: 'scale(0.82)' }
+            }
           >
             <button onClick={handleLogoTap}>
               <Image
@@ -299,68 +279,78 @@ export function KioskWelcomeClient() {
                 className="w-16 h-16 xl:w-20 xl:h-20 rounded-2xl object-contain shadow-xl"
               />
             </button>
-          </motion.div>
+          </div>
 
           {/* Script "Welcome to" */}
-          <motion.p
+          <p
             className="text-2xl xl:text-3xl text-orange-500 mb-1 leading-none"
-            style={{ fontFamily: "'Dancing Script', cursive", fontWeight: 600 }}
-            variants={fadeUp}
-            initial="hidden"
-            animate={mounted ? 'show' : 'hidden'}
-            custom={0.15}
+            style={{
+              fontFamily: "'Dancing Script', cursive",
+              fontWeight: 600,
+              ...(mounted
+                ? anim('kiosk-fade-up', '0.55s', EASE_OUT, '0.15s')
+                : { opacity: 0, transform: 'translateY(22px)' }
+              ),
+            }}
           >
             Welcome to
-          </motion.p>
+          </p>
 
           {/* Main heading */}
-          <motion.h1
+          <h1
             className="text-5xl xl:text-6xl font-bold text-[#1A3D2B] leading-none mb-2"
-            style={{ fontFamily: "'Playfair Display', serif" }}
-            variants={fadeUp}
-            initial="hidden"
-            animate={mounted ? 'show' : 'hidden'}
-            custom={0.25}
+            style={{
+              fontFamily: "'Playfair Display', serif",
+              ...(mounted
+                ? anim('kiosk-fade-up', '0.55s', EASE_OUT, '0.25s')
+                : { opacity: 0, transform: 'translateY(22px)' }
+              ),
+            }}
           >
             Arena Blanca Resort
-          </motion.h1>
+          </h1>
 
-          <motion.h2
+          <h2
             className="text-xl xl:text-2xl font-semibold text-[#2D5A3D] mb-6"
-            style={{ fontFamily: "'Playfair Display', serif" }}
-            variants={fadeUp}
-            initial="hidden"
-            animate={mounted ? 'show' : 'hidden'}
-            custom={0.35}
+            style={{
+              fontFamily: "'Playfair Display', serif",
+              ...(mounted
+                ? anim('kiosk-fade-up', '0.55s', EASE_OUT, '0.35s')
+                : { opacity: 0, transform: 'translateY(22px)' }
+              ),
+            }}
           >
-            Restaurant & Dining
-          </motion.h2>
+            Restaurant &amp; Dining
+          </h2>
 
           {/* Gold divider */}
-          <motion.div
+          <div
             className="flex items-center gap-3 mb-6"
-            variants={dividerVariant}
-            initial="hidden"
-            animate={mounted ? 'show' : 'hidden'}
-            style={{ transformOrigin: 'center' }}
+            style={{
+              transformOrigin: 'center',
+              ...(mounted
+                ? anim('kiosk-divider-in', '0.6s', EASE_OUT, '0.45s')
+                : { opacity: 0, transform: 'scaleX(0)' }
+              ),
+            }}
           >
             <div className="w-12 h-px bg-amber-400/60" />
             <div className="w-2 h-2 rounded-full bg-amber-500" />
             <div className="w-12 h-px bg-amber-400/60" />
-          </motion.div>
+          </div>
 
           {/* Brand highlights — 2×2 grid */}
           <div className="w-full grid grid-cols-2 gap-3 mb-8">
             {BRAND_HIGHLIGHTS.map(({ icon: Icon, label, desc }, index) => (
-              <motion.div
+              <div
                 key={label}
                 className="relative overflow-hidden flex items-center gap-3 px-4 py-4 rounded-2xl bg-orange-50/80 border border-orange-100/60"
-                variants={fadeUp}
-                initial="hidden"
-                animate={mounted ? 'show' : 'hidden'}
-                custom={0.5 + index * 0.08}
+                style={mounted
+                  ? anim('kiosk-fade-up', '0.55s', EASE_OUT, `${0.5 + index * 0.08}s`)
+                  : { opacity: 0, transform: 'translateY(22px)' }
+                }
               >
-                {/* Shine sweep — CSS animation replaces Framer Motion repeat:Infinity */}
+                {/* Shine sweep — CSS animation */}
                 {mounted && (
                   <div
                     className="absolute top-0 h-full w-2/5 pointer-events-none"
@@ -382,28 +372,26 @@ export function KioskWelcomeClient() {
                   <p className="text-[13px] font-semibold text-stone-700 leading-tight">{label}</p>
                   <p className="text-[11px] text-stone-400 leading-tight mt-0.5">{desc}</p>
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
 
           {/* CTA */}
-          <motion.div
+          <div
             className="w-full flex items-center gap-3"
-            variants={fadeUp}
-            initial="hidden"
-            animate={mounted ? 'show' : 'hidden'}
-            custom={0.75}
+            style={mounted
+              ? anim('kiosk-fade-up', '0.55s', EASE_OUT, '0.75s')
+              : { opacity: 0, transform: 'translateY(22px)' }
+            }
           >
-            <motion.button
+            <button
               onClick={handleStartOrder}
               className={cn(
-                'relative overflow-hidden flex items-center bg-orange-500 hover:bg-orange-600 active:scale-[0.98] text-white pl-1.5 pr-1.5 py-1.5 rounded-full shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 transition-all duration-200',
+                'relative overflow-hidden flex items-center bg-orange-500 hover:bg-orange-600 active:scale-[0.98] hover:scale-[1.02] text-white pl-1.5 pr-1.5 py-1.5 rounded-full shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 transition-all duration-200',
                 hasSideButtons ? 'flex-1' : 'w-full'
               )}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
             >
-              {/* Shine sweep — CSS animation replaces Framer Motion repeat:Infinity */}
+              {/* Shine sweep — CSS animation */}
               {mounted && (
                 <div
                   className="absolute top-0 h-full w-1/3 pointer-events-none"
@@ -425,9 +413,9 @@ export function KioskWelcomeClient() {
               <div className="w-12 h-12 flex-shrink-0 rounded-full bg-white/25 flex items-center justify-center">
                 <ArrowRight className="w-5 h-5 text-white" strokeWidth={2.5} />
               </div>
-            </motion.button>
+            </button>
 
-            {/* Side action buttons — stacked when both present */}
+            {/* Side action buttons */}
             {hasSideButtons && (
               <div className="flex-shrink-0 flex flex-row gap-2">
                 {showOrders && (
@@ -450,14 +438,14 @@ export function KioskWelcomeClient() {
                 )}
               </div>
             )}
-          </motion.div>
+          </div>
 
           {/* Add to existing */}
-          <motion.div
-            variants={fadeIn}
-            initial="hidden"
-            animate={mounted ? 'show' : 'hidden'}
-            custom={0.9}
+          <div
+            style={mounted
+              ? anim('kiosk-fade-in', '0.5s', 'ease-out', '0.9s')
+              : { opacity: 0 }
+            }
           >
             <button
               onClick={() => handleNavigate('/add-items')}
@@ -466,7 +454,7 @@ export function KioskWelcomeClient() {
               <Plus className="w-4 h-4 flex-shrink-0" strokeWidth={2.5} />
               <span>Add to Existing Order</span>
             </button>
-          </motion.div>
+          </div>
 
         </div>
       </main>
