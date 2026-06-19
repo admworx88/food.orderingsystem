@@ -17,6 +17,7 @@ import { getKioskRates } from '@/services/settings-service';
 import { useKioskLocation } from '@/hooks/use-kiosk-location';
 import { useNetworkStatus } from '@/hooks/use-network-status';
 import { NetworkOfflineDialog } from '@/components/shared/network-offline-dialog';
+import { DebugErrorBoundary } from '@/components/shared/debug-error-boundary';
 import { formatCurrency } from '@/lib/utils/currency';
 import { cn } from '@/lib/utils';
 
@@ -46,9 +47,11 @@ function CurrentTime() {
 
 export default function KioskLayout({ children }: KioskLayoutProps) {
   return (
-    <LocaleProvider>
-      <KioskLayoutInner>{children}</KioskLayoutInner>
-    </LocaleProvider>
+    <DebugErrorBoundary>
+      <LocaleProvider>
+        <KioskLayoutInner>{children}</KioskLayoutInner>
+      </LocaleProvider>
+    </DebugErrorBoundary>
   );
 }
 
